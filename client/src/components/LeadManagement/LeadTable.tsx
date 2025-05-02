@@ -1,12 +1,14 @@
 import * as React from "react";
+import { useState } from "react";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock, AlertTriangle, ArrowUp } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, ArrowUp, Edit } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
+import { EditLeadModal } from "./EditLeadModal";
 
 const LEAD_SEGMENTS = [
   { value: "active", label: "Active Leads" },
@@ -19,6 +21,8 @@ const LEAD_SEGMENTS = [
 export function LeadTable() {
   const [segment, setSegment] = React.useState("active");
   const [, navigate] = useLocation();
+  const [currentLead, setCurrentLead] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { data: leads, isLoading } = useQuery({
     queryKey: ['/api/leads', segment],

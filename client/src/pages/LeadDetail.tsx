@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History } from "lucide-react";
+import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History, Edit } from "lucide-react";
 import { ImportHistoricalDataForm } from "@/components/LeadManagement/ImportHistoricalDataForm";
+import { EditLeadModal } from "@/components/LeadManagement/EditLeadModal";
 
 // Lazy-load EmailGeneratorForm to avoid circular imports
 const EmailGeneratorForm = React.lazy(() => import("@/components/LeadManagement/EmailGeneratorFormWrapped"));
@@ -20,6 +21,7 @@ const EmailGeneratorForm = React.lazy(() => import("@/components/LeadManagement/
 export default function LeadDetail() {
   const [, params] = useRoute<{ id: string }>("/leads/:id");
   const leadId = params?.id ? parseInt(params.id, 10) : 0;
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   const { data, isLoading, isError } = useQuery({
     queryKey: [`/api/leads/${leadId}`],
@@ -89,9 +91,19 @@ export default function LeadDetail() {
           <p className="text-neutral-500">{lead.title} at {lead.company}</p>
         </div>
         <div className="flex space-x-2">
-          <Button variant="outline">Edit Lead</Button>
+          <Button variant="outline" onClick={() => setIsEditModalOpen(true)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Lead
+          </Button>
           <Button>Send Email</Button>
         </div>
+        
+        {/* Edit Lead Modal */}
+        {lead && <EditLeadModal 
+          lead={lead} 
+          open={isEditModalOpen} 
+          onOpenChange={setIsEditModalOpen} 
+        />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
