@@ -720,6 +720,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Internal server error" });
     }
   });
+  
+  // Update an email draft
+  app.patch("/api/leads/email-drafts/:id", async (req, res) => {
+    try {
+      const draftId = parseInt(req.params.id, 10);
+      
+      if (isNaN(draftId)) {
+        return res.status(400).json({ error: "Invalid draft ID" });
+      }
+      
+      const { subject, body } = req.body;
+      
+      if (!subject || !body) {
+        return res.status(400).json({ error: "Subject and body are required" });
+      }
+      
+      const updatedDraft = await storage.updateEmailDraft(draftId, { subject, body });
+      return res.json(updatedDraft);
+    } catch (error) {
+      console.error(`Error updating email draft ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
 
   // Ad Generation Routes
   app.post("/api/generate-midjourney-prompt", async (req, res) => {

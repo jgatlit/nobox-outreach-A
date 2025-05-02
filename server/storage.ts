@@ -212,6 +212,15 @@ export const storage = {
     return draft;
   },
 
+  async updateEmailDraft(id: number, draftData: Partial<Omit<EmailDraft, 'id' | 'leadId' | 'createdAt' | 'updatedAt'>>): Promise<EmailDraft> {
+    const [updated] = await db
+      .update(emailDrafts)
+      .set({ ...draftData, updatedAt: new Date() })
+      .where(eq(emailDrafts.id, id))
+      .returning();
+    return updated;
+  },
+
   // Lead Deduplication
   async findDuplicateLeads(email: string): Promise<Lead[]> {
     return db.select().from(leads).where(eq(leads.email, email));
