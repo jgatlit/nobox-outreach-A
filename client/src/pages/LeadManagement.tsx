@@ -227,7 +227,7 @@ export default function LeadManagement() {
               onChange={handleInputChange}
             />
           </form>
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative z-50">
             {/* Add Lead Dialog */}
             <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
               <DialogTrigger asChild>
