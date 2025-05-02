@@ -357,6 +357,93 @@ export async function extractCompanyContext(websiteContent: string, companyName:
   }
 }
 
+/**
+ * Enhanced function to analyze website content using OpenAI's advanced capabilities
+ * This performs a deep analysis beyond what Cheerio scraper can extract
+ * @param websiteContent The scraped content from the website
+ * @param companyName The name of the company being analyzed
+ * @param existingData Any existing data we have about the company (to validate/enhance)
+ * @returns Enhanced company context with AI-generated insights
+ */
+export async function enhanceWebsiteDataWithAI(
+  websiteContent: string, 
+  companyName: string,
+  existingData?: Partial<CompanyContext>
+): Promise<Partial<CompanyContext>> {
+  try {
+    console.log(`Enhancing website data with OpenAI for ${companyName}`);
+    
+    // Prepare context from existing data if available
+    const existingContext = existingData 
+      ? `\nExisting data we have:\n${JSON.stringify(existingData, null, 2)}\n` 
+      : '';
+    
+    const prompt = `Analyze this website content for ${companyName} and extract detailed business information.
+      ${existingContext}
+      Website content sample:\n${websiteContent.slice(0, 12000)}\n
+      Extract and provide the following in JSON format:
+      1. industry: The specific industry or sector this company operates in (be precise)
+      2. location: Headquarters location (city, country/state)
+      3. recentEvents: Array of recent news, events, product launches (at least 3-5 items if found)
+      4. serviceOffering: A specific and detailed description of their primary service offering (1-2 sentences)
+      5. campaignPurpose: A strategic objective that would make sense for this company based on their offering and industry (what business goal might they have?)
+      
+      Make inferences based on the content where information isn't explicitly stated. Be specific and accurate.
+      If you're unsure about any field, use the most likely value based on context clues and industry norms.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      response_format: { type: "json_object" },
+      messages: [
+        { 
+          role: "system", 
+          content: `You are an expert business analyst who specializes in extracting valuable company intelligence from website content.
+            You make highly accurate inferences about companies based on limited information.
+            Provide specific, detailed responses - not generic ones.
+            Always respond with properly formatted JSON.` 
+        },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.3, // Lower temperature for more factual responses
+    });
+    
+    if (!response.choices || response.choices.length === 0) {
+      console.warn("No response from OpenAI when enhancing website data");
+      return existingData || {};
+    }
+    
+    const content = response.choices[0].message.content;
+    if (!content) {
+      console.warn("Empty content from OpenAI when enhancing website data");
+      return existingData || {};
+    }
+    
+    try {
+      const enhancedData = JSON.parse(content);
+      console.log(`Successfully enhanced website data with AI for ${companyName}`);
+      
+      // Merge with existing data, preferring the AI-enhanced data for specific fields
+      return {
+        ...existingData,
+        industry: enhancedData.industry || existingData?.industry,
+        location: enhancedData.location || existingData?.location,
+        recentEvents: Array.isArray(enhancedData.recentEvents) && enhancedData.recentEvents.length > 0 
+          ? enhancedData.recentEvents 
+          : existingData?.recentEvents,
+        serviceOffering: enhancedData.serviceOffering || existingData?.serviceOffering,
+        campaignPurpose: enhancedData.campaignPurpose || existingData?.campaignPurpose
+      };
+    } catch (parseError) {
+      console.error("Error parsing OpenAI response:", parseError);
+      console.error("Raw response:", content);
+      return existingData || {};
+    }
+  } catch (error) {
+    console.error("Error enhancing website data with OpenAI:", error);
+    return existingData || {};
+  }
+}
+
 // Generate campaign suggestions based on company context
 export async function generateCampaignSuggestions(
   companyData: Partial<CompanyContext>
