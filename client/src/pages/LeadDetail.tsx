@@ -469,6 +469,7 @@ export default function LeadDetail() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Company Info - Always show */}
                 {enrichment.companyInfo && (
                   <div>
                     <p className="text-sm font-medium mb-2">Company Info</p>
@@ -501,29 +502,30 @@ export default function LeadDetail() {
                   </div>
                 )}
 
+                {/* Tech Stack - Always show */}
                 {enrichment.techStack && (
                   <div>
                     <p className="text-sm font-medium mb-2">Tech Stack</p>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                      {enrichment.techStack.frontend && (
+                      {enrichment.techStack.frontend && enrichment.techStack.frontend.length > 0 && (
                         <>
                           <dt className="text-neutral-500">Frontend:</dt>
                           <dd>{enrichment.techStack.frontend.join(", ")}</dd>
                         </>
                       )}
-                      {enrichment.techStack.backend && (
+                      {enrichment.techStack.backend && enrichment.techStack.backend.length > 0 && (
                         <>
                           <dt className="text-neutral-500">Backend:</dt>
                           <dd>{enrichment.techStack.backend.join(", ")}</dd>
                         </>
                       )}
-                      {enrichment.techStack.database && (
+                      {enrichment.techStack.database && enrichment.techStack.database.length > 0 && (
                         <>
                           <dt className="text-neutral-500">Database:</dt>
                           <dd>{enrichment.techStack.database.join(", ")}</dd>
                         </>
                       )}
-                      {enrichment.techStack.cloud && (
+                      {enrichment.techStack.cloud && enrichment.techStack.cloud.length > 0 && (
                         <>
                           <dt className="text-neutral-500">Cloud:</dt>
                           <dd>{enrichment.techStack.cloud.join(", ")}</dd>
@@ -533,10 +535,11 @@ export default function LeadDetail() {
                   </div>
                 )}
 
+                {/* Recent Events - Always show */}
                 {enrichment.recentEvents && (
                   <div>
                     <p className="text-sm font-medium mb-2">Recent Events</p>
-                    {enrichment.recentEvents.news && (
+                    {enrichment.recentEvents.news && enrichment.recentEvents.news.length > 0 && (
                       <div className="mb-2">
                         <p className="text-sm font-medium text-neutral-500">News:</p>
                         <ul className="list-disc pl-5 text-sm space-y-1">
@@ -546,7 +549,7 @@ export default function LeadDetail() {
                         </ul>
                       </div>
                     )}
-                    {enrichment.recentEvents.blogPosts && (
+                    {enrichment.recentEvents.blogPosts && enrichment.recentEvents.blogPosts.length > 0 && (
                       <div>
                         <p className="text-sm font-medium text-neutral-500">Blog Posts:</p>
                         <ul className="list-disc pl-5 text-sm space-y-1">
@@ -559,9 +562,10 @@ export default function LeadDetail() {
                   </div>
                 )}
 
-                {enrichment.insights && enrichment.insights.length > 0 && (
+                {/* AI-Enhanced Only: Insights */}
+                {useEnhancedScraping && enrichment.insights && enrichment.insights.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium mb-2">Insights</p>
+                    <p className="text-sm font-medium mb-2">AI Insights</p>
                     <ul className="list-disc pl-5 text-sm space-y-1">
                       {enrichment.insights.map((insight, i) => (
                         <li key={i}>{insight}</li>
@@ -570,6 +574,7 @@ export default function LeadDetail() {
                   </div>
                 )}
 
+                {/* Show Personalization Hooks regardless of enhancement setting */}
                 {enrichment.personalizationHooks && enrichment.personalizationHooks.length > 0 && (
                   <div>
                     <p className="text-sm font-medium mb-2">Personalization Hooks</p>
@@ -579,6 +584,16 @@ export default function LeadDetail() {
                       ))}
                     </ul>
                   </div>
+                )}
+
+                {/* Show a notice when AI Enhancement is disabled */}
+                {!useEnhancedScraping && (
+                  <Alert variant="outline" className="bg-blue-50 border-blue-200 mt-2">
+                    <AlertTitle className="text-blue-800 font-medium text-sm">AI Enhancement Disabled</AlertTitle>
+                    <AlertDescription className="text-blue-700 text-xs">
+                      Enable AI Enhancement to get additional insights based on the company's website data.
+                    </AlertDescription>
+                  </Alert>
                 )}
               </CardContent>
             </Card>
