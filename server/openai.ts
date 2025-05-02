@@ -4,6 +4,7 @@ import OpenAI from "openai";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "your-api-key" });
 
 import { WebsiteScrapingResult } from './apify';
+import { companyContext } from '../shared/companyContext';
 
 export interface CompanyContext {
   name: string;
@@ -198,6 +199,28 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     }
   }
   
+  // Create a section about our company context from the companyContext object
+  const aboutUsSection = `
+    About nobox creatives:
+    - ${companyContext.description}
+    
+    Core Service Offerings:
+    1. ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.title}
+       - ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name).join(', ')}
+    2. ${companyContext.coreServiceOfferings.agenticSalesFrameworks.title}
+       - ${companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name).join(', ')}
+    3. ${companyContext.coreServiceOfferings.pipelineNurturingSystems.title}
+       - ${companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name).join(', ')}
+    
+    Strategic Differentiators:
+    - ${companyContext.strategicDifferentiators.technicalStackAdvantage.points.join('\n    - ')}
+    - ${companyContext.strategicDifferentiators.performanceMetrics.points.join('\n    - ')}
+    
+    Value Proposition:
+    ${companyContext.customerValueProposition.forSMBs}
+    - ${companyContext.customerValueProposition.points.map(p => p.name + ': ' + p.description).join('\n    - ')}
+  `;
+
   const prompt = `
     You are an expert cold outreach strategist and copywriter, following the Jordan Platten attention-first, psychology-driven methodology. Generate a personalized outreach email to ${lead.firstName} ${lead.lastName}, ${lead.title || "a decision maker"} at ${company.name}.
     
@@ -212,6 +235,8 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     ${hooksContext}
     ${previousEmailsContext}
     ${historicalContextSection}
+    
+    ${aboutUsSection}
     
     Campaign purpose: ${campaignPurpose}
     Service offering: ${serviceOffering}
@@ -244,6 +269,7 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     - Reference one specific personalization hook or recent company event
     ${useHistoricalContext ? "- Reference relevant past projects or interactions when appropriate" : ""}
     - Focus personalization on them, not just what we do
+    - Tailor the value proposition to align with their specific business needs based on their industry and tech stack
     
     AVOID COMPLETELY:
     - Generic openings like "Hope you're well" or "Just reaching out"
@@ -550,6 +576,25 @@ export async function generateCampaignSuggestions(
     };
   }
   
+  // Create a section about our company offerings from the companyContext object
+  const ourServicesSection = `
+    About nobox creatives:
+    ${companyContext.description}
+    
+    Our Core Services:
+    1. ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.title}
+       - ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name + ": " + s.description).join('\n       - ')}
+       
+    2. ${companyContext.coreServiceOfferings.agenticSalesFrameworks.title}
+       - ${companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name + ": " + s.description).join('\n       - ')}
+       
+    3. ${companyContext.coreServiceOfferings.pipelineNurturingSystems.title}
+       - ${companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name + ": " + s.description).join('\n       - ')}
+    
+    Our Performance Metrics:
+    - ${companyContext.strategicDifferentiators.performanceMetrics.points.join('\n    - ')}
+  `;
+
   // Otherwise generate new suggestions
   const prompt = `
     Generate targeted campaign ideas for outreach to ${companyData.name}.
@@ -561,16 +606,18 @@ export async function generateCampaignSuggestions(
     - Location: ${companyData.location || "Unknown"}
     - Recent Events: ${companyData.recentEvents?.join(", ") || "None known"}
     
-    We need to generate two key strategy elements:
-    1. Campaign Purpose: A concise business goal for targeting this company
-    2. Service Offering: A specific value proposition that would appeal to this company
+    ${ourServicesSection}
+    
+    We need to generate two key strategy elements that connect their needs with our services:
+    1. Campaign Purpose: A concise business goal for targeting this company that aligns with our capabilities
+    2. Service Offering: A specific value proposition from our core services that would appeal to this company
     
     For example: 
     Campaign Purpose: "Help [Company] automate their customer service workflows using AI to reduce response times by 60%"
     Service Offering: "Our AI-powered workflow automation platform integrates with their existing CRM and reduces manual tasks by 75%."
     
     The campaign purpose should be tailored to their specific business situation and pain points.
-    The service offering should align with their technology stack and business needs.
+    The service offering should align with their technology stack and business needs, and specifically reference one of our core service offerings.
     
     Output format: Return a JSON object with "campaignPurpose" and "serviceOffering" fields.
   `;
@@ -604,6 +651,17 @@ export async function generatePersonalizationHooks(
   companyData: CompanyContext,
   noboxServices: string[] = []
 ): Promise<string[]> {
+  // Combine our services from the context and any provided services
+  const services = [
+    ...companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name),
+    ...companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name),
+    ...companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name),
+    ...noboxServices
+  ];
+
+  // Get performance metrics to use in hooks
+  const performanceMetrics = companyContext.strategicDifferentiators.performanceMetrics.points;
+  
   const prompt = `
     Generate personalized conversation hooks for outreach to a potential client.
     
@@ -617,15 +675,23 @@ export async function generatePersonalizationHooks(
     - Recent company events: ${companyData.recentEvents?.join(", ") || "None known"}
     - Tech stack: ${companyData.techStack?.join(", ") || "Unknown"}
     
+    About our company (nobox creatives):
+    ${companyContext.description}
+    
     Our services:
-    ${noboxServices.join(", ")}
+    ${services.join(", ")}
+    
+    Our performance metrics:
+    ${performanceMetrics.join("\n    ")}
     
     Guidelines:
     - Generate 3-5 specific, personalized conversation hooks
     - Focus on business value and pain points relevant to their industry
     - Reference specific company details or events if available
     - Connect our services to their likely business challenges
+    - Use our performance metrics to make compelling hooks
     - Each hook should be 1-2 sentences
+    - Mention specific technologies or methodologies we use when relevant
     
     Output format: Return a JSON array of strings, with each string being one personalization hook.
   `;
