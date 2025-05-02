@@ -511,11 +511,8 @@ export async function processWebsite(websiteUrl: string): Promise<WebsiteScrapin
   };
   
   try {
-    // Run tasks in parallel
-    const [scrapingResults, techStackData] = await Promise.all([
-      scrapeWebsiteWithApify(websiteUrl),
-      detectWebsiteTechStack(websiteUrl)
-    ]);
+    // Only run Cheerio scraper without Wappalyzer for now
+    const scrapingResults = await scrapeWebsiteWithApify(websiteUrl);
     
     // Process the results
     const companyInfo = await extractCompanyInfo(scrapingResults);
@@ -523,7 +520,16 @@ export async function processWebsite(websiteUrl: string): Promise<WebsiteScrapin
     
     // Combine all results
     result.companyInfo = companyInfo;
-    result.techStack = techStackData;
+    result.techStack = {
+      frontend: [],
+      backend: [],
+      database: [],
+      cloud: [],
+      cms: [],
+      analytics: [],
+      libraries: [],
+      frameworks: []
+    }; // Default empty tech stack since Wappalyzer is disabled
     result.recentEvents = recentEvents;
     
     return result;
