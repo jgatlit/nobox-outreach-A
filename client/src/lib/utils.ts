@@ -150,13 +150,23 @@ export function getPriorityColors(priority: string | undefined): {
   icon: string;
   border: string;
   indicator: string;
+  gradient: string;
+  ring: string;
+  badgeBg: string;
+  badgeText: string;
+  shadow: string;
 } {
   if (!priority) return { 
     bg: 'bg-neutral-100', 
     text: 'text-neutral-800', 
     icon: 'text-neutral-500',
     border: 'border-neutral-200',
-    indicator: 'bg-neutral-400'
+    indicator: 'bg-neutral-400',
+    gradient: 'from-neutral-200 to-neutral-300',
+    ring: 'ring-neutral-200',
+    badgeBg: 'bg-neutral-100',
+    badgeText: 'text-neutral-800',
+    shadow: 'shadow-neutral-200/50'
   };
   
   switch (priority.toLowerCase()) {
@@ -166,7 +176,12 @@ export function getPriorityColors(priority: string | undefined): {
         text: 'text-red-800', 
         icon: 'text-red-600',
         border: 'border-red-300',
-        indicator: 'bg-red-600'
+        indicator: 'bg-red-600',
+        gradient: 'from-red-500 to-red-600',
+        ring: 'ring-red-500/30',
+        badgeBg: 'bg-red-100',
+        badgeText: 'text-red-800',
+        shadow: 'shadow-red-500/30'
       };
     case 'high':
       return { 
@@ -174,7 +189,12 @@ export function getPriorityColors(priority: string | undefined): {
         text: 'text-orange-800', 
         icon: 'text-orange-500',
         border: 'border-orange-300',
-        indicator: 'bg-orange-500'
+        indicator: 'bg-orange-500',
+        gradient: 'from-orange-400 to-orange-500',
+        ring: 'ring-orange-400/30',
+        badgeBg: 'bg-orange-100',
+        badgeText: 'text-orange-800',
+        shadow: 'shadow-orange-400/30'
       };
     case 'medium':
       return { 
@@ -182,7 +202,12 @@ export function getPriorityColors(priority: string | undefined): {
         text: 'text-amber-800', 
         icon: 'text-amber-500',
         border: 'border-amber-200',
-        indicator: 'bg-amber-500'
+        indicator: 'bg-amber-500',
+        gradient: 'from-amber-400 to-amber-500',
+        ring: 'ring-amber-400/20',
+        badgeBg: 'bg-amber-100',
+        badgeText: 'text-amber-800',
+        shadow: 'shadow-amber-400/20'
       };
     case 'low':
       return { 
@@ -190,7 +215,12 @@ export function getPriorityColors(priority: string | undefined): {
         text: 'text-green-800', 
         icon: 'text-green-500',
         border: 'border-green-200',
-        indicator: 'bg-green-500'
+        indicator: 'bg-green-500',
+        gradient: 'from-green-400 to-green-500',
+        ring: 'ring-green-400/20',
+        badgeBg: 'bg-green-100',
+        badgeText: 'text-green-800',
+        shadow: 'shadow-green-400/20'
       };
     default:
       return { 
@@ -198,7 +228,12 @@ export function getPriorityColors(priority: string | undefined): {
         text: 'text-neutral-800', 
         icon: 'text-neutral-500',
         border: 'border-neutral-200',
-        indicator: 'bg-neutral-400'
+        indicator: 'bg-neutral-400',
+        gradient: 'from-neutral-200 to-neutral-300',
+        ring: 'ring-neutral-200',
+        badgeBg: 'bg-neutral-100',
+        badgeText: 'text-neutral-800',
+        shadow: 'shadow-neutral-200/50'
       };
   }
 }

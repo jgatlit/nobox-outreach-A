@@ -4,7 +4,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock, AlertTriangle, ArrowUp, Edit, RefreshCw, Loader2, Trash2, AlertCircle } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, ArrowUp, ArrowDown, Edit, RefreshCw, Loader2, Minus, Trash2, AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
@@ -206,24 +206,33 @@ export function LeadTable({ data }: LeadTableProps = {}) {
       header: "",
       width: "48px",
       render: (lead) => {
-        const { indicator, border, icon } = getPriorityColors(lead.priority);
+        const { indicator, icon, gradient, ring, shadow } = getPriorityColors(lead.priority);
         let PriorityIcon = null;
         
         if (lead.priority === 'urgent') {
           PriorityIcon = AlertTriangle;
         } else if (lead.priority === 'high') {
           PriorityIcon = ArrowUp;
+        } else if (lead.priority === 'medium') {
+          PriorityIcon = Minus;
+        } else if (lead.priority === 'low') {
+          PriorityIcon = ArrowDown;
         }
 
         return (
           <div className="flex justify-center items-center">
-            <div 
-              className={`w-3 h-full mr-1 ${indicator} rounded-full`}
-              title={lead.priority ? `${lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority` : 'No Priority Set'}
-            ></div>
-            {PriorityIcon && (
-              <PriorityIcon className={`w-4 h-4 ${icon}`} />
-            )}
+            <div className="relative flex items-center justify-center">
+              <div 
+                className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-20 blur-sm rounded-full`}
+              ></div>
+              <div 
+                className={`w-4 h-4 ${indicator} rounded-full relative ring-2 ${ring} ${shadow}`}
+                title={lead.priority ? `${lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority` : 'No Priority Set'}
+              ></div>
+              {PriorityIcon && (
+                <PriorityIcon className={`w-4 h-4 ${icon} absolute`} />
+              )}
+            </div>
           </div>
         );
       },
