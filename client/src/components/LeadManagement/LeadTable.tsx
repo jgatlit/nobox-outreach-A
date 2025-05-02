@@ -4,10 +4,11 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle, Clock, AlertTriangle, ArrowUp, ArrowDown, Edit, RefreshCw, Loader2, Minus, Trash2, AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
+import { getSourceBadgeColor, getStatusColor, getPriorityColors, getPriorityDescription } from "@/lib/utils";
 import { EditLeadModal } from "./EditLeadModal";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -219,20 +220,32 @@ export function LeadTable({ data }: LeadTableProps = {}) {
           PriorityIcon = ArrowDown;
         }
 
+        const tooltipText = lead.priority ? `${lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority` : 'No Priority Set';
+        const tooltipDescription = getPriorityDescription(lead.priority);
+        
         return (
           <div className="flex justify-center items-center">
-            <div className="relative flex items-center justify-center">
-              <div 
-                className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-20 blur-sm rounded-full`}
-              ></div>
-              <div 
-                className={`w-4 h-4 ${indicator} rounded-full relative ring-2 ${ring} ${shadow}`}
-                title={lead.priority ? `${lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority` : 'No Priority Set'}
-              ></div>
-              {PriorityIcon && (
-                <PriorityIcon className={`w-4 h-4 ${icon} absolute`} />
-              )}
-            </div>
+            <TooltipProvider>
+              <Tooltip delayDuration={300}>
+                <TooltipTrigger asChild>
+                  <div className="relative flex items-center justify-center cursor-help transition-transform hover:scale-110">
+                    <div 
+                      className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-20 blur-sm rounded-full`}
+                    ></div>
+                    <div 
+                      className={`w-4 h-4 ${indicator} rounded-full relative ring-2 ${ring} ${shadow}`}
+                    ></div>
+                    {PriorityIcon && (
+                      <PriorityIcon className={`w-4 h-4 ${icon} absolute`} />
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[200px] p-3">
+                  <p className="font-medium mb-1">{tooltipText}</p>
+                  {tooltipDescription && <p className="text-xs text-neutral-400">{tooltipDescription}</p>}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         );
       },
@@ -316,18 +329,30 @@ export function LeadTable({ data }: LeadTableProps = {}) {
           PriorityIcon = ArrowDown;
         }
         
+        const tooltipDescription = getPriorityDescription(lead.priority);
+        
         return (
           <div className="flex items-center gap-1.5">
-            <Badge 
-              variant="outline" 
-              className={`${badgeBg} ${badgeText} ${shadow} font-medium border border-solid relative overflow-hidden`}
-            >
-              <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${gradient}`}></div>
-              <div className="relative flex items-center gap-1">
-                {PriorityIcon && <PriorityIcon className={`h-3 w-3 ${icon}`} />}
-                {priorityText}
-              </div>
-            </Badge>
+            <TooltipProvider>
+              <Tooltip delayDuration={300}>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className={`${badgeBg} ${badgeText} ${shadow} font-medium border border-solid relative overflow-hidden hover:bg-opacity-80 cursor-help transition-all`}
+                  >
+                    <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${gradient}`}></div>
+                    <div className="relative flex items-center gap-1">
+                      {PriorityIcon && <PriorityIcon className={`h-3 w-3 ${icon}`} />}
+                      {priorityText}
+                    </div>
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px] p-3">
+                  <p className="font-medium mb-1">{priorityText} Priority</p>
+                  {tooltipDescription && <p className="text-xs text-neutral-400">{tooltipDescription}</p>}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         );
       },

@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertTriangle, ArrowDown, ArrowUp, Loader2, Minus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getPriorityDescription } from "@/lib/utils";
 
 const leadStatusOptions = [
   { value: "active", label: "Active" },
@@ -314,14 +316,25 @@ export function EditLeadModal({ lead, open, onOpenChange }: EditLeadModalProps) 
                           else if (option.icon === "ArrowUp") PriorityIcon = ArrowUp;
                           else if (option.icon === "Minus") PriorityIcon = Minus;
                           else if (option.icon === "ArrowDown") PriorityIcon = ArrowDown;
-                            
+                          
+                          const tooltipDescription = getPriorityDescription(option.value);
+                          
                           return (
-                            <SelectItem key={option.value} value={option.value} className="flex items-center gap-2">
-                              <div className={`flex items-center gap-2 ${option.color}`}>
-                                {PriorityIcon && <PriorityIcon className="h-3.5 w-3.5" />}
-                                <span>{option.label}</span>
+                            <div key={option.value} className="relative group">
+                              <SelectItem 
+                                value={option.value} 
+                                className="flex items-center gap-2 cursor-help"
+                              >
+                                <div className={`flex items-center gap-2 ${option.color}`}>
+                                  {PriorityIcon && <PriorityIcon className="h-3.5 w-3.5" />}
+                                  <span>{option.label}</span>
+                                </div>
+                              </SelectItem>
+                              <div className="absolute left-full top-0 ml-2 invisible group-hover:visible z-50 bg-white dark:bg-neutral-950 rounded-md shadow-md p-2 max-w-[200px] text-xs border border-neutral-200">
+                                <p className="font-medium mb-1">{option.label} Priority</p>
+                                {tooltipDescription && <p className="text-neutral-500">{tooltipDescription}</p>}
                               </div>
-                            </SelectItem>
+                            </div>
                           );
                         })}
                       </SelectContent>

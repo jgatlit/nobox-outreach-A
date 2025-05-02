@@ -144,6 +144,23 @@ export function getStatusColor(status: string | undefined): {
   }
 }
 
+export function getPriorityDescription(priority: string | undefined): string | null {
+  if (!priority) return null;
+  
+  switch (priority.toLowerCase()) {
+    case 'urgent':
+      return 'Requires immediate attention. Critical for business operations or time-sensitive opportunities.';
+    case 'high':
+      return 'Important lead with significant potential value. Should be contacted within 24-48 hours.';
+    case 'medium':
+      return 'Standard follow-up required. Should be contacted within the next 3-5 business days.';
+    case 'low':
+      return 'Low urgency. Can be followed up when higher priority leads are addressed.';
+    default:
+      return null;
+  }
+}
+
 export function getPriorityColors(priority: string | undefined): {
   bg: string;
   text: string;

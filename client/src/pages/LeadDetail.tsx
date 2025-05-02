@@ -3,13 +3,14 @@ import { Suspense, useState } from "react";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { formatDate, getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
+import { formatDate, getSourceBadgeColor, getStatusColor, getPriorityColors, getPriorityDescription } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -174,21 +175,31 @@ export default function LeadDetail() {
                   {lead.status}
                 </Badge>
                 {lead.priority && (
-                  <Badge variant="outline" className={`${getPriorityColors(lead.priority).badgeBg} ${priorityText} border relative overflow-hidden ${getPriorityColors(lead.priority).border} ${getPriorityColors(lead.priority).shadow}`}>
-                    <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${getPriorityColors(lead.priority).gradient}`}></div>
-                    <div className="relative flex items-center gap-1.5">
-                      {(() => {
-                        let PriorityIcon;
-                        if (lead.priority === 'urgent') PriorityIcon = AlertTriangle;
-                        else if (lead.priority === 'high') PriorityIcon = ArrowUp;
-                        else if (lead.priority === 'medium') PriorityIcon = Minus;
-                        else if (lead.priority === 'low') PriorityIcon = ArrowDown;
-                        
-                        return PriorityIcon ? <PriorityIcon className={`h-3 w-3 ${priorityIcon}`} /> : null;
-                      })()}
-                      {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
-                    </div>
-                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className={`${getPriorityColors(lead.priority).badgeBg} ${priorityText} border relative overflow-hidden ${getPriorityColors(lead.priority).border} ${getPriorityColors(lead.priority).shadow} cursor-help hover:brightness-105 transition-all duration-200`}>
+                          <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${getPriorityColors(lead.priority).gradient}`}></div>
+                          <div className="relative flex items-center gap-1.5">
+                            {(() => {
+                              let PriorityIcon;
+                              if (lead.priority === 'urgent') PriorityIcon = AlertTriangle;
+                              else if (lead.priority === 'high') PriorityIcon = ArrowUp;
+                              else if (lead.priority === 'medium') PriorityIcon = Minus;
+                              else if (lead.priority === 'low') PriorityIcon = ArrowDown;
+                              
+                              return PriorityIcon ? <PriorityIcon className={`h-3 w-3 ${priorityIcon}`} /> : null;
+                            })()}
+                            {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
+                          </div>
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[250px] p-3">
+                        <p className="font-medium mb-1 text-sm">{lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority</p>
+                        <p className="text-xs text-neutral-500">{getPriorityDescription(lead.priority)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
               
@@ -302,12 +313,22 @@ export default function LeadDetail() {
                             else if (lead.priority === 'low') PriorityIcon = ArrowDown;
                             
                             return PriorityIcon ? (
-                              <div className="relative flex items-center justify-center mr-3">
-                                <div className={`absolute inset-0 bg-gradient-to-br ${getPriorityColors(lead.priority).gradient} opacity-20 blur-sm rounded-full`}></div>
-                                <div className={`w-6 h-6 ${getPriorityColors(lead.priority).indicator} rounded-full flex items-center justify-center ${getPriorityColors(lead.priority).ring}`}>
-                                  <PriorityIcon className="h-3.5 w-3.5 text-white" />
-                                </div>
-                              </div>
+                              <TooltipProvider>
+                                <Tooltip delayDuration={300}>
+                                  <TooltipTrigger asChild>
+                                    <div className="relative flex items-center justify-center mr-3 cursor-help transition-transform hover:scale-110 duration-200">
+                                      <div className={`absolute inset-0 bg-gradient-to-br ${getPriorityColors(lead.priority).gradient} opacity-20 blur-sm rounded-full`}></div>
+                                      <div className={`w-6 h-6 ${getPriorityColors(lead.priority).indicator} rounded-full flex items-center justify-center ${getPriorityColors(lead.priority).ring}`}>
+                                        <PriorityIcon className="h-3.5 w-3.5 text-white" />
+                                      </div>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-[250px] p-3">
+                                    <p className="font-medium mb-1 text-sm">{lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority</p>
+                                    <p className="text-xs text-neutral-500">{getPriorityDescription(lead.priority)}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             ) : null;
                           })()}
                           
