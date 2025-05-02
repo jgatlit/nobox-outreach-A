@@ -5,7 +5,7 @@ import { z } from "zod";
 import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
 import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions } from "./openai";
 import { upload } from "./middleware/upload";
-import { importAsanaData, importGmailData } from "./importers";
+import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
 import path from "path";
 import fs from "fs";
 

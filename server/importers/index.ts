@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 import { z } from 'zod';
 import { db } from '../../db';
-import { leadEnrichment } from '../../shared/schema';
+import { leads, leadEnrichment, insertLeadSchema } from '../../shared/schema';
 import fs from 'fs';
 import { eq } from 'drizzle-orm';
 
@@ -251,7 +251,120 @@ export async function importAsanaData(
   }
 }
 
-// Gmail/email history import
+// Bulk lead import from CSV
+export async function importLeadsFromCSV(
+  filePath: string
+): Promise<{ success: boolean; message: string; imported: number; duplicates: number; errors: number; errorDetails?: string[] }> {
+  try {
+    const parsedData = await parseImportFile(filePath, 'csv');
+    const records = parsedData.data as any[];
+    
+    if (!records || records.length === 0) {
+      return {
+        success: false,
+        message: "No lead records found in the CSV file",
+        imported: 0,
+        duplicates: 0,
+        errors: 0
+      };
+    }
+    
+    let imported = 0;
+    let duplicates = 0;
+    let errors = 0;
+    const errorDetails: string[] = [];
+    
+    // Process each record in the CSV
+    for (const record of records) {
+      try {
+        // Map CSV columns to lead schema fields
+        // The columns in the CSV should match our lead schema field names
+        // First, let's extract first and last name if the CSV has a full name column
+        let firstName = record.firstName || record.first_name || '';
+        let lastName = record.lastName || record.last_name || '';
+        
+        // If there's a 'name' or 'fullName' column but no first/last name, split it
+        if ((!firstName || !lastName) && (record.name || record.fullName || record.full_name)) {
+          const fullName = (record.name || record.fullName || record.full_name).trim();
+          const nameParts = fullName.split(' ');
+          if (nameParts.length >= 2) {
+            firstName = firstName || nameParts[0];
+            lastName = lastName || nameParts.slice(1).join(' ');
+          } else {
+            firstName = firstName || fullName;
+            lastName = lastName || '';
+          }
+        }
+        
+        // Map the lead data from CSV to our schema
+        const leadData = {
+          firstName,
+          lastName,
+          email: record.email,
+          company: record.company || record.companyName || record.company_name || '',
+          title: record.title || record.jobTitle || record.job_title || null,
+          phone: record.phone || record.phoneNumber || record.phone_number || null,
+          website: record.website || record.webSite || record.web_site || null,
+          linkedin: record.linkedin || record.linkedinUrl || record.linkedin_url || null,
+          twitter: record.twitter || record.twitterHandle || record.twitter_handle || null,
+          source: (record.source || 'manual') as "email" | "pipedrive" | "asana" | "instantly" | "cyberleads" | "linkedin" | "manual",
+          status: (record.status || 'active') as "active" | "inactive" | "contacted" | "responded" | "qualified" | "disqualified",
+          priority: (record.priority || 'medium') as "low" | "medium" | "high" | "urgent",
+          notes: record.notes || null,
+          enrichmentStatus: "not_started",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // Check for required fields
+        if (!leadData.email) {
+          throw new Error("Email is required");
+        }
+        
+        // Check for duplicates based on email address
+        const existingLeads = await db.query.leads.findMany({
+          where: eq(leads.email, leadData.email)
+        });
+        
+        if (existingLeads.length > 0) {
+          duplicates++;
+          continue;
+        }
+        
+        // Validate the lead data using insertLeadSchema
+        const validatedData = insertLeadSchema.parse(leadData);
+        
+        // Insert the new lead
+        await db.insert(leads).values(validatedData);
+        imported++;
+        
+      } catch (err: any) {
+        errors++;
+        errorDetails.push(`Row ${errors + imported + duplicates}: ${err.message}`);
+      }
+    }
+    
+    return {
+      success: imported > 0,
+      message: `Imported ${imported} leads (${duplicates} duplicates, ${errors} errors)`,
+      imported,
+      duplicates,
+      errors,
+      errorDetails: errors > 0 ? errorDetails : undefined
+    };
+  } catch (error: any) {
+    console.error('Error importing leads from CSV:', error);
+    return {
+      success: false,
+      message: `Failed to import leads: ${error.message}`,
+      imported: 0,
+      duplicates: 0,
+      errors: 1,
+      errorDetails: [error.message]
+    };
+  }
+}
+
 export async function importGmailData(
   filePath: string,
   fileType: 'csv' | 'json' | 'xml' | 'md',
