@@ -162,6 +162,11 @@ export function LeadTable() {
     navigate(`/leads/${lead.id}`);
   };
 
+  const handleEditLead = (lead) => {
+    setCurrentLead(lead);
+    setIsEditModalOpen(true);
+  };
+
   const actions = (lead) => (
     <>
       <Button
@@ -176,7 +181,9 @@ export function LeadTable() {
         variant="link"
         size="sm"
         className="text-neutral-600 hover:text-neutral-900"
+        onClick={() => handleEditLead(lead)}
       >
+        <Edit className="h-4 w-4 mr-1" />
         Edit
       </Button>
     </>
@@ -215,6 +222,15 @@ export function LeadTable() {
         actions={actions}
         emptyMessage={`No ${segment} leads found.`}
       />
+      
+      {/* Edit Lead Modal */}
+      {currentLead && (
+        <EditLeadModal
+          lead={currentLead}
+          open={isEditModalOpen}
+          onOpenChange={setIsEditModalOpen}
+        />
+      )}
     </div>
   );
 }
