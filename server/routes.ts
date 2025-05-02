@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
-import { generatePersonalizedEmail, generateMidjourneyPrompt } from "./openai";
+import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions } from "./openai";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData } from "./importers";
 import path from "path";
@@ -289,6 +289,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(201).json(emailDraft);
     } catch (error) {
       console.error(`Error generating email for lead ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Generate campaign suggestions for a lead
+  app.get("/api/leads/:id/campaign-suggestions", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      const { lead, enrichment } = await storage.getLeadWithEnrichment(leadId);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      // Use the company info from enrichment data to generate campaign suggestions
+      const companyInfo = enrichment?.companyInfo || {};
+      const suggestions = await generateCampaignSuggestions({
+        name: lead.company || "",
+        industry: companyInfo.industry,
+        techStack: enrichment?.techStack?.frontend || enrichment?.techStack?.backend,
+        recentEvents: enrichment?.recentEvents?.news,
+        employeeCount: companyInfo.employeeCount,
+        location: companyInfo.location,
+        campaignPurpose: companyInfo.campaignPurpose,
+        serviceOffering: companyInfo.serviceOffering
+      });
+      
+      return res.json(suggestions);
+    } catch (error) {
+      console.error(`Error generating campaign suggestions for lead ${req.params.id}:`, error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });

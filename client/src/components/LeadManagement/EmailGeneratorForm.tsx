@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -77,14 +77,19 @@ interface EmailGeneratorFormProps {
 export function EmailGeneratorForm({ leadId, lead, enrichment }: EmailGeneratorFormProps) {
   const [previewEmail, setPreviewEmail] = useState(null);
   const [activeTab, setActiveTab] = useState("form");
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Extract suggested values if they exist in the enrichment data
+  const companyContext = enrichment?.companyInfo || {};
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      campaignPurpose: "",
-      serviceOffering: "",
+      // Use the campaign suggestions from enrichment data if available
+      campaignPurpose: companyContext.campaignPurpose || "",
+      serviceOffering: companyContext.serviceOffering || "",
       tone: "professional",
       formality: 3,
       usePersonalizedHooks: true,
@@ -100,6 +105,31 @@ export function EmailGeneratorForm({ leadId, lead, enrichment }: EmailGeneratorF
       includeProposalHistory: true,
     },
   });
+
+  // Load suggestions if none are available
+  useEffect(() => {
+    const fetchCampaignSuggestions = async () => {
+      // Only generate suggestions if both fields are empty and we have enrichment data
+      if (!form.getValues('campaignPurpose') && !form.getValues('serviceOffering') && enrichment) {
+        try {
+          setLoading(true);
+          const response = await fetch(`/api/leads/${leadId}/campaign-suggestions`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            form.setValue('campaignPurpose', data.campaignPurpose);
+            form.setValue('serviceOffering', data.serviceOffering);
+          }
+        } catch (error) {
+          console.error('Error fetching campaign suggestions:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchCampaignSuggestions();
+  }, [leadId, enrichment, form]);
 
   const generateEmail = useMutation({
     mutationFn: async (values: FormValues) => {

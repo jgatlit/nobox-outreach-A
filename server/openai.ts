@@ -11,6 +11,8 @@ interface CompanyContext {
   techStack?: string[];
   employeeCount?: number;
   location?: string;
+  campaignPurpose?: string;
+  serviceOffering?: string;
 }
 
 interface LeadContext {
@@ -324,6 +326,8 @@ export async function extractCompanyContext(websiteContent: string, companyName:
     5. Recent company events or news
     6. Main products or services
     7. Target market/customers
+    8. Suggested campaign purpose (a concise business goal for targeting this company)
+    9. Suggested service offering (a specific value proposition that would appeal to this company)
     
     Output format: Return a structured JSON object with these fields. For any field where information is not available, use null.
   `;
@@ -344,10 +348,72 @@ export async function extractCompanyContext(websiteContent: string, companyName:
       employeeCount: result.employee_count || undefined,
       techStack: result.key_technologies || undefined,
       recentEvents: result.recent_events || undefined,
+      campaignPurpose: result.suggested_campaign_purpose || undefined,
+      serviceOffering: result.suggested_service_offering || undefined,
     };
   } catch (error) {
     console.error("Error extracting company context:", error);
     throw new Error("Failed to extract company information");
+  }
+}
+
+// Generate campaign suggestions based on company context
+export async function generateCampaignSuggestions(
+  companyData: Partial<CompanyContext>
+): Promise<{ campaignPurpose: string, serviceOffering: string }> {
+  // If the company data already has these fields from web scraping, return them
+  if (companyData.campaignPurpose && companyData.serviceOffering) {
+    return {
+      campaignPurpose: companyData.campaignPurpose,
+      serviceOffering: companyData.serviceOffering
+    };
+  }
+  
+  // Otherwise generate new suggestions
+  const prompt = `
+    Generate targeted campaign ideas for outreach to ${companyData.name}.
+    
+    Company Information:
+    - Industry: ${companyData.industry || "Unknown"}
+    - Tech Stack: ${companyData.techStack?.join(", ") || "Unknown"}
+    - Company Size: ${companyData.employeeCount || "Unknown"} employees
+    - Location: ${companyData.location || "Unknown"}
+    - Recent Events: ${companyData.recentEvents?.join(", ") || "None known"}
+    
+    We need to generate two key strategy elements:
+    1. Campaign Purpose: A concise business goal for targeting this company
+    2. Service Offering: A specific value proposition that would appeal to this company
+    
+    For example: 
+    Campaign Purpose: "Help [Company] automate their customer service workflows using AI to reduce response times by 60%"
+    Service Offering: "Our AI-powered workflow automation platform integrates with their existing CRM and reduces manual tasks by 75%."
+    
+    The campaign purpose should be tailored to their specific business situation and pain points.
+    The service offering should align with their technology stack and business needs.
+    
+    Output format: Return a JSON object with "campaignPurpose" and "serviceOffering" fields.
+  `;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+    
+    return {
+      campaignPurpose: result.campaignPurpose || "",
+      serviceOffering: result.serviceOffering || ""
+    };
+  } catch (error) {
+    console.error("Error generating campaign suggestions:", error);
+    // Return default values in case of error
+    return {
+      campaignPurpose: "Improve business processes with our automated workflow solutions",
+      serviceOffering: "Our workflow automation platform reduces manual tasks and increases productivity"
+    };
   }
 }
 
