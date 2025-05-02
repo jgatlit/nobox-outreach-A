@@ -86,19 +86,18 @@ export function Sidebar({ className }: SidebarProps) {
             
             return (
               <li key={item.href} className="mb-1">
-                <Link href={item.href}>
-                  <a 
-                    className={cn(
-                      "sidebar-item", 
-                      isActive 
-                        ? "sidebar-item-active" 
-                        : "sidebar-item-inactive",
-                      collapsed ? "justify-center" : ""
-                    )}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {!collapsed && <span className="ml-3">{item.name}</span>}
-                  </a>
+                <Link 
+                  href={item.href}
+                  className={cn(
+                    "sidebar-item", 
+                    isActive 
+                      ? "sidebar-item-active" 
+                      : "sidebar-item-inactive",
+                    collapsed ? "justify-center" : ""
+                  )}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {!collapsed && <span className="ml-3">{item.name}</span>}
                 </Link>
               </li>
             );
