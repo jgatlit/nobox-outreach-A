@@ -374,6 +374,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const companyDescription = scrapingResult.companyInfo.description || '';
         const allContent = companyDescription + '\n\n' + allScrapedText;
         
+        // Get existing enrichment to check useEnhancedScraping setting
+        const { enrichment: existingEnrichment } = await storage.getLeadWithEnrichment(leadId);
+        const useEnhancedScraping = existingEnrichment?.useEnhancedScraping !== false; // Default to true if not set
+        
         // Generate personalization hooks using OpenAI
         try {
           // Convert to CompanyContext format expected by OpenAI
@@ -383,9 +387,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lead.company || "the company"
           );
           
-          // Enhance the scraped data with OpenAI for better insights
-          console.log(`Enhancing scraped data with OpenAI for ${lead.company || lead.website}`);
-          if (allContent.length > 200) { // Only if we have meaningful content
+          // Enhance the scraped data with OpenAI for better insights, but only if useEnhancedScraping is enabled
+          if (useEnhancedScraping && allContent.length > 200) {
+            console.log(`Enhancing scraped data with OpenAI for ${lead.company || lead.website}`);
             try {
               const enhancedData = await enhanceWebsiteDataWithAI(
                 allContent,
@@ -420,6 +424,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.error(`Error enhancing website data with AI: ${enhanceError}`);
               // Continue with original scraped data if enhancement fails
             }
+          } else if (!useEnhancedScraping) {
+            console.log(`AI enhancement skipped for ${lead.company || lead.website} (disabled by user setting)`);
           }
           
           // Generate campaign suggestions
@@ -471,7 +477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             projectHistory: "{}", // Initialize empty structures
             emailHistory: "{}",
             relationshipContext: [],
-            previousProposals: "{}"
+            previousProposals: "{}",
+            useEnhancedScraping: useEnhancedScraping
           });
         }
         
@@ -584,6 +591,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const companyDescription = scrapingResult.companyInfo.description || '';
           const allContent = companyDescription + '\n\n' + allScrapedText;
           
+          // Get existing enrichment to check useEnhancedScraping setting
+          const { enrichment: existingEnrichment } = await storage.getLeadWithEnrichment(leadId);
+          const useEnhancedScraping = existingEnrichment?.useEnhancedScraping !== false; // Default to true if not set
+          
           // Generate personalization hooks using OpenAI
           try {
             // Convert to CompanyContext format expected by OpenAI
@@ -593,9 +604,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               lead.company || "the company"
             );
             
-            // Enhance the scraped data with OpenAI for better insights
-            console.log(`Bulk refresh: Enhancing scraped data with OpenAI for ${lead.company || lead.website}`);
-            if (allContent.length > 200) { // Only if we have meaningful content
+            // Enhance the scraped data with OpenAI for better insights, but only if useEnhancedScraping is enabled
+            if (useEnhancedScraping && allContent.length > 200) {
+              console.log(`Bulk refresh: Enhancing scraped data with OpenAI for ${lead.company || lead.website}`);
               try {
                 const enhancedData = await enhanceWebsiteDataWithAI(
                   allContent,
@@ -630,6 +641,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.error(`Bulk refresh: Error enhancing website data with AI: ${enhanceError}`);
                 // Continue with original scraped data if enhancement fails
               }
+            } else if (!useEnhancedScraping) {
+              console.log(`Bulk refresh: AI enhancement skipped for ${lead.company || lead.website} (disabled by user setting)`);
             }
             
             // Generate campaign suggestions
@@ -670,8 +683,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Update the enrichment data or create if doesn't exist
-          const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
-          
           if (existingEnrichment) {
             await storage.updateLeadEnrichment(leadId, updatedData);
           } else {
@@ -681,7 +692,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               projectHistory: "{}", // Initialize empty structures
               emailHistory: "{}",
               relationshipContext: [],
-              previousProposals: "{}"
+              previousProposals: "{}",
+              useEnhancedScraping: useEnhancedScraping
             });
           }
           
