@@ -10,9 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag } from "lucide-react";
+import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History } from "lucide-react";
+import { ImportHistoricalDataForm } from "@/components/LeadManagement/ImportHistoricalDataForm";
 
-// Lazy-load the EmailGeneratorForm to avoid circular imports
+// Lazy-load EmailGeneratorForm to avoid circular imports
 const EmailGeneratorForm = React.lazy(() => import("@/components/LeadManagement/EmailGeneratorFormWrapped"));
 
 
@@ -382,6 +383,10 @@ export default function LeadDetail() {
                 <TabsList className="mb-4">
                   <TabsTrigger value="generate">Generate Email</TabsTrigger>
                   <TabsTrigger value="drafts">Drafts {emailDrafts?.length > 0 && `(${emailDrafts.length})`}</TabsTrigger>
+                  <TabsTrigger value="historical">
+                    <History className="h-4 w-4 mr-2" />
+                    Historical Context
+                  </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="generate">
@@ -431,6 +436,10 @@ export default function LeadDetail() {
                       </TabsList>
                     </div>
                   )}
+                </TabsContent>
+                
+                <TabsContent value="historical">
+                  <ImportHistoricalDataForm leadId={leadId} />
                 </TabsContent>
               </Tabs>
             </CardContent>
