@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History, Edit, RefreshCw, Save } from "lucide-react";
+import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, ArrowDown, Minus, Flag, History, Edit, RefreshCw, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ImportHistoricalDataForm } from "@/components/LeadManagement/ImportHistoricalDataForm";
 import { EditLeadModal } from "@/components/LeadManagement/EditLeadModal";
@@ -174,8 +174,20 @@ export default function LeadDetail() {
                   {lead.status}
                 </Badge>
                 {lead.priority && (
-                  <Badge variant="outline" className={`${priorityBg} ${priorityText}`}>
-                    {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
+                  <Badge variant="outline" className={`${getPriorityColors(lead.priority).badgeBg} ${priorityText} border relative overflow-hidden ${getPriorityColors(lead.priority).border} ${getPriorityColors(lead.priority).shadow}`}>
+                    <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${getPriorityColors(lead.priority).gradient}`}></div>
+                    <div className="relative flex items-center gap-1.5">
+                      {(() => {
+                        let PriorityIcon;
+                        if (lead.priority === 'urgent') PriorityIcon = AlertTriangle;
+                        else if (lead.priority === 'high') PriorityIcon = ArrowUp;
+                        else if (lead.priority === 'medium') PriorityIcon = Minus;
+                        else if (lead.priority === 'low') PriorityIcon = ArrowDown;
+                        
+                        return PriorityIcon ? <PriorityIcon className={`h-3 w-3 ${priorityIcon}`} /> : null;
+                      })()}
+                      {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
+                    </div>
                   </Badge>
                 )}
               </div>
@@ -275,28 +287,57 @@ export default function LeadDetail() {
                       <Flag className={`h-5 w-5 ${priorityIcon} mr-2`} />
                       <p className="text-sm font-medium">Priority Information</p>
                     </div>
-                    <div className="bg-neutral-50 p-3 rounded-md border border-neutral-200">
-                      <div className="flex items-center mb-2">
-                        <span className={`inline-block w-3 h-3 rounded-full ${getPriorityColors(lead.priority).indicator} mr-2`}></span>
-                        <span className={`text-sm font-medium ${priorityText}`}>
-                          {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
-                        </span>
+                    <div className={`p-3 rounded-md relative overflow-hidden border ${getPriorityColors(lead.priority).border}`}>
+                      {/* Background gradient effect */}
+                      <div className={`absolute inset-0 opacity-5 bg-gradient-to-br ${getPriorityColors(lead.priority).gradient}`}></div>
+                      
+                      <div className="relative">
+                        <div className="flex items-center mb-3">
+                          {/* Icon based on priority level */}
+                          {(() => {
+                            let PriorityIcon;
+                            if (lead.priority === 'urgent') PriorityIcon = AlertTriangle;
+                            else if (lead.priority === 'high') PriorityIcon = ArrowUp;
+                            else if (lead.priority === 'medium') PriorityIcon = Minus;
+                            else if (lead.priority === 'low') PriorityIcon = ArrowDown;
+                            
+                            return PriorityIcon ? (
+                              <div className="relative flex items-center justify-center mr-3">
+                                <div className={`absolute inset-0 bg-gradient-to-br ${getPriorityColors(lead.priority).gradient} opacity-20 blur-sm rounded-full`}></div>
+                                <div className={`w-6 h-6 ${getPriorityColors(lead.priority).indicator} rounded-full flex items-center justify-center ${getPriorityColors(lead.priority).ring}`}>
+                                  <PriorityIcon className="h-3.5 w-3.5 text-white" />
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+                          
+                          <span className={`text-sm font-medium ${priorityText}`}>
+                            {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
+                          </span>
+                        </div>
+                        
+                        {lead.priorityReason && (
+                          <div className="mb-2 pl-1">
+                            <p className="text-sm text-neutral-600">
+                              <span className="font-medium">Reason:</span> {lead.priorityReason}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {lead.priorityScore && (
+                          <div className="mb-2 pl-1">
+                            <p className="text-sm text-neutral-600">
+                              <span className="font-medium">Score:</span> {lead.priorityScore}/100
+                            </p>
+                          </div>
+                        )}
+                        
+                        {lead.priorityUpdatedAt && (
+                          <p className="text-xs text-neutral-500 mt-2 pl-1">
+                            Last updated {formatDate(lead.priorityUpdatedAt)}
+                          </p>
+                        )}
                       </div>
-                      {lead.priorityReason && (
-                        <p className="text-sm text-neutral-600 mb-2">
-                          <span className="font-medium">Reason:</span> {lead.priorityReason}
-                        </p>
-                      )}
-                      {lead.priorityScore && (
-                        <p className="text-sm text-neutral-600 mb-2">
-                          <span className="font-medium">Score:</span> {lead.priorityScore}/100
-                        </p>
-                      )}
-                      {lead.priorityUpdatedAt && (
-                        <p className="text-xs text-neutral-500">
-                          Last updated {formatDate(lead.priorityUpdatedAt)}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </>
