@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { formatDate, getSourceBadgeColor, getStatusColor } from "@/lib/utils";
+import { formatDate, getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

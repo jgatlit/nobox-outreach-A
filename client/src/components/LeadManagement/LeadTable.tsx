@@ -3,10 +3,10 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, ArrowUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { getSourceBadgeColor, getStatusColor } from "@/lib/utils";
+import { getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
 
 const LEAD_SEGMENTS = [
   { value: "active", label: "Active Leads" },
@@ -34,6 +34,33 @@ export function LeadTable() {
 
   const columns = [
     {
+      key: "priority_indicator",
+      header: "",
+      width: "48px",
+      render: (lead) => {
+        const { indicator, border, icon } = getPriorityColors(lead.priority);
+        let PriorityIcon = null;
+        
+        if (lead.priority === 'urgent') {
+          PriorityIcon = AlertTriangle;
+        } else if (lead.priority === 'high') {
+          PriorityIcon = ArrowUp;
+        }
+
+        return (
+          <div className="flex justify-center items-center">
+            <div 
+              className={`w-3 h-full mr-1 ${indicator} rounded-full`}
+              title={lead.priority ? `${lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority` : 'No Priority Set'}
+            ></div>
+            {PriorityIcon && (
+              <PriorityIcon className={`w-4 h-4 ${icon}`} />
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: "select",
       header: "",
       render: () => (
@@ -48,14 +75,17 @@ export function LeadTable() {
     {
       key: "name",
       header: "Name / Company",
-      render: (lead) => (
-        <div>
-          <div className="text-sm font-medium text-neutral-900">
-            {lead.firstName} {lead.lastName}
+      render: (lead) => {
+        const { border } = getPriorityColors(lead.priority);
+        return (
+          <div className={`pl-2 border-l-2 ${border}`}>
+            <div className="text-sm font-medium text-neutral-900">
+              {lead.firstName} {lead.lastName}
+            </div>
+            <div className="text-sm text-neutral-500">{lead.company}</div>
           </div>
-          <div className="text-sm text-neutral-500">{lead.company}</div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "email",
@@ -72,6 +102,19 @@ export function LeadTable() {
         return (
           <Badge variant="outline" className={`${bg} ${text}`}>
             {lead.source}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: "priority",
+      header: "Priority",
+      render: (lead) => {
+        const { bg, text } = getPriorityColors(lead.priority);
+        const priorityText = lead.priority ? lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1) : 'Not Set';
+        return (
+          <Badge variant="outline" className={`${bg} ${text}`}>
+            {priorityText}
           </Badge>
         );
       },
