@@ -479,9 +479,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Update the enrichment data or create if doesn't exist
-        const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
+        const enrichmentData = (await storage.getLeadWithEnrichment(leadId)).enrichment;
         
-        if (existingEnrichment) {
+        if (enrichmentData) {
           await storage.updateLeadEnrichment(leadId, updatedData);
         } else {
           await storage.addLeadEnrichment({
@@ -605,8 +605,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const allContent = companyDescription + '\n\n' + allScrapedText;
           
           // Get existing enrichment to check useEnhancedScraping setting
-          const { enrichment: existingEnrichment } = await storage.getLeadWithEnrichment(leadId);
-          const useEnhancedScraping = existingEnrichment?.useEnhancedScraping !== false; // Default to true if not set
+          const { enrichment: enrichmentSettings } = await storage.getLeadWithEnrichment(leadId);
+          const useEnhancedScraping = enrichmentSettings?.useEnhancedScraping !== false; // Default to true if not set
           
           // Generate personalization hooks using OpenAI
           try {
@@ -707,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Update the enrichment data or create if doesn't exist
-          if (existingEnrichment) {
+          if (enrichmentSettings) {
             await storage.updateLeadEnrichment(leadId, updatedData);
           } else {
             await storage.addLeadEnrichment({
