@@ -3,6 +3,8 @@ import OpenAI from "openai";
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "your-api-key" });
 
+import { WebsiteScrapingResult } from './apify';
+
 export interface CompanyContext {
   name: string;
   industry?: string;
@@ -13,6 +15,7 @@ export interface CompanyContext {
   location?: string;
   campaignPurpose?: string;
   serviceOffering?: string;
+  additionalContext?: string[];
 }
 
 export interface LeadContext {
@@ -354,6 +357,97 @@ export async function extractCompanyContext(websiteContent: string, companyName:
   } catch (error) {
     console.error("Error extracting company context:", error);
     throw new Error("Failed to extract company information");
+  }
+}
+
+/**
+ * Function to create a summary of Apify scraping results using AI
+ * This generates initial values for all lead enrichment fields after raw scraping
+ * @param scrapingResult The result from Apify's website scraping
+ * @param companyName The name of the company being analyzed
+ * @param websiteUrl The URL of the company website
+ * @returns Summarized company context with AI-generated initial enrichment values
+ */
+export async function summarizeScrapingResultsWithAI(
+  scrapingResult: WebsiteScrapingResult,
+  companyName: string,
+  websiteUrl: string
+): Promise<Partial<CompanyContext>> {
+  try {
+    console.log(`Generating AI summary of Apify scraping results for ${companyName}`);
+    
+    // Extract text from scraping results
+    const companyDescription = scrapingResult.companyInfo.description || '';
+    const recentBlogPosts = scrapingResult.recentEvents.blogPosts?.join('\n') || '';
+    const recentNews = scrapingResult.recentEvents.news?.join('\n') || '';
+    const techStackInfo = JSON.stringify(scrapingResult.techStack);
+    
+    const contentSummary = `
+      Company: ${companyName}
+      Website: ${websiteUrl}
+      Description: ${companyDescription}
+      
+      Tech Stack: ${techStackInfo}
+      
+      Recent Blog Posts:
+      ${recentBlogPosts}
+      
+      Recent News:
+      ${recentNews}
+    `;
+    
+    const prompt = `
+      You are analyzing a company based on data scraped from their website.
+      
+      Here's what was found:
+      ${contentSummary}
+      
+      Based on this information, create an enrichment summary in JSON format with the following fields:
+      1. industry: The specific industry this company operates in (be precise)
+      2. location: Headquarters location if mentioned
+      3. employeeCount: Approximate size of the company if mentioned
+      4. recentEvents: Array of 2-3 most important recent company events
+      5. keyTechnologies: Array of 3-5 most important technologies they use
+      6. serviceOffering: A specific description of what they offer to clients
+      7. campaignPurpose: A strategic goal this company might have that could be addressed in a sales campaign
+      8. insights: Array of 2-3 significant business insights about this company
+      
+      Make reasonable inferences based on the available information. Be concise but specific.
+      If you cannot determine a value with reasonable confidence, use null.
+    `;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "user", content: prompt }
+      ]
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+    
+    return {
+      name: companyName,
+      website: websiteUrl,
+      industry: result.industry || undefined,
+      location: result.location || undefined,
+      employeeCount: result.employeeCount || undefined,
+      recentEvents: result.recentEvents || undefined,
+      techStack: result.keyTechnologies || undefined,
+      campaignPurpose: result.campaignPurpose || undefined,
+      serviceOffering: result.serviceOffering || undefined,
+      // This will be used for insights field
+      additionalContext: result.insights || undefined
+    };
+  } catch (error) {
+    console.error("Error summarizing scraping results:", error);
+    // Return basic info from the scraping result to ensure we have something
+    return {
+      name: companyName,
+      website: websiteUrl,
+      industry: scrapingResult.companyInfo.industry,
+      location: scrapingResult.companyInfo.location
+    };
   }
 }
 
