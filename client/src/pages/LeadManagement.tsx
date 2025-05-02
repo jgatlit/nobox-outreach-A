@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileSpreadsheet, Search, Plus } from "lucide-react";
 
 import { LeadTable } from "@/components/LeadManagement/LeadTable";
+import { BulkImportModal } from "@/components/LeadManagement/BulkImportModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -428,23 +429,8 @@ export default function LeadManagement() {
             </DialogContent>
           </Dialog>
           
-          {/* CSV Import Button */}
-          <Button 
-            onClick={handleCsvImportClick}
-            className="bg-white text-black border border-gray-200 hover:bg-gray-50"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Import CSV
-          </Button>
-          
-          {/* Hidden file input for CSV import */}
-          <input 
-            type="file" 
-            ref={csvFileInputRef}
-            onChange={handleCsvFileChange}
-            accept=".csv"
-            className="hidden"
-          />
+          {/* Bulk Import CSV Modal */}
+          <BulkImportModal />
         </div>
       </div>
 
