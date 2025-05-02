@@ -5,6 +5,36 @@ import { leads, leadEnrichment, insertLeadSchema } from '../../shared/schema';
 import fs from 'fs';
 import { eq } from 'drizzle-orm';
 
+// Shared utility functions for data formatting
+const formatUrl = (url: string | null): string | null => {
+  if (!url) return null;
+  let cleanUrl = url.trim();
+  
+  // Add https:// prefix if missing
+  if (cleanUrl && cleanUrl.length > 0 && !cleanUrl.match(/^https?:\/\//)) {
+    return `https://${cleanUrl}`;
+  }
+  return cleanUrl;
+};
+
+const formatSource = (source: string): "email" | "pipedrive" | "asana" | "instantly" | "cyberleads" | "linkedin" | "manual" => {
+  const validSources = ["email", "pipedrive", "asana", "instantly", "cyberleads", "linkedin", "manual"];
+  return validSources.includes(source.toLowerCase()) ? 
+    source.toLowerCase() as any : "manual";
+};
+
+const formatStatus = (status: string): "active" | "inactive" | "contacted" | "responded" | "qualified" | "disqualified" | null => {
+  const validStatuses = ["active", "inactive", "contacted", "responded", "qualified", "disqualified"];
+  return validStatuses.includes(status.toLowerCase()) ? 
+    status.toLowerCase() as any : "active";
+};
+
+const formatPriority = (priority: string): "low" | "medium" | "high" | "urgent" | null => {
+  const validPriorities = ["low", "medium", "high", "urgent"];
+  return validPriorities.includes(priority.toLowerCase()) ? 
+    priority.toLowerCase() as any : "medium";
+};
+
 // Generic file parser based on file extension
 export async function parseImportFile(
   filePath: string,
@@ -296,22 +326,28 @@ export async function importLeadsFromCSV(
           }
         }
         
-        // Map the lead data from CSV to our schema
+        // Utility functions moved to module scope to avoid LSP errors
+        
+        // Map the lead data from CSV to our schema while handling transformations
         const leadData = {
           firstName,
           lastName,
           email: record.email,
-          company: record.company || record.companyName || record.company_name || '',
+          company: record.company || record.companyName || record.company_name || null,
           title: record.title || record.jobTitle || record.job_title || null,
-          phone: record.phone || record.phoneNumber || record.phone_number || null,
-          website: record.website || record.webSite || record.web_site || null,
-          linkedin: record.linkedin || record.linkedinUrl || record.linkedin_url || null,
-          twitter: record.twitter || record.twitterHandle || record.twitter_handle || null,
-          source: (record.source || 'manual') as "email" | "pipedrive" | "asana" | "instantly" | "cyberleads" | "linkedin" | "manual",
-          status: (record.status || 'active') as "active" | "inactive" | "contacted" | "responded" | "qualified" | "disqualified",
-          priority: (record.priority || 'medium') as "low" | "medium" | "high" | "urgent",
-          notes: record.notes || null,
+          phoneNumber: record.phoneNumber || record.phone || record.phone_number || null,
+          // Ensure website has proper URL format
+          website: formatUrl(record.website || record.webSite || record.web_site),
+          // Ensure LinkedIn URL has proper format
+          linkedinUrl: formatUrl(record.linkedinUrl || record.linkedin || record.linkedin_url),
+          source: formatSource(record.source || 'manual'),
+          status: formatStatus(record.status || 'active'),
+          priority: formatPriority(record.priority || 'medium'),
+          notes: record.notes || '',
+          tags: record.tags ? record.tags.split(',').map((tag: string) => tag.trim()) : undefined,
+          // System fields
           enrichmentStatus: "not_started",
+          emailStatus: "not_started",
           createdAt: new Date(),
           updatedAt: new Date()
         };

@@ -326,12 +326,46 @@ export function BulkImportModal() {
               {importResult.errorDetails && importResult.errorDetails.length > 0 && (
                 <div className="mt-4">
                   <p className="text-sm font-medium mb-2">Error Details:</p>
-                  <div className="max-h-40 overflow-y-auto text-sm bg-muted/30 p-2 rounded-md">
-                    {importResult.errorDetails.map((error, index) => (
-                      <div key={index} className="py-1 border-b border-muted last:border-0">
-                        {error}
-                      </div>
-                    ))}
+                  <div className="max-h-60 overflow-y-auto text-sm bg-muted/30 p-2 rounded-md">
+                    {importResult.errorDetails.map((error, index) => {
+                      // Extract more user-friendly error messages
+                      let displayError = error;
+                      
+                      // Make validation errors more readable
+                      if (error.includes('Invalid url')) {
+                        const field = error.includes('website') ? 'Website' : 
+                                    error.includes('linkedinUrl') ? 'LinkedIn URL' : 'URL';
+                        displayError = `${field} format is invalid. Please ensure it's a complete URL with https://`;
+                      }
+                      else if (error.includes('email')) {
+                        displayError = `Email address is invalid or missing (required field).`;
+                      }
+                      else if (error.includes('source')) {
+                        displayError = `Source value is invalid. Valid options: manual, email, pipedrive, asana, instantly, cyberleads, linkedin`;
+                      }
+                      else if (error.includes('status')) {
+                        displayError = `Status value is invalid. Valid options: active, inactive, contacted, responded, qualified, disqualified`;
+                      }
+                      else if (error.includes('priority')) {
+                        displayError = `Priority value is invalid. Valid options: low, medium, high, urgent`;
+                      }
+                      
+                      return (
+                        <div key={index} className="py-1 border-b border-muted last:border-0">
+                          {displayError}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                    <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-1">Common Import Tips</h4>
+                    <ul className="list-disc pl-5 text-xs text-amber-700 dark:text-amber-400 space-y-1">
+                      <li>Email field is required and must be a valid email format</li>
+                      <li>Website and LinkedIn URLs should include https:// (we'll try to add this automatically)</li>
+                      <li>Use valid values for source, status, and priority fields</li>
+                      <li>Multiple tags should be comma-separated in a single field</li>
+                    </ul>
                   </div>
                 </div>
               )}
