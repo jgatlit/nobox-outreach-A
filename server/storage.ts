@@ -85,7 +85,18 @@ export const storage = {
   },
 
   async deleteLead(id: number): Promise<{ success: boolean }> {
-    await db.delete(leads).where(eq(leads.id, id));
+    // Start a transaction to ensure all operations succeed or fail together
+    await db.transaction(async (tx) => {
+      // First delete associated email drafts
+      await tx.delete(emailDrafts).where(eq(emailDrafts.leadId, id));
+      
+      // Then delete associated lead enrichment data
+      await tx.delete(leadEnrichment).where(eq(leadEnrichment.leadId, id));
+      
+      // Finally delete the lead
+      await tx.delete(leads).where(eq(leads.id, id));
+    });
+    
     return { success: true };
   },
   
@@ -94,11 +105,15 @@ export const storage = {
       return { success: false, count: 0 };
     }
 
-    // Start a transaction to ensure both operations succeed or fail together
+    // Start a transaction to ensure all operations succeed or fail together
     await db.transaction(async (tx) => {
       // First delete associated email drafts
       await tx.delete(emailDrafts).where(inArray(emailDrafts.leadId, ids));
-      // Then delete the leads
+      
+      // Then delete associated lead enrichment data
+      await tx.delete(leadEnrichment).where(inArray(leadEnrichment.leadId, ids));
+      
+      // Finally delete the leads
       await tx.delete(leads).where(inArray(leads.id, ids));
     });
     
@@ -238,8 +253,17 @@ export const storage = {
     // In a transaction, it would merge data from duplicates into the primary lead
     // and then delete or mark the duplicates
     
-    // For a simple implementation, we'll just delete the duplicates
-    await db.delete(leads).where(inArray(leads.id, duplicateLeadIds));
+    // Start a transaction to ensure all operations succeed or fail together
+    await db.transaction(async (tx) => {
+      // First delete associated email drafts for the duplicate leads
+      await tx.delete(emailDrafts).where(inArray(emailDrafts.leadId, duplicateLeadIds));
+      
+      // Then delete associated lead enrichment data for the duplicate leads
+      await tx.delete(leadEnrichment).where(inArray(leadEnrichment.leadId, duplicateLeadIds));
+      
+      // Finally delete the duplicate leads
+      await tx.delete(leads).where(inArray(leads.id, duplicateLeadIds));
+    });
     
     return { success: true };
   },
