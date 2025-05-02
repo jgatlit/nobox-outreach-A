@@ -143,3 +143,62 @@ export function getStatusColor(status: string | undefined): {
       return { bg: 'bg-neutral-100', text: 'text-neutral-800', icon: 'text-neutral-500' };
   }
 }
+
+export function getPriorityColors(priority: string | undefined): {
+  bg: string;
+  text: string;
+  icon: string;
+  border: string;
+  indicator: string;
+} {
+  if (!priority) return { 
+    bg: 'bg-neutral-100', 
+    text: 'text-neutral-800', 
+    icon: 'text-neutral-500',
+    border: 'border-neutral-200',
+    indicator: 'bg-neutral-400'
+  };
+  
+  switch (priority.toLowerCase()) {
+    case 'urgent':
+      return { 
+        bg: 'bg-red-50', 
+        text: 'text-red-800', 
+        icon: 'text-red-600',
+        border: 'border-red-300',
+        indicator: 'bg-red-600'
+      };
+    case 'high':
+      return { 
+        bg: 'bg-orange-50', 
+        text: 'text-orange-800', 
+        icon: 'text-orange-500',
+        border: 'border-orange-300',
+        indicator: 'bg-orange-500'
+      };
+    case 'medium':
+      return { 
+        bg: 'bg-amber-50', 
+        text: 'text-amber-800', 
+        icon: 'text-amber-500',
+        border: 'border-amber-200',
+        indicator: 'bg-amber-500'
+      };
+    case 'low':
+      return { 
+        bg: 'bg-green-50', 
+        text: 'text-green-800', 
+        icon: 'text-green-500',
+        border: 'border-green-200',
+        indicator: 'bg-green-500'
+      };
+    default:
+      return { 
+        bg: 'bg-neutral-100', 
+        text: 'text-neutral-800', 
+        icon: 'text-neutral-500',
+        border: 'border-neutral-200',
+        indicator: 'bg-neutral-400'
+      };
+  }
+}

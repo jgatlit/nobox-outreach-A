@@ -24,6 +24,14 @@ export const leadStatusEnum = pgEnum('lead_status', [
   'disqualified'
 ]);
 
+// Lead priority enum
+export const leadPriorityEnum = pgEnum('lead_priority', [
+  'low',
+  'medium',
+  'high',
+  'urgent'
+]);
+
 // Enrichment status enum
 export const enrichmentStatusEnum = pgEnum('enrichment_status', [
   'not_started',
@@ -61,6 +69,7 @@ export const leads = pgTable("leads", {
   linkedinUrl: text("linkedin_url"),
   source: leadSourceEnum("source").notNull(),
   status: leadStatusEnum("status").default('active'),
+  priority: leadPriorityEnum("priority").default('medium'),
   notes: text("notes"),
   lastContactDate: timestamp("last_contact_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -68,6 +77,10 @@ export const leads = pgTable("leads", {
   enrichmentStatus: enrichmentStatusEnum("enrichment_status").default('not_started'),
   emailStatus: emailStatusEnum("email_status").default('not_started'),
   tags: text("tags").array(),
+  // Priority metadata
+  priorityScore: integer("priority_score"),
+  priorityReason: text("priority_reason"),
+  priorityUpdatedAt: timestamp("priority_updated_at"),
 });
 
 export const leadEnrichment = pgTable("lead_enrichment", {
