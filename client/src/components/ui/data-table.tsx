@@ -66,7 +66,7 @@ function DataTable<T>({
     // Client-side filtering if onSearch is not provided
     if (searchQuery && !onSearch) {
       filtered = filtered.filter((item) => {
-        return Object.values(item).some((value) => {
+        return Object.values(item as Record<string, any>).some((value) => {
           if (value === null || value === undefined) return false
           return String(value).toLowerCase().includes(searchQuery.toLowerCase())
         })
