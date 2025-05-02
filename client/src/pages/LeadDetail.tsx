@@ -1,16 +1,20 @@
 import * as React from "react";
+import { Suspense } from "react";
 import { useRoute } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
+import { formatDate, getSourceBadgeColor, getStatusColor } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { getSourceBadgeColor, getStatusColor, formatDate } from "@/lib/utils";
 import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle } from "lucide-react";
-import { EmailGeneratorForm } from "@/components/LeadManagement/EmailGeneratorForm";
+
+// Lazy-load the EmailGeneratorForm to avoid circular imports
+const EmailGeneratorForm = React.lazy(() => import("@/components/LeadManagement/EmailGeneratorFormWrapped"));
+
 
 export default function LeadDetail() {
   const [, params] = useRoute<{ id: string }>("/leads/:id");
@@ -339,7 +343,9 @@ export default function LeadDetail() {
                 </TabsList>
                 
                 <TabsContent value="generate">
-                  <EmailGeneratorForm leadId={leadId} lead={lead} enrichment={enrichment} />
+                  <Suspense fallback={<div className="flex justify-center p-6"><Loader2 className="animate-spin h-6 w-6 text-primary-500" /></div>}>
+                    <EmailGeneratorForm leadId={leadId} lead={lead} enrichment={enrichment} />
+                  </Suspense>
                 </TabsContent>
                 
                 <TabsContent value="drafts">
