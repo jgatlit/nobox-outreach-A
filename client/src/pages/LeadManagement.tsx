@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileSpreadsheet, Search, Plus, Filter, RefreshCw } from "lucide-react";
+import { FileSpreadsheet, Search, Plus } from "lucide-react";
 
 import { LeadTable } from "@/components/LeadManagement/LeadTable";
 import { Input } from "@/components/ui/input";
@@ -50,16 +50,13 @@ const addLeadFormSchema = z.object({
   notes: z.string().optional(),
 });
 
+type AddLeadFormValues = z.infer<typeof addLeadFormSchema>;
+
 export default function LeadManagement() {
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // State for modals
   const [addLeadOpen, setAddLeadOpen] = useState(false);
-  
-  // Refs for file inputs
   const csvFileInputRef = useRef<HTMLInputElement>(null);
   
-  // Toast and query client
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -78,7 +75,7 @@ export default function LeadManagement() {
   });
 
   // Form for adding new leads
-  const addLeadForm = useForm<z.infer<typeof addLeadFormSchema>>({
+  const addLeadForm = useForm<AddLeadFormValues>({
     resolver: zodResolver(addLeadFormSchema),
     defaultValues: {
       firstName: "",
@@ -168,7 +165,7 @@ export default function LeadManagement() {
     }
   };
 
-  const onAddLeadSubmit = async (values: z.infer<typeof addLeadFormSchema>) => {
+  const onAddLeadSubmit = async (values: AddLeadFormValues) => {
     try {
       const response = await fetch("/api/leads", {
         method: "POST",
@@ -213,189 +210,165 @@ export default function LeadManagement() {
 
   return (
     <main className="p-6 overflow-auto h-[calc(100vh-64px)]">
-      {/* Header with title and actions */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      {/* Header with title */}
+      <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Lead Management</h2>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-          <form onSubmit={handleSearch} className="relative flex-grow">
-            <Search className="w-5 h-5 text-neutral-400 absolute left-3 top-2.5" />
-            <Input
-              type="text"
-              placeholder="Search leads..."
-              className="pl-10 pr-4 py-2 w-full"
-              value={searchQuery}
-              onChange={handleInputChange}
-            />
-          </form>
-          <div className="flex gap-2 relative z-50">
-            {/* Add Lead Dialog */}
-            <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary-600 text-white hover:bg-primary-700">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Lead
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
-                <DialogHeader>
-                  <DialogTitle>Add New Lead</DialogTitle>
-                  <DialogDescription>
-                    Enter the lead's information below to add them to your database.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...addLeadForm}>
-                  <form onSubmit={addLeadForm.handleSubmit(onAddLeadSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField
-                        control={addLeadForm.control}
-                        name="firstName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>First Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="John" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={addLeadForm.control}
-                        name="lastName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Last Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Doe" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+      </div>
+      
+      {/* Action buttons and search */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
+        <div className="flex gap-2 order-2 sm:order-1 z-10">
+          {/* Add Lead Dialog */}
+          <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary-600 text-white hover:bg-primary-700">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Lead
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Add New Lead</DialogTitle>
+                <DialogDescription>
+                  Enter the lead's information below to add them to your database.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...addLeadForm}>
+                <form onSubmit={addLeadForm.handleSubmit(onAddLeadSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={addLeadForm.control}
-                      name="email"
+                      name="firstName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email</FormLabel>
+                          <FormLabel>First Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="john.doe@example.com" {...field} />
+                            <Input placeholder="John" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField
-                        control={addLeadForm.control}
-                        name="company"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Company</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Acme Inc." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={addLeadForm.control}
-                        name="title"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Job Title</FormLabel>
-                            <FormControl>
-                              <Input placeholder="CTO" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
                     <FormField
                       control={addLeadForm.control}
-                      name="source"
+                      name="lastName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Source</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a source" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="pipedrive">Pipedrive</SelectItem>
-                              <SelectItem value="asana">Asana</SelectItem>
-                              <SelectItem value="email">Email</SelectItem>
-                              <SelectItem value="instantly">Instantly.ai</SelectItem>
-                              <SelectItem value="cyberleads">Cyberleads</SelectItem>
-                              <SelectItem value="linkedin">LinkedIn</SelectItem>
-                              <SelectItem value="manual">Manual Entry</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={addLeadForm.control}
-                      name="phoneNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
+                          <FormLabel>Last Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="+1 (555) 123-4567" {...field} />
+                            <Input placeholder="Doe" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField
-                        control={addLeadForm.control}
-                        name="website"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Website</FormLabel>
-                            <FormControl>
-                              <Input placeholder="https://example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={addLeadForm.control}
-                        name="linkedinUrl"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>LinkedIn URL</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="https://linkedin.com/in/johndoe"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                  </div>
+                  <FormField
+                    control={addLeadForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="john.doe@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={addLeadForm.control}
-                      name="notes"
+                      name="company"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Notes</FormLabel>
+                          <FormLabel>Company</FormLabel>
                           <FormControl>
-                            <Textarea
-                              placeholder="Additional information about this lead..."
+                            <Input placeholder="Acme Inc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addLeadForm.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Job Title</FormLabel>
+                          <FormControl>
+                            <Input placeholder="CTO" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={addLeadForm.control}
+                    name="source"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Source</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a source" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pipedrive">Pipedrive</SelectItem>
+                            <SelectItem value="asana">Asana</SelectItem>
+                            <SelectItem value="email">Email</SelectItem>
+                            <SelectItem value="instantly">Instantly.ai</SelectItem>
+                            <SelectItem value="cyberleads">Cyberleads</SelectItem>
+                            <SelectItem value="linkedin">LinkedIn</SelectItem>
+                            <SelectItem value="manual">Manual Entry</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={addLeadForm.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1 (555) 123-4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField
+                      control={addLeadForm.control}
+                      name="website"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Website</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://example.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={addLeadForm.control}
+                      name="linkedinUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>LinkedIn URL</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="https://linkedin.com/in/johndoe"
                               {...field}
                             />
                           </FormControl>
@@ -403,45 +376,72 @@ export default function LeadManagement() {
                         </FormItem>
                       )}
                     />
-                    <DialogFooter>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => setAddLeadOpen(false)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        type="submit" 
-                        disabled={addLeadForm.formState.isSubmitting}
-                      >
-                        {addLeadForm.formState.isSubmitting ? "Adding..." : "Add Lead"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-            
-            {/* CSV Import Button */}
-            <Button 
-              onClick={handleCsvImportClick}
-              className="bg-primary-600 text-white hover:bg-primary-700"
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Import CSV
-            </Button>
-            
-            {/* Hidden file input for CSV import */}
-            <input 
-              type="file" 
-              ref={csvFileInputRef}
-              onChange={handleCsvFileChange}
-              accept=".csv"
-              className="hidden"
-            />
-          </div>
+                  </div>
+                  <FormField
+                    control={addLeadForm.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Additional information about this lead..."
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setAddLeadOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={addLeadForm.formState.isSubmitting}
+                    >
+                      {addLeadForm.formState.isSubmitting ? "Adding..." : "Add Lead"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+          
+          {/* CSV Import Button */}
+          <Button 
+            onClick={handleCsvImportClick}
+            className="bg-primary-600 text-white hover:bg-primary-700"
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Import CSV
+          </Button>
+          
+          {/* Hidden file input for CSV import */}
+          <input 
+            type="file" 
+            ref={csvFileInputRef}
+            onChange={handleCsvFileChange}
+            accept=".csv"
+            className="hidden"
+          />
         </div>
+        
+        <form onSubmit={handleSearch} className="relative max-w-md w-full order-1 sm:order-2">
+          <Search className="w-5 h-5 text-neutral-400 absolute left-3 top-2.5" />
+          <Input
+            type="text"
+            placeholder="Search leads..."
+            className="pl-10 pr-4 py-2 w-full"
+            value={searchQuery}
+            onChange={handleInputChange}
+          />
+        </form>
       </div>
 
       {/* Search results indicator */}
