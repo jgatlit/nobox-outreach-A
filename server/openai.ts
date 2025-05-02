@@ -199,30 +199,58 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     }
   }
   
+  // Create a detailed section about our company context to ensure adherence to our actual service offerings
+  const servicesSection = `
+    OUR EXACT SERVICES - DO NOT OFFER ANY SERVICES OUTSIDE THIS LIST:
+    
+    1. ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.title}:
+      ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => `- ${s.name}: ${s.description}`).join('\n      ')}
+    
+    2. ${companyContext.coreServiceOfferings.agenticSalesFrameworks.title}:
+      ${companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => `- ${s.name}: ${s.description}`).join('\n      ')}
+    
+    3. ${companyContext.coreServiceOfferings.pipelineNurturingSystems.title}:
+      ${companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => `- ${s.name}: ${s.description}`).join('\n      ')}
+  `;
+  
   // Create a section about our company context from the companyContext object
   const aboutUsSection = `
-    About nobox creatives:
-    - ${companyContext.description}
+    ABOUT NOBOX CREATIVES (COMPANY CONTEXT):
+    ${companyContext.description}
     
-    Core Service Offerings:
-    1. ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.title}
-       - ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name).join(', ')}
-    2. ${companyContext.coreServiceOfferings.agenticSalesFrameworks.title}
-       - ${companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name).join(', ')}
-    3. ${companyContext.coreServiceOfferings.pipelineNurturingSystems.title}
-       - ${companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name).join(', ')}
+    ${servicesSection}
     
-    Strategic Differentiators:
+    OUR STRATEGIC DIFFERENTIATORS:
     - ${companyContext.strategicDifferentiators.technicalStackAdvantage.points.join('\n    - ')}
+    
+    OUR PROVEN PERFORMANCE METRICS:
     - ${companyContext.strategicDifferentiators.performanceMetrics.points.join('\n    - ')}
     
-    Value Proposition:
+    OUR VALUE PROPOSITION:
     ${companyContext.customerValueProposition.forSMBs}
-    - ${companyContext.customerValueProposition.points.map(p => p.name + ': ' + p.description).join('\n    - ')}
+    - ${companyContext.customerValueProposition.points.map(p => `${p.name}: ${p.description}`).join('\n    - ')}
+    
+    IMPACT FOR CLIENTS: ${companyContext.customerValueProposition.impact}
   `;
 
+  // Extract our service names for validation 
+  const ourServiceNames = [
+    ...companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name.toLowerCase()),
+    ...companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name.toLowerCase()),
+    ...companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name.toLowerCase())
+  ];
+
   const prompt = `
-    You are an expert cold outreach strategist and copywriter, following the Jordan Platten attention-first, psychology-driven methodology. Generate a personalized outreach email to ${lead.firstName} ${lead.lastName}, ${lead.title || "a decision maker"} at ${company.name}.
+    You are an expert cold outreach strategist and copywriter for nobox creatives, following the Jordan Platten attention-first, psychology-driven methodology. Generate a personalized outreach email to ${lead.firstName} ${lead.lastName}, ${lead.title || "a decision maker"} at ${company.name}.
+    
+    ================== CRITICAL CONSTRAINTS ==================
+    You MUST ONLY refer to services that nobox creatives actually offers as listed in the company context.
+    DO NOT invent or mention services outside of those explicitly listed.
+    Our services are strictly limited to:
+    ${ourServiceNames.map(s => `- ${s}`).join('\n    ')}
+    
+    If you're unsure whether a service is offered, DO NOT mention it. Stick only to what's explicitly listed.
+    ================== END CONSTRAINTS ======================
     
     About them:
     - Company: ${company.name}
@@ -270,6 +298,8 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     ${useHistoricalContext ? "- Reference relevant past projects or interactions when appropriate" : ""}
     - Focus personalization on them, not just what we do
     - Tailor the value proposition to align with their specific business needs based on their industry and tech stack
+    - When mentioning our services, ONLY reference services listed in our company context
+    - Focus on our core offerings: AI-Powered Lead Generation, Web Design, Digital Marketing & SEO, Workflow Automation, and AI Email Agents
     
     AVOID COMPLETELY:
     - Generic openings like "Hope you're well" or "Just reaching out"
@@ -277,6 +307,12 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     - Premature direct offers before establishing curiosity
     - Anything that screams low-effort automation
     - Being overly salesy or pushy
+    - Offering services we DON'T provide or inventing capabilities not listed
+    
+    FINAL CHECK BEFORE SUBMITTING YOUR RESPONSE:
+    - Review the email and ensure ONLY services from our explicit list are mentioned
+    - If any services outside our list appear, remove them completely
+    - Double-check that you haven't promised capabilities we don't have
     
     Output format: Respond with JSON that includes a "subject" field and a "body" field. The email should feel individually crafted for this specific recipient. Do not include any markdown formatting, HTML, or code blocks.
   `;
@@ -576,20 +612,35 @@ export async function generateCampaignSuggestions(
     };
   }
   
-  // Create a section about our company offerings from the companyContext object
+  // Extract our service names for validation
+  const ourServiceNames = [
+    ...companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name),
+    ...companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name),
+    ...companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name)
+  ];
+
+  // Create a detailed section about our service offerings to enforce constraints
   const ourServicesSection = `
+    ================== CRITICAL CONSTRAINTS ==================
+    The following are the ONLY services nobox creatives offers. DO NOT suggest anything outside of these:
+    
+    1. ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.title}:
+       ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => `- ${s.name}: ${s.description}`).join('\n       ')}
+       
+    2. ${companyContext.coreServiceOfferings.agenticSalesFrameworks.title}:
+       ${companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => `- ${s.name}: ${s.description}`).join('\n       ')}
+       
+    3. ${companyContext.coreServiceOfferings.pipelineNurturingSystems.title}:
+       ${companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => `- ${s.name}: ${s.description}`).join('\n       ')}
+    
+    Our services are strictly limited to:
+    ${ourServiceNames.map(service => `- ${service}`).join('\n    ')}
+    
+    If you're unsure whether a service is offered, DO NOT suggest it. Stick only to what's explicitly listed.
+    ================== END CONSTRAINTS ======================
+    
     About nobox creatives:
     ${companyContext.description}
-    
-    Our Core Services:
-    1. ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.title}
-       - ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name + ": " + s.description).join('\n       - ')}
-       
-    2. ${companyContext.coreServiceOfferings.agenticSalesFrameworks.title}
-       - ${companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name + ": " + s.description).join('\n       - ')}
-       
-    3. ${companyContext.coreServiceOfferings.pipelineNurturingSystems.title}
-       - ${companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name + ": " + s.description).join('\n       - ')}
     
     Our Performance Metrics:
     - ${companyContext.strategicDifferentiators.performanceMetrics.points.join('\n    - ')}
@@ -612,12 +663,20 @@ export async function generateCampaignSuggestions(
     1. Campaign Purpose: A concise business goal for targeting this company that aligns with our capabilities
     2. Service Offering: A specific value proposition from our core services that would appeal to this company
     
+    CRITICAL REQUIREMENTS:
+    - The campaign purpose MUST focus EXCLUSIVELY on services we actually offer. Do not reference services outside our list.
+    - The service offering MUST be drawn directly from our core services list. Do not invent new services.
+    - If you are unsure if something is within our service scope, do not include it.
+    - Only use services that are explicitly listed in the CRITICAL CONSTRAINTS section.
+    
     For example: 
     Campaign Purpose: "Help [Company] automate their customer service workflows using AI to reduce response times by 60%"
     Service Offering: "Our AI-powered workflow automation platform integrates with their existing CRM and reduces manual tasks by 75%."
     
     The campaign purpose should be tailored to their specific business situation and pain points.
     The service offering should align with their technology stack and business needs, and specifically reference one of our core service offerings.
+    
+    FINAL CHECK: Review your suggestion and remove any references to services not explicitly listed in our services section.
     
     Output format: Return a JSON object with "campaignPurpose" and "serviceOffering" fields.
   `;
@@ -651,13 +710,27 @@ export async function generatePersonalizationHooks(
   companyData: CompanyContext,
   noboxServices: string[] = []
 ): Promise<string[]> {
-  // Combine our services from the context and any provided services
-  const services = [
+  // Extract our service names for validation
+  const ourServiceNames = [
     ...companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => s.name),
     ...companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => s.name),
     ...companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => s.name),
     ...noboxServices
   ];
+
+  // Create a section with our service offerings details for reference
+  const servicesSection = `
+    OUR EXACT SERVICES - DO NOT REFERENCE SERVICES OUTSIDE THIS LIST:
+    
+    1. ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.title}:
+      ${companyContext.coreServiceOfferings.aiPoweredLeadGeneration.services.map(s => `- ${s.name}: ${s.description}`).join('\n      ')}
+    
+    2. ${companyContext.coreServiceOfferings.agenticSalesFrameworks.title}:
+      ${companyContext.coreServiceOfferings.agenticSalesFrameworks.services.map(s => `- ${s.name}: ${s.description}`).join('\n      ')}
+    
+    3. ${companyContext.coreServiceOfferings.pipelineNurturingSystems.title}:
+      ${companyContext.coreServiceOfferings.pipelineNurturingSystems.services.map(s => `- ${s.name}: ${s.description}`).join('\n      ')}
+  `;
 
   // Get performance metrics to use in hooks
   const performanceMetrics = companyContext.strategicDifferentiators.performanceMetrics.points;
@@ -675,23 +748,34 @@ export async function generatePersonalizationHooks(
     - Recent company events: ${companyData.recentEvents?.join(", ") || "None known"}
     - Tech stack: ${companyData.techStack?.join(", ") || "Unknown"}
     
+    ${servicesSection}
+    
     About our company (nobox creatives):
     ${companyContext.description}
     
-    Our services:
-    ${services.join(", ")}
+    Our complete services list:
+    ${ourServiceNames.map(service => `- ${service}`).join('\n    ')}
     
     Our performance metrics:
     ${performanceMetrics.join("\n    ")}
+    
+    ================== CRITICAL CONSTRAINTS ==================
+    You MUST ONLY reference services that nobox creatives actually offers as listed above.
+    DO NOT mention or imply services outside of those explicitly listed.
+    If you're unsure whether a service is offered, DO NOT reference it. Stick only to what's explicitly listed.
+    ================== END CONSTRAINTS ======================
     
     Guidelines:
     - Generate 3-5 specific, personalized conversation hooks
     - Focus on business value and pain points relevant to their industry
     - Reference specific company details or events if available
-    - Connect our services to their likely business challenges
+    - Connect ONLY our actual services to their likely business challenges
     - Use our performance metrics to make compelling hooks
     - Each hook should be 1-2 sentences
     - Mention specific technologies or methodologies we use when relevant
+    - NEVER reference services we don't actually offer
+    
+    FINAL CHECK: Review each hook and ensure it only references services we definitely offer.
     
     Output format: Return a JSON array of strings, with each string being one personalization hook.
   `;
