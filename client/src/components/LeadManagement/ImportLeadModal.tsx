@@ -99,7 +99,7 @@ export function ImportLeadModal() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="bg-primary-600 text-white hover:bg-primary-700">
-          Import Leads
+          Add Lead
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
