@@ -88,6 +88,15 @@ export const storage = {
     await db.delete(leads).where(eq(leads.id, id));
     return { success: true };
   },
+  
+  async bulkDeleteLeads(ids: number[]): Promise<{ success: boolean, count: number }> {
+    if (!ids || ids.length === 0) {
+      return { success: false, count: 0 };
+    }
+    
+    await db.delete(leads).where(inArray(leads.id, ids));
+    return { success: true, count: ids.length };
+  },
 
   // Workflow Management
   async getAllWorkflows(): Promise<Workflow[]> {
