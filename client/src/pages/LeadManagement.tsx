@@ -1,6 +1,7 @@
 import * as React from "react";
 import { LeadTable } from "@/components/LeadManagement/LeadTable";
 import { ImportLeadModal } from "@/components/LeadManagement/ImportLeadModal";
+import { BulkImportModal } from "@/components/LeadManagement/BulkImportModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
@@ -47,7 +48,10 @@ export default function LeadManagement() {
               onChange={handleInputChange}
             />
           </form>
-          <ImportLeadModal />
+          <div className="flex space-x-2">
+            <ImportLeadModal />
+            <BulkImportModal />
+          </div>
         </div>
       </div>
 

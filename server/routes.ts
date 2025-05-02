@@ -787,6 +787,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Import Gmail data in various formats (CSV, JSON, XML, MD)
+  // Bulk CSV import for leads
+  app.post("/api/leads/import/csv", upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      // Check if file is uploaded
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const file = req.file;
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      
+      // Validate file type
+      if (fileExt !== '.csv') {
+        return res.status(400).json({ error: "Only CSV files are allowed for bulk lead import" });
+      }
+      
+      // Process the file and import the data
+      const result = await importLeadsFromCSV(file.path);
+      
+      // Remove the temporary file
+      fs.unlinkSync(file.path);
+      
+      return res.status(result.success ? 200 : 422).json(result);
+    } catch (error) {
+      console.error(`Error importing leads from CSV:`, error);
+      return res.status(500).json({ error: "Failed to import leads from CSV" });
+    }
+  });
+
   app.post("/api/leads/:id/import/gmail", upload.single('file'), async (req: Request, res: Response) => {
     try {
       const leadId = parseInt(req.params.id, 10);
