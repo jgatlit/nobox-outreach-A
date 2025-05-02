@@ -4,11 +4,12 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock, AlertTriangle, ArrowUp, Edit } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { CheckCircle, Clock, AlertTriangle, ArrowUp, Edit, RefreshCw, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
 import { EditLeadModal } from "./EditLeadModal";
+import { toast } from "@/hooks/use-toast";
 
 const LEAD_SEGMENTS = [
   { value: "active", label: "Active Leads" },
@@ -23,6 +24,94 @@ export function LeadTable() {
   const [, navigate] = useLocation();
   const [currentLead, setCurrentLead] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+  
+  // Function to handle bulk refresh of leads
+  const handleBulkRefresh = async () => {
+    if (selectedLeadIds.length === 0) {
+      toast({
+        title: "No leads selected",
+        description: "Please select at least one lead to refresh data.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (selectedLeadIds.length > 10) {
+      toast({
+        title: "Too many leads selected",
+        description: "Cannot refresh more than 10 leads at once. Please select fewer leads.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsRefreshing(true);
+    
+    try {
+      const response = await fetch(`/api/leads/bulk-refresh-enrichment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ leadIds: selectedLeadIds })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to refresh lead data");
+      }
+      
+      const result = await response.json();
+      
+      // Invalidate queries to refresh the data
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      
+      toast({
+        title: "Success",
+        description: `Refreshed ${result.results.filter(r => r.success).length} lead(s) successfully.`,
+        variant: "default"
+      });
+      
+      // Clear selection after successful refresh
+      setSelectedLeadIds([]);
+    } catch (error) {
+      console.error("Error refreshing leads:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to refresh lead data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+  
+  // Toggle a single lead selection
+  const toggleLeadSelection = (leadId: number) => {
+    setSelectedLeadIds(prev => {
+      if (prev.includes(leadId)) {
+        return prev.filter(id => id !== leadId);
+      } else {
+        return [...prev, leadId];
+      }
+    });
+  };
+  
+  // Handle select all checkbox
+  const toggleSelectAll = () => {
+    if (leads && leads.length > 0) {
+      if (selectedLeadIds.length === leads.length) {
+        // If all are selected, unselect all
+        setSelectedLeadIds([]);
+      } else {
+        // Otherwise, select all
+        setSelectedLeadIds(leads.map(lead => lead.id));
+      }
+    }
+  };
 
   const { data: leads, isLoading } = useQuery({
     queryKey: ['/api/leads', segment],
@@ -66,12 +155,23 @@ export function LeadTable() {
     },
     {
       key: "select",
-      header: "",
-      render: () => (
-        <div className="flex items-center">
+      header: () => (
+        <div className="flex items-center justify-center">
           <input
             type="checkbox"
             className="h-4 w-4 text-primary-600 border-neutral-300 rounded"
+            checked={leads?.length > 0 && selectedLeadIds.length === leads.length}
+            onChange={toggleSelectAll}
+          />
+        </div>
+      ),
+      render: (lead) => (
+        <div className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            className="h-4 w-4 text-primary-600 border-neutral-300 rounded"
+            checked={selectedLeadIds.includes(lead.id)}
+            onChange={() => toggleLeadSelection(lead.id)}
           />
         </div>
       ),

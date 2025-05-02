@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History, Edit } from "lucide-react";
+import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History, Edit, RefreshCw } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { ImportHistoricalDataForm } from "@/components/LeadManagement/ImportHistoricalDataForm";
 import { EditLeadModal } from "@/components/LeadManagement/EditLeadModal";
 
@@ -22,6 +23,7 @@ export default function LeadDetail() {
   const [, params] = useRoute<{ id: string }>("/leads/:id");
   const leadId = params?.id ? parseInt(params.id, 10) : 0;
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const { data, isLoading, isError } = useQuery({
     queryKey: [`/api/leads/${leadId}`],
@@ -56,6 +58,51 @@ export default function LeadDetail() {
   // Extract data
   const lead = data?.lead;
   const enrichment = data?.enrichment;
+  
+  const refreshEnrichment = async () => {
+    if (!lead || !lead.website) {
+      toast({
+        title: "Cannot refresh lead data",
+        description: "Lead must have a website URL to refresh enrichment data.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsRefreshing(true);
+    
+    try {
+      const response = await fetch(`/api/leads/${leadId}/refresh-enrichment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to refresh lead data");
+      }
+      
+      // Invalidate the queries to refresh the data
+      await queryClient.invalidateQueries({ queryKey: [`/api/leads/${leadId}`] });
+      
+      toast({
+        title: "Success",
+        description: "Lead enrichment data has been refreshed.",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Error refreshing lead data:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to refresh lead data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -264,8 +311,26 @@ export default function LeadDetail() {
 
           {enrichment && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Enrichment Data</CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refreshEnrichment} 
+                  disabled={isRefreshing || !lead.website}
+                >
+                  {isRefreshing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh Data
+                    </>
+                  )}
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {enrichment.companyInfo && (

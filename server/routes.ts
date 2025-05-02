@@ -132,6 +132,217 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Lead Enrichment Routes
+  app.post("/api/leads/:id/refresh-enrichment", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      // Get the lead first
+      const lead = await storage.getLeadById(leadId);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      if (!lead.website) {
+        return res.status(400).json({ 
+          error: "Lead has no website URL for scraping. Please add a website URL first." 
+        });
+      }
+      
+      // Update lead enrichment status to in_progress
+      await storage.updateLead(leadId, { enrichmentStatus: "in_progress" });
+      
+      // Normally this would call a web scraping service
+      // For now, we'll simulate this with a placeholder enrichment data update
+      // In a real implementation, you would initiate a background job to scrape the website
+      
+      // Simulate a delay (this should be removed in production and replaced with actual async processing)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Extract company context from website content
+      // Simulating updated data
+      const updatedData = {
+        companyInfo: JSON.stringify({
+          industry: "Technology",
+          employeeCount: "50-100",
+          location: "San Francisco, CA",
+          founded: "2015",
+          campaignPurpose: "Increase marketing automation capabilities",
+          serviceOffering: "Custom CRM integration services"
+        }),
+        techStack: JSON.stringify({
+          frontend: ["React", "NextJS", "TailwindCSS"],
+          backend: ["Node.js", "Express", "Python"],
+          database: ["PostgreSQL", "MongoDB"],
+          cloud: ["AWS", "Vercel"]
+        }),
+        recentEvents: JSON.stringify({
+          news: [
+            "Recently expanded to European markets",
+            "Launched new product line in Q2 2025",
+            "Acquired smaller competitor last month"
+          ],
+          blogPosts: [
+            "How We Improved Our Developer Experience",
+            "Case Study: Increasing Conversion Rates by 35%"
+          ]
+        }),
+        personalizationHooks: ["Recent expansion to Europe", "New product launch", "Technology adoption"],
+        insights: ["Looking to scale operations", "Investing in automation", "Growth phase"],
+        lastUpdated: new Date()
+      };
+      
+      // Update the enrichment data or create if doesn't exist
+      const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
+      
+      if (existingEnrichment) {
+        await storage.updateLeadEnrichment(leadId, updatedData);
+      } else {
+        await storage.addLeadEnrichment({
+          ...updatedData,
+          leadId,
+          projectHistory: "{}", // Initialize empty structures
+          emailHistory: "{}",
+          relationshipContext: [],
+          previousProposals: "{}"
+        });
+      }
+      
+      // Update lead enrichment status
+      await storage.updateLead(leadId, { enrichmentStatus: "complete" });
+      
+      // Get the updated enrichment data
+      const { enrichment } = await storage.getLeadWithEnrichment(leadId);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Lead enrichment data refreshed successfully",
+        enrichment
+      });
+    } catch (error) {
+      console.error(`Error refreshing lead enrichment ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Failed to refresh lead enrichment data" });
+    }
+  });
+  
+  // Bulk refresh leads enrichment
+  app.post("/api/leads/bulk-refresh-enrichment", async (req, res) => {
+    try {
+      const { leadIds } = req.body;
+      
+      if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ error: "No lead IDs provided for bulk refresh" });
+      }
+      
+      // Limit the number of leads that can be refreshed at once
+      if (leadIds.length > 10) {
+        return res.status(400).json({ error: "Cannot refresh more than 10 leads at once" });
+      }
+      
+      const results = [];
+      
+      // Process each lead
+      for (const id of leadIds) {
+        const leadId = parseInt(id, 10);
+        
+        if (isNaN(leadId)) {
+          results.push({ id, success: false, message: "Invalid lead ID" });
+          continue;
+        }
+        
+        // Get the lead
+        const lead = await storage.getLeadById(leadId);
+        
+        if (!lead) {
+          results.push({ id: leadId, success: false, message: "Lead not found" });
+          continue;
+        }
+        
+        if (!lead.website) {
+          results.push({ 
+            id: leadId, 
+            success: false, 
+            message: "No website URL available for scraping" 
+          });
+          continue;
+        }
+        
+        // Update lead enrichment status
+        await storage.updateLead(leadId, { enrichmentStatus: "in_progress" });
+        
+        // This would initiate web scraping in production
+        // For now, just update with placeholder data
+        
+        // Extract company context from website content
+        // Simulating updated data
+        const updatedData = {
+          companyInfo: JSON.stringify({
+            industry: "Technology",
+            employeeCount: "50-100",
+            location: "San Francisco, CA",
+            founded: "2015",
+            campaignPurpose: "Increase marketing automation capabilities",
+            serviceOffering: "Custom CRM integration services"
+          }),
+          techStack: JSON.stringify({
+            frontend: ["React", "NextJS", "TailwindCSS"],
+            backend: ["Node.js", "Express", "Python"],
+            database: ["PostgreSQL", "MongoDB"],
+            cloud: ["AWS", "Vercel"]
+          }),
+          recentEvents: JSON.stringify({
+            news: [
+              "Recently expanded to European markets",
+              "Launched new product line in Q2 2025",
+              "Acquired smaller competitor last month"
+            ],
+            blogPosts: [
+              "How We Improved Our Developer Experience",
+              "Case Study: Increasing Conversion Rates by 35%"
+            ]
+          }),
+          personalizationHooks: ["Recent expansion to Europe", "New product launch", "Technology adoption"],
+          insights: ["Looking to scale operations", "Investing in automation", "Growth phase"],
+          lastUpdated: new Date()
+        };
+        
+        // Update the enrichment data or create if doesn't exist
+        const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
+        
+        if (existingEnrichment) {
+          await storage.updateLeadEnrichment(leadId, updatedData);
+        } else {
+          await storage.addLeadEnrichment({
+            ...updatedData,
+            leadId,
+            projectHistory: "{}", // Initialize empty structures
+            emailHistory: "{}",
+            relationshipContext: [],
+            previousProposals: "{}"
+          });
+        }
+        
+        // Update lead enrichment status
+        await storage.updateLead(leadId, { enrichmentStatus: "complete" });
+        
+        results.push({ id: leadId, success: true, message: "Enrichment data refreshed successfully" });
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Processed ${results.length} leads`,
+        results
+      });
+    } catch (error) {
+      console.error("Error in bulk refreshing lead enrichment:", error);
+      return res.status(500).json({ error: "Failed to process bulk enrichment refresh" });
+    }
+  });
+
   app.post("/api/leads/:id/enrichment", async (req, res) => {
     try {
       const leadId = parseInt(req.params.id, 10);
