@@ -50,7 +50,9 @@ export default function LeadManagement() {
           </form>
           <div className="flex space-x-2">
             <ImportLeadModal />
-            <BulkImportModal />
+            <Button className="bg-primary-600 text-white hover:bg-primary-700">
+              Import CSV
+            </Button>
           </div>
         </div>
       </div>
