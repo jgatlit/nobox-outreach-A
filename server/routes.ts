@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
-import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions, generatePersonalizationHooks } from "./openai";
+import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions, generatePersonalizationHooks, enhanceWebsiteDataWithAI } from "./openai";
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
@@ -325,14 +325,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastUpdated: new Date()
         };
         
+        // Get scraped content for AI enhancement
+        const allScrapedText = scrapingResult.recentEvents.blogPosts?.join('\n') || '';
+        const companyDescription = scrapingResult.companyInfo.description || '';
+        const allContent = companyDescription + '\n\n' + allScrapedText;
+        
         // Generate personalization hooks using OpenAI
         try {
           // Convert to CompanyContext format expected by OpenAI
-          const companyContext = convertToCompanyContext(
+          let companyContext = convertToCompanyContext(
             scrapingResult, 
             lead.website, 
             lead.company || "the company"
           );
+          
+          // Enhance the scraped data with OpenAI for better insights
+          console.log(`Enhancing scraped data with OpenAI for ${lead.company || lead.website}`);
+          if (allContent.length > 200) { // Only if we have meaningful content
+            try {
+              const enhancedData = await enhanceWebsiteDataWithAI(
+                allContent,
+                lead.company || "the company",
+                companyContext
+              );
+              
+              console.log(`Successfully enhanced website data with AI`);
+              
+              // Update company context with enhanced data
+              companyContext = {
+                ...companyContext,
+                ...enhancedData
+              };
+              
+              // Update the enrichment data with AI-enhanced information
+              const enrichedCompanyInfo = JSON.parse(updatedData.companyInfo);
+              if (enhancedData.industry) enrichedCompanyInfo.industry = enhancedData.industry;
+              if (enhancedData.location) enrichedCompanyInfo.location = enhancedData.location;
+              if (enhancedData.serviceOffering) enrichedCompanyInfo.serviceOffering = enhancedData.serviceOffering;
+              if (enhancedData.campaignPurpose) enrichedCompanyInfo.campaignPurpose = enhancedData.campaignPurpose;
+              
+              updatedData.companyInfo = JSON.stringify(enrichedCompanyInfo);
+              
+              // Update recent events if enhanced data provided any
+              if (enhancedData.recentEvents && enhancedData.recentEvents.length > 0) {
+                const recentEventsData = JSON.parse(updatedData.recentEvents);
+                recentEventsData.news = enhancedData.recentEvents;
+                updatedData.recentEvents = JSON.stringify(recentEventsData);
+              }
+            } catch (enhanceError) {
+              console.error(`Error enhancing website data with AI: ${enhanceError}`);
+              // Continue with original scraped data if enhancement fails
+            }
+          }
           
           // Generate campaign suggestions
           const campaignSuggestions = await generateCampaignSuggestions(companyContext);
@@ -491,14 +535,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastUpdated: new Date()
           };
           
+          // Get scraped content for AI enhancement
+          const allScrapedText = scrapingResult.recentEvents.blogPosts?.join('\n') || '';
+          const companyDescription = scrapingResult.companyInfo.description || '';
+          const allContent = companyDescription + '\n\n' + allScrapedText;
+          
           // Generate personalization hooks using OpenAI
           try {
             // Convert to CompanyContext format expected by OpenAI
-            const companyContext = convertToCompanyContext(
+            let companyContext = convertToCompanyContext(
               scrapingResult, 
               lead.website, 
               lead.company || "the company"
             );
+            
+            // Enhance the scraped data with OpenAI for better insights
+            console.log(`Bulk refresh: Enhancing scraped data with OpenAI for ${lead.company || lead.website}`);
+            if (allContent.length > 200) { // Only if we have meaningful content
+              try {
+                const enhancedData = await enhanceWebsiteDataWithAI(
+                  allContent,
+                  lead.company || "the company",
+                  companyContext
+                );
+                
+                console.log(`Bulk refresh: Successfully enhanced website data with AI`);
+                
+                // Update company context with enhanced data
+                companyContext = {
+                  ...companyContext,
+                  ...enhancedData
+                };
+                
+                // Update the enrichment data with AI-enhanced information
+                const enrichedCompanyInfo = JSON.parse(updatedData.companyInfo);
+                if (enhancedData.industry) enrichedCompanyInfo.industry = enhancedData.industry;
+                if (enhancedData.location) enrichedCompanyInfo.location = enhancedData.location;
+                if (enhancedData.serviceOffering) enrichedCompanyInfo.serviceOffering = enhancedData.serviceOffering;
+                if (enhancedData.campaignPurpose) enrichedCompanyInfo.campaignPurpose = enhancedData.campaignPurpose;
+                
+                updatedData.companyInfo = JSON.stringify(enrichedCompanyInfo);
+                
+                // Update recent events if enhanced data provided any
+                if (enhancedData.recentEvents && enhancedData.recentEvents.length > 0) {
+                  const recentEventsData = JSON.parse(updatedData.recentEvents);
+                  recentEventsData.news = enhancedData.recentEvents;
+                  updatedData.recentEvents = JSON.stringify(recentEventsData);
+                }
+              } catch (enhanceError) {
+                console.error(`Bulk refresh: Error enhancing website data with AI: ${enhanceError}`);
+                // Continue with original scraped data if enhancement fails
+              }
+            }
             
             // Generate campaign suggestions
             const campaignSuggestions = await generateCampaignSuggestions(companyContext);
