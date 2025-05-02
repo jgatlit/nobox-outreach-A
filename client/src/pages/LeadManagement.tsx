@@ -236,7 +236,7 @@ export default function LeadManagement() {
           {/* Add Lead Dialog */}
           <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 text-white hover:bg-blue-700">
+              <Button className="bg-white text-black border border-gray-200 hover:bg-gray-50">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Lead
               </Button>
@@ -431,7 +431,7 @@ export default function LeadManagement() {
           {/* CSV Import Button */}
           <Button 
             onClick={handleCsvImportClick}
-            className="bg-blue-600 text-white hover:bg-blue-700"
+            className="bg-white text-black border border-gray-200 hover:bg-gray-50"
           >
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Import CSV
