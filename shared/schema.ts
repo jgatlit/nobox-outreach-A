@@ -96,6 +96,8 @@ export const leadEnrichment = pgTable("lead_enrichment", {
   emailHistory: jsonb("email_history"), // Previous email exchanges summary
   relationshipContext: text("relationship_context").array(), // Key relationship insights
   previousProposals: jsonb("previous_proposals"), // Past proposal details
+  // Settings
+  useEnhancedScraping: boolean("use_enhanced_scraping").default(true), // Enable/disable OpenAI enhancement
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
