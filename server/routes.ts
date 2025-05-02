@@ -226,7 +226,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         personalizedHooks.push(customHooks);
       }
       
-      // Generate email with additional style parameters
+      // Prepare historical context if enabled
+      let historicalContext = null;
+      if (useHistoricalContext) {
+        historicalContext = {
+          projectHistory: includeProjectHistory ? enrichment?.projectHistory || {} : {},
+          emailHistory: includeEmailHistory ? enrichment?.emailHistory || {} : {},
+          previousProposals: includeProposalHistory ? enrichment?.previousProposals || [] : [],
+          relationshipContext: enrichment?.relationshipContext || []
+        };
+      }
+
+      // Generate email with additional style parameters and historical context
       const emailContent = await generatePersonalizedEmail({
         lead: {
           firstName: lead.firstName || "",
@@ -253,7 +264,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subjectLineStyle,
           emailLength,
           ...styleParams
-        }
+        },
+        // Include historical context if enabled
+        historicalContext: historicalContext,
+        useHistoricalContext: useHistoricalContext
       });
       
       // Save email draft

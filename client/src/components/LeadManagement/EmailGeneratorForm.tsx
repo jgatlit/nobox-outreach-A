@@ -29,6 +29,11 @@ const formSchema = z.object({
   subjectLineStyle: z.string().default("direct"),
   emailLength: z.string().default("medium"),
   callToAction: z.string().min(5, "Call to action is required").optional(),
+  // Historical context fields
+  useHistoricalContext: z.boolean().default(false),
+  includeProjectHistory: z.boolean().default(true),
+  includeEmailHistory: z.boolean().default(true),
+  includeProposalHistory: z.boolean().default(true),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -78,6 +83,11 @@ export function EmailGeneratorForm({ leadId, lead, enrichment }: EmailGeneratorF
       subjectLineStyle: "direct",
       emailLength: "medium",
       callToAction: "Would you be available for a 15-minute call next week to discuss this further?",
+      // Historical context defaults
+      useHistoricalContext: false,
+      includeProjectHistory: true,
+      includeEmailHistory: true,
+      includeProposalHistory: true,
     },
   });
 
@@ -401,6 +411,104 @@ export function EmailGeneratorForm({ leadId, lead, enrichment }: EmailGeneratorF
                     </FormItem>
                   )}
                 />
+                
+                {/* Historical Context Main Toggle */}
+                <FormField
+                  control={form.control}
+                  name="useHistoricalContext"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between p-4 border rounded-lg bg-slate-50">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base font-semibold">
+                          Use Historical Context
+                        </FormLabel>
+                        <FormDescription>
+                          Reference past projects and email history
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                
+                {/* Historical Context Sub-Options - Only show when Historical Context is enabled */}
+                {form.watch("useHistoricalContext") && (
+                  <div className="pl-4 border-l-2 border-l-slate-200 space-y-4 ml-2">
+                    <FormField
+                      control={form.control}
+                      name="includeProjectHistory"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between p-3 border rounded-lg">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-sm">
+                              Include Asana Project History
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              Reference past and current projects
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="includeEmailHistory"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between p-3 border rounded-lg">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-sm">
+                              Include Email History
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              Reference previous email conversations
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="includeProposalHistory"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between p-3 border rounded-lg">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-sm">
+                              Include Proposal History
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              Reference previous proposals and services
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
               </div>
               
               <FormField
