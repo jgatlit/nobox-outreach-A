@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, ArrowDown, Minus, Flag, History, Edit, RefreshCw, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ImportHistoricalDataForm } from "@/components/LeadManagement/ImportHistoricalDataForm";
@@ -30,6 +31,7 @@ export default function LeadDetail() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingDraft, setEditingDraft] = useState<any>(null);
   const [isEmailEditModalOpen, setIsEmailEditModalOpen] = useState(false);
+  const [useEnhancedScraping, setUseEnhancedScraping] = useState(true);
   
   const { data, isLoading, isError } = useQuery({
     queryKey: [`/api/leads/${leadId}`],
@@ -64,6 +66,58 @@ export default function LeadDetail() {
   // Extract data
   const lead = data?.lead;
   const enrichment = data?.enrichment;
+  
+  // Initialize the useEnhancedScraping state from enrichment data when it loads
+  React.useEffect(() => {
+    if (enrichment && typeof enrichment.useEnhancedScraping === 'boolean') {
+      setUseEnhancedScraping(enrichment.useEnhancedScraping);
+    }
+  }, [enrichment]);
+  
+  const updateEnhancedScrapingSetting = async (enabled: boolean) => {
+    if (!enrichment) {
+      toast({
+        title: "Cannot update setting",
+        description: "Enrichment data not available.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/leads/${leadId}/enrichment-settings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ useEnhancedScraping: enabled })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update enrichment settings");
+      }
+      
+      // Update local state
+      setUseEnhancedScraping(enabled);
+      
+      // Invalidate the queries to refresh the data
+      await queryClient.invalidateQueries({ queryKey: [`/api/leads/${leadId}`] });
+      
+      toast({
+        title: "Success",
+        description: `AI-enhanced scraping ${enabled ? 'enabled' : 'disabled'}.`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Error updating enrichment settings:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update enrichment settings",
+        variant: "destructive"
+      });
+    }
+  };
   
   const refreshEnrichment = async () => {
     if (!lead || !lead.website) {
@@ -380,24 +434,39 @@ export default function LeadDetail() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Enrichment Data</CardTitle>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={refreshEnrichment} 
-                  disabled={isRefreshing || !lead.website}
-                >
-                  {isRefreshing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Refreshing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Refresh Data
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="enhanced-scraping"
+                      checked={useEnhancedScraping}
+                      onCheckedChange={updateEnhancedScrapingSetting}
+                    />
+                    <label
+                      htmlFor="enhanced-scraping"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      AI Enhanced
+                    </label>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={refreshEnrichment} 
+                    disabled={isRefreshing || !lead.website}
+                  >
+                    {isRefreshing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Refreshing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh Data
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {enrichment.companyInfo && (
