@@ -4,12 +4,22 @@ import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock, AlertTriangle, ArrowUp, Edit, RefreshCw, Loader2 } from "lucide-react";
+import { CheckCircle, Clock, AlertTriangle, ArrowUp, Edit, RefreshCw, Loader2, Trash2, AlertCircle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { getSourceBadgeColor, getStatusColor, getPriorityColors } from "@/lib/utils";
 import { EditLeadModal } from "./EditLeadModal";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const LEAD_SEGMENTS = [
   { value: "active", label: "Active Leads" },
@@ -30,6 +40,8 @@ export function LeadTable({ data }: LeadTableProps = {}) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   
   // Function to handle bulk refresh of leads

@@ -478,6 +478,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to process bulk enrichment refresh" });
     }
   });
+  
+  // Bulk delete leads
+  app.post("/api/leads/bulk-delete", async (req, res) => {
+    try {
+      const { leadIds } = req.body;
+      
+      if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ error: "No lead IDs provided for bulk delete" });
+      }
+      
+      // Limit the number of leads that can be deleted at once
+      if (leadIds.length > 50) {
+        return res.status(400).json({ error: "Cannot delete more than 50 leads at once" });
+      }
+      
+      const result = await storage.bulkDeleteLeads(leadIds);
+      
+      return res.json({
+        success: result.success,
+        message: `Successfully deleted ${result.count} lead(s)`
+      });
+    } catch (error) {
+      console.error("Error in bulk delete:", error);
+      return res.status(500).json({ 
+        error: "Internal server error", 
+        message: error instanceof Error ? error.message : "Unknown error occurred" 
+      });
+    }
+  });
 
   app.post("/api/leads/:id/enrichment", async (req, res) => {
     try {
