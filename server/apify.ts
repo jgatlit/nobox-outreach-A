@@ -60,11 +60,14 @@ export async function scrapeWebsiteWithApify(
   maxCrawlDepth: number = 2
 ): Promise<ScrapingResult[]> {
   try {
+    console.log(`Starting Cheerio scraper for ${websiteUrl} (max pages: ${maxPages}, depth: ${maxCrawlDepth})`);
+    
     // Check for valid URL format
     const url = new URL(websiteUrl);
     
     // Strip any paths and just use the domain for the initial request
     const baseUrl = `${url.protocol}//${url.hostname}`;
+    console.log(`Using base URL: ${baseUrl} for scraping`);
     
     // Start the Cheerio Scraper run
     const run = await apifyClient.actor("apify/cheerio-scraper").call({
@@ -107,11 +110,29 @@ export async function scrapeWebsiteWithApify(
       }`,
     });
 
+    console.log(`Cheerio scraper started with run ID: ${run.id}`);
+    
     // Wait for the crawl to finish
     await apifyClient.run(run.id).waitForFinish();
+    console.log(`Cheerio scraper finished run ID: ${run.id}`);
     
     // Retrieve and process the results
     const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
+    console.log(`Retrieved ${items?.length || 0} items from dataset ${run.defaultDatasetId}`);
+    
+    if (!items || items.length === 0) {
+      console.warn(`No items returned from Cheerio scraper for ${baseUrl}`);
+      return [];
+    }
+    
+    // Log summary of scraped data
+    console.log(`Scraped ${items.length} pages:`);
+    items.slice(0, 3).forEach((item: any, index: number) => {
+      console.log(`Page ${index + 1}: ${item.url} (title: ${item.title || 'No title'}, text length: ${item.text?.length || 0})`);
+    });
+    if (items.length > 3) {
+      console.log(`... and ${items.length - 3} more pages`);
+    }
     
     // Validate and transform items to ensure they match ScrapingResult structure
     const validatedItems = items.map(item => {
@@ -276,8 +297,11 @@ export async function extractCompanyInfo(scrapingResults: ScrapingResult[]): Pro
   const companyInfo: WebsiteScrapingResult['companyInfo'] = {};
   
   if (!scrapingResults || scrapingResults.length === 0) {
+    console.warn("No scraping results provided to extractCompanyInfo");
     return companyInfo;
   }
+  
+  console.log(`Extracting company information from ${scrapingResults.length} scraped pages`);
   
   try {
     // Extract most likely homepage content
@@ -433,8 +457,11 @@ export function extractRecentEvents(scrapingResults: ScrapingResult[]): WebsiteS
   };
   
   if (!scrapingResults || scrapingResults.length === 0) {
+    console.warn("No scraping results provided to extractRecentEvents");
     return recentEvents;
   }
+  
+  console.log(`Extracting recent events from ${scrapingResults.length} scraped pages`);
   
   try {
     // Look for news/press/blog pages
@@ -444,11 +471,13 @@ export function extractRecentEvents(scrapingResults: ScrapingResult[]): WebsiteS
       page.title.toLowerCase().includes('news') ||
       page.title.toLowerCase().includes('press release')
     );
+    console.log(`Found ${newsPages.length} potential news pages`);
     
     const blogPages = scrapingResults.filter(page => 
       page.url.includes('/blog') || 
       page.title.toLowerCase().includes('blog')
     );
+    console.log(`Found ${blogPages.length} potential blog pages`);
     
     // Extract news items
     if (newsPages.length > 0) {
