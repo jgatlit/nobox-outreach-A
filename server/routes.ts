@@ -420,6 +420,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 recentEventsData.news = enhancedData.recentEvents;
                 updatedData.recentEvents = JSON.stringify(recentEventsData);
               }
+              
+              // Extract insights from the enhanced data directly
+              // These should be actual insights about the company, not personalization hooks
+              if (enhancedData.recentEvents && enhancedData.recentEvents.length > 0) {
+                updatedData.insights = enhancedData.recentEvents.slice(0, 3).map(event => {
+                  return `Recent event: ${event}`;
+                });
+              }
             } catch (enhanceError) {
               console.error(`Error enhancing website data with AI: ${enhanceError}`);
               // Continue with original scraped data if enhancement fails
@@ -454,10 +462,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (personalizationHooks && personalizationHooks.length > 0) {
               updatedData.personalizationHooks = personalizationHooks;
               
-              // Extract insights from personalization hooks (first 3 items)
-              updatedData.insights = personalizationHooks.slice(0, 3).map(hook => {
-                return hook.startsWith("Their ") ? hook : `They ${hook.toLowerCase().startsWith('are') ? hook : 'are ' + hook}`;
-              });
+              // Only use personalization hooks for email generation, not for insights
+              // If we don't already have insights from the enhanced scraping, leave them empty
+              if (!updatedData.insights || updatedData.insights.length === 0) {
+                // For non-enhanced scraping, we'll use basic company info for insights
+                const companyInfo = JSON.parse(updatedData.companyInfo);
+                if (companyInfo.industry && companyInfo.industry !== "Unknown") {
+                  updatedData.insights = [`Company is in the ${companyInfo.industry} industry`];
+                }
+              }
             }
           }
         } catch (aiError) {
@@ -636,6 +649,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const recentEventsData = JSON.parse(updatedData.recentEvents);
                   recentEventsData.news = enhancedData.recentEvents;
                   updatedData.recentEvents = JSON.stringify(recentEventsData);
+                  
+                  // Extract insights from the enhanced data directly
+                  // These should be actual insights about the company, not personalization hooks
+                  updatedData.insights = enhancedData.recentEvents.slice(0, 3).map(event => {
+                    return `Recent event: ${event}`;
+                  });
                 }
               } catch (enhanceError) {
                 console.error(`Bulk refresh: Error enhancing website data with AI: ${enhanceError}`);
@@ -671,10 +690,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (personalizationHooks && personalizationHooks.length > 0) {
                 updatedData.personalizationHooks = personalizationHooks;
                 
-                // Extract insights from personalization hooks (first 3 items)
-                updatedData.insights = personalizationHooks.slice(0, 3).map(hook => {
-                  return hook.startsWith("Their ") ? hook : `They ${hook.toLowerCase().startsWith('are') ? hook : 'are ' + hook}`;
-                });
+                // Only use personalization hooks for email generation, not for insights
+                // If we don't already have insights from the enhanced scraping, leave them empty
+                if (!updatedData.insights || updatedData.insights.length === 0) {
+                  // For non-enhanced scraping, we'll use basic company info for insights
+                  const companyInfo = JSON.parse(updatedData.companyInfo);
+                  if (companyInfo.industry && companyInfo.industry !== "Unknown") {
+                    updatedData.insights = [`Company is in the ${companyInfo.industry} industry`];
+                  }
+                }
               }
             }
           } catch (aiError) {
