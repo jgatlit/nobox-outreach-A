@@ -265,13 +265,16 @@ export function LeadTable({ data }: LeadTableProps = {}) {
       key: "name",
       header: "Name / Company",
       render: (lead) => {
-        const { border } = getPriorityColors(lead.priority);
+        const { border, text, ring, gradient } = getPriorityColors(lead.priority);
         return (
-          <div className={`pl-2 border-l-2 ${border}`}>
-            <div className="text-sm font-medium text-neutral-900">
-              {lead.firstName} {lead.lastName}
+          <div className={`pl-2 border-l-2 ${border} relative group`}>
+            <div className={`absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b ${gradient} opacity-70`}></div>
+            <div>
+              <div className={`text-sm font-medium ${text} group-hover:underline cursor-pointer`}>
+                {lead.firstName} {lead.lastName}
+              </div>
+              <div className="text-sm text-neutral-500">{lead.company}</div>
             </div>
-            <div className="text-sm text-neutral-500">{lead.company}</div>
           </div>
         );
       },
@@ -299,12 +302,33 @@ export function LeadTable({ data }: LeadTableProps = {}) {
       key: "priority",
       header: "Priority",
       render: (lead) => {
-        const { bg, text } = getPriorityColors(lead.priority);
+        const { badgeBg, badgeText, gradient, icon, shadow, ring } = getPriorityColors(lead.priority);
         const priorityText = lead.priority ? lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1) : 'Not Set';
+        let PriorityIcon = null;
+        
+        if (lead.priority === 'urgent') {
+          PriorityIcon = AlertTriangle;
+        } else if (lead.priority === 'high') {
+          PriorityIcon = ArrowUp;
+        } else if (lead.priority === 'medium') {
+          PriorityIcon = Minus;
+        } else if (lead.priority === 'low') {
+          PriorityIcon = ArrowDown;
+        }
+        
         return (
-          <Badge variant="outline" className={`${bg} ${text}`}>
-            {priorityText}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge 
+              variant="outline" 
+              className={`${badgeBg} ${badgeText} ${shadow} font-medium border border-solid relative overflow-hidden`}
+            >
+              <div className={`absolute inset-0 opacity-10 bg-gradient-to-r ${gradient}`}></div>
+              <div className="relative flex items-center gap-1">
+                {PriorityIcon && <PriorityIcon className={`h-3 w-3 ${icon}`} />}
+                {priorityText}
+              </div>
+            </Badge>
+          </div>
         );
       },
     },

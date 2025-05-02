@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Loader2, Minus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const leadStatusOptions = [
@@ -23,9 +23,10 @@ const leadStatusOptions = [
 ];
 
 const leadPriorityOptions = [
-  { value: "high", label: "High" },
-  { value: "medium", label: "Medium" },
-  { value: "low", label: "Low" },
+  { value: "urgent", label: "Urgent", icon: "AlertTriangle", color: "text-red-600", bg: "bg-red-100" },
+  { value: "high", label: "High", icon: "ArrowUp", color: "text-orange-500", bg: "bg-orange-100" },
+  { value: "medium", label: "Medium", icon: "Minus", color: "text-amber-500", bg: "bg-amber-100" },
+  { value: "low", label: "Low", icon: "ArrowDown", color: "text-green-500", bg: "bg-green-100" },
 ];
 
 // Create a form schema based on the update lead schema
@@ -39,7 +40,7 @@ const formSchema = z.object({
   website: z.string().url("Invalid URL").optional().or(z.literal("").transform(() => undefined)),
   linkedinUrl: z.string().url("Invalid LinkedIn URL").optional().or(z.literal("").transform(() => undefined)),
   status: z.enum(["active", "inactive", "contacted", "responded", "qualified", "disqualified"]),
-  priority: z.enum(["high", "medium", "low"]).optional(),
+  priority: z.enum(["urgent", "high", "medium", "low"]).optional(),
   notes: z.string().optional(),
 });
 
@@ -284,15 +285,45 @@ export function EditLeadModal({ lead, open, onOpenChange }: EditLeadModalProps) 
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select priority level" />
+                          <SelectValue placeholder="Select priority level">
+                            {field.value && (() => {
+                              const option = leadPriorityOptions.find(opt => opt.value === field.value);
+                              let PriorityIcon;
+                              
+                              if (option) {
+                                if (option.icon === "AlertTriangle") PriorityIcon = AlertTriangle;
+                                else if (option.icon === "ArrowUp") PriorityIcon = ArrowUp;
+                                else if (option.icon === "Minus") PriorityIcon = Minus;
+                                else if (option.icon === "ArrowDown") PriorityIcon = ArrowDown;
+                              }
+                              
+                              return option ? (
+                                <div className={`flex items-center gap-2 ${option.color}`}>
+                                  {PriorityIcon && <PriorityIcon className="h-3.5 w-3.5" />}
+                                  <span>{option.label}</span>
+                                </div>
+                              ) : null;
+                            })()}
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {leadPriorityOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
+                        {leadPriorityOptions.map((option) => {
+                          let PriorityIcon;
+                          if (option.icon === "AlertTriangle") PriorityIcon = AlertTriangle;
+                          else if (option.icon === "ArrowUp") PriorityIcon = ArrowUp;
+                          else if (option.icon === "Minus") PriorityIcon = Minus;
+                          else if (option.icon === "ArrowDown") PriorityIcon = ArrowDown;
+                            
+                          return (
+                            <SelectItem key={option.value} value={option.value} className="flex items-center gap-2">
+                              <div className={`flex items-center gap-2 ${option.color}`}>
+                                {PriorityIcon && <PriorityIcon className="h-3.5 w-3.5" />}
+                                <span>{option.label}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormDescription>
