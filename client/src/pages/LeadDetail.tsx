@@ -10,7 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History, Edit, RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag, History, Edit, RefreshCw, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ImportHistoricalDataForm } from "@/components/LeadManagement/ImportHistoricalDataForm";
 import { EditLeadModal } from "@/components/LeadManagement/EditLeadModal";
@@ -24,6 +27,8 @@ export default function LeadDetail() {
   const leadId = params?.id ? parseInt(params.id, 10) : 0;
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [editingDraft, setEditingDraft] = useState<any>(null);
+  const [isEmailEditModalOpen, setIsEmailEditModalOpen] = useState(false);
   
   const { data, isLoading, isError } = useQuery({
     queryKey: [`/api/leads/${leadId}`],
@@ -488,7 +493,10 @@ export default function LeadDetail() {
                                 <p className="text-sm text-neutral-500">{formatDate(draft.createdAt)}</p>
                               </div>
                               <div className="flex gap-2">
-                                <Button variant="outline" size="sm">Edit</Button>
+                                <Button variant="outline" size="sm" onClick={() => {
+                                  setEditingDraft(draft);
+                                  setIsEmailEditModalOpen(true);
+                                }}>Edit</Button>
                                 <Button size="sm">Use Template</Button>
                               </div>
                             </div>
@@ -523,6 +531,87 @@ export default function LeadDetail() {
           </Card>
         </div>
       </div>
+      
+      {/* Email Edit Modal */}
+      <Dialog open={isEmailEditModalOpen} onOpenChange={setIsEmailEditModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Email Draft</DialogTitle>
+            <DialogDescription>
+              Make changes to the email content below.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingDraft && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <label htmlFor="subject" className="text-sm font-medium">Subject Line:</label>
+                <Input
+                  id="subject"
+                  value={editingDraft.subject || ''}
+                  onChange={(e) => setEditingDraft({...editingDraft, subject: e.target.value})}
+                  placeholder="Email subject line"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="body" className="text-sm font-medium">Email Body:</label>
+                <Textarea
+                  id="body"
+                  value={editingDraft.body || ''}
+                  onChange={(e) => setEditingDraft({...editingDraft, body: e.target.value})}
+                  placeholder="Email body text"
+                  className="min-h-[300px]"
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEmailEditModalOpen(false)}>Cancel</Button>
+            <Button 
+              onClick={async () => {
+                if (!editingDraft) return;
+                
+                try {
+                  const response = await fetch(`/api/leads/email-drafts/${editingDraft.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      subject: editingDraft.subject,
+                      body: editingDraft.body
+                    })
+                  });
+                  
+                  if (!response.ok) {
+                    throw new Error('Failed to update email draft');
+                  }
+                  
+                  // Refresh the drafts list
+                  await queryClient.invalidateQueries({ queryKey: [`/api/leads/${leadId}/email-drafts`] });
+                  
+                  setIsEmailEditModalOpen(false);
+                  toast({
+                    title: 'Success',
+                    description: 'Email draft updated successfully',
+                  });
+                } catch (error) {
+                  toast({
+                    title: 'Error',
+                    description: error instanceof Error ? error.message : 'Failed to update email draft',
+                    variant: 'destructive'
+                  });
+                }
+              }}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
