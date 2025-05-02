@@ -14,8 +14,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FileSpreadsheet, Upload, X } from "lucide-react";
+import { AlertCircle, ChevronDown, Database, FileQuestion, FileSpreadsheet, FileText, Mail, Upload, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function BulkImportModal() {
   const [open, setOpen] = React.useState(false);
@@ -144,23 +152,26 @@ export function BulkImportModal() {
     }
   };
   
-  const downloadSampleTemplate = () => {
-    // Create sample CSV content
-    const headers = "firstName,lastName,email,company,title,phone,website,linkedin,twitter,source,status,priority,notes";
-    const sampleData = [
-      "John,Doe,john.doe@example.com,Acme Inc.,CEO,+1234567890,https://acme.com,https://linkedin.com/in/johndoe,@johndoe,manual,active,medium,Initial contact made at conference",
-      "Jane,Smith,jane.smith@example.com,Tech Corp,CTO,+0987654321,https://techcorp.com,https://linkedin.com/in/janesmith,@janesmith,manual,active,high,Interested in our new product"
-    ].join("\n");
-    const csvContent = `${headers}\n${sampleData}`;
+  const downloadTemplate = (templateName: 'leads' | 'gmail' | 'asana' | 'proposals' | 'readme') => {
+    // Download template from API
+    let endpoint = '';
+    let filename = '';
     
-    // Create a blob and download link
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.setAttribute("href", url);
-    a.setAttribute("download", "lead_import_template.csv");
+    if (templateName === 'readme') {
+      endpoint = '/api/templates/csv/readme';
+      filename = 'csv_import_instructions.md';
+    } else {
+      endpoint = `/api/templates/csv/${templateName}`;
+      filename = `${templateName}_import_template.csv`;
+    }
+    
+    // Create download anchor and trigger it
+    const a = document.createElement('a');
+    a.href = endpoint;
+    a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
   
   return (
@@ -182,15 +193,52 @@ export function BulkImportModal() {
         <div className="space-y-4 my-4">
           {!importResult ? (
             <>
-              <div className="flex justify-between items-center">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={downloadSampleTemplate}
-                  size="sm"
-                >
-                  Download Template
-                </Button>
+              <div className="flex justify-between items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => downloadTemplate('leads')}
+                    size="sm"
+                  >
+                    Download Template
+                  </Button>
+                  
+                  <div className="relative">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56">
+                        <DropdownMenuLabel>CSV Templates</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => downloadTemplate('leads')}>
+                          <FileSpreadsheet className="mr-2 h-4 w-4" />
+                          <span>Leads Template</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => downloadTemplate('gmail')}>
+                          <Mail className="mr-2 h-4 w-4" />
+                          <span>Email History Template</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => downloadTemplate('asana')}>
+                          <Database className="mr-2 h-4 w-4" />
+                          <span>Asana Projects Template</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => downloadTemplate('proposals')}>
+                          <FileText className="mr-2 h-4 w-4" />
+                          <span>Proposals Template</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => downloadTemplate('readme')}>
+                          <FileQuestion className="mr-2 h-4 w-4" />
+                          <span>Import Instructions</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
                 
                 <p className="text-sm text-muted-foreground">
                   CSV must include email column (required)

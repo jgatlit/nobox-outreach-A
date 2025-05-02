@@ -10,6 +10,43 @@ import path from "path";
 import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve CSV templates
+  app.get("/api/templates/csv/:templateName", (req: Request, res: Response) => {
+    const { templateName } = req.params;
+    const allowedTemplates = ["leads", "gmail", "asana", "proposals"];
+    
+    if (!allowedTemplates.includes(templateName)) {
+      return res.status(404).send("Template not found");
+    }
+    
+    const templatePath = `./uploads/csv/${templateName}_import_template.csv`;
+    
+    // Check if file exists
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).send("Template file not found");
+    }
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${templateName}_import_template.csv`);
+    const fileStream = fs.createReadStream(templatePath);
+    fileStream.pipe(res);
+  });
+  
+  // Serve README markdown
+  app.get("/api/templates/csv/readme", (req: Request, res: Response) => {
+    const readmePath = "./uploads/csv/README.md";
+    
+    // Check if file exists
+    if (!fs.existsSync(readmePath)) {
+      return res.status(404).send("README file not found");
+    }
+    
+    res.setHeader('Content-Type', 'text/markdown');
+    res.setHeader('Content-Disposition', 'attachment; filename=csv_import_instructions.md');
+    const fileStream = fs.createReadStream(readmePath);
+    fileStream.pipe(res);
+  });
+
   // Lead Management Routes
   app.get("/api/leads", async (req, res) => {
     try {
