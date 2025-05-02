@@ -20,13 +20,22 @@ interface LeadContext {
   email: string;
 }
 
+interface StyleOptions {
+  tone?: 'professional' | 'conversational' | 'friendly' | 'authoritative' | 'empathetic';
+  formality?: number; // 1-5 scale
+  subjectLineStyle?: 'direct' | 'question' | 'benefit' | 'curiosity';
+  emailLength?: 'short' | 'medium' | 'long';
+}
+
 interface EmailGenerationParams {
   lead: LeadContext;
   company: CompanyContext;
   personalizationHooks?: string[];
   campaignPurpose: string;
   serviceOffering: string;
+  callToAction?: string;
   previousEmails?: string[];
+  styleOptions?: StyleOptions;
 }
 
 interface MidjourneyPromptParams {
@@ -42,7 +51,43 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
   subject: string;
   body: string;
 }> {
-  const { lead, company, personalizationHooks, campaignPurpose, serviceOffering, previousEmails } = params;
+  const { 
+    lead, 
+    company, 
+    personalizationHooks, 
+    campaignPurpose, 
+    serviceOffering, 
+    previousEmails,
+    callToAction,
+    styleOptions = {} 
+  } = params;
+  
+  const { 
+    tone = 'professional', 
+    formality = 3, 
+    subjectLineStyle = 'direct',
+    emailLength = 'medium' 
+  } = styleOptions;
+  
+  // Map email length to word count
+  const wordCountMap = {
+    short: '100-150',
+    medium: '150-200',
+    long: '200-250'
+  };
+  
+  const wordCount = wordCountMap[emailLength];
+  
+  // Define formality level description
+  const formalityDescriptions = [
+    'very casual and conversational',
+    'casual but professional',
+    'balanced and neutral',
+    'formal and professional',
+    'very formal and corporate'
+  ];
+  
+  const formalityDescription = formalityDescriptions[formality - 1];
   
   const previousEmailsContext = previousEmails && previousEmails.length > 0 
     ? `Previous email exchanges: ${previousEmails.join("\n\n")}` 
@@ -51,6 +96,10 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
   const hooksContext = personalizationHooks && personalizationHooks.length > 0
     ? `Personalization hooks: ${personalizationHooks.join(", ")}`
     : "";
+  
+  const callToActionText = callToAction 
+    ? `Use this specific call-to-action: ${callToAction}`
+    : "Include a clear and compelling call-to-action";
   
   const prompt = `
     Generate a personalized outreach email to ${lead.firstName} ${lead.lastName}, ${lead.title || "a decision maker"} at ${company.name}.
@@ -69,11 +118,12 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     Campaign purpose: ${campaignPurpose}
     Service offering: ${serviceOffering}
     
-    Guidelines:
-    - Make the email brief but impactful (around 150-200 words)
-    - Focus on specific value proposition for their industry and company size
-    - Use a professional but conversational tone
-    - Include a clear call-to-action
+    Email Style Guidelines:
+    - Tone: ${tone}
+    - Formality: ${formalityDescription} (${formality}/5)
+    - Subject line style: ${subjectLineStyle}
+    - Email length: ${wordCount} words
+    - ${callToActionText}
     - Reference one specific personalization hook or recent company event
     - Don't be too salesy or pushy
     - Don't use generic phrases like "I hope this email finds you well"
