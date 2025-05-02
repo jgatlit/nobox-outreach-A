@@ -183,7 +183,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid lead ID" });
       }
       
-      const { campaignPurpose, serviceOffering } = req.body;
+      const { 
+        campaignPurpose, 
+        serviceOffering, 
+        tone = "professional",
+        formality = 3,
+        usePersonalizedHooks = true,
+        customHooks = "",
+        includeRecentEvents = true,
+        subjectLineStyle = "direct",
+        emailLength = "medium",
+        callToAction = "",
+        styleParams = {}
+      } = req.body;
       
       if (!campaignPurpose || !serviceOffering) {
         return res.status(400).json({ 
@@ -198,7 +210,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Lead not found" });
       }
       
-      // Generate email
+      // Prepare personalization hooks based on settings
+      let personalizedHooks = [];
+      
+      if (usePersonalizedHooks && enrichment?.personalizationHooks) {
+        personalizedHooks = [...enrichment.personalizationHooks];
+      }
+      
+      if (customHooks) {
+        personalizedHooks.push(customHooks);
+      }
+      
+      // Generate email with additional style parameters
       const emailContent = await generatePersonalizedEmail({
         lead: {
           firstName: lead.firstName || "",
@@ -210,14 +233,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: lead.company || "",
           industry: enrichment?.companyInfo?.industry,
           website: lead.website,
-          recentEvents: enrichment?.recentEvents?.news,
+          recentEvents: includeRecentEvents ? enrichment?.recentEvents?.news : [],
           techStack: enrichment?.techStack?.backend,
           employeeCount: enrichment?.companyInfo?.employeeCount,
           location: enrichment?.companyInfo?.location
         },
-        personalizationHooks: enrichment?.personalizationHooks,
+        personalizationHooks: personalizedHooks,
         campaignPurpose,
-        serviceOffering
+        serviceOffering,
+        callToAction,
+        styleOptions: {
+          tone,
+          formality,
+          subjectLineStyle,
+          emailLength,
+          ...styleParams
+        }
       });
       
       // Save email draft
@@ -235,6 +266,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(201).json(emailDraft);
     } catch (error) {
       console.error(`Error generating email for lead ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Get email drafts for a lead
+  app.get("/api/leads/:id/email-drafts", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      const drafts = await storage.getEmailDraftsForLead(leadId);
+      return res.json(drafts);
+    } catch (error) {
+      console.error(`Error fetching email drafts for lead ${req.params.id}:`, error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
