@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
-import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions } from "./openai";
+import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions, generatePersonalizationHooks } from "./openai";
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
@@ -390,10 +390,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (scrapingError) {
         console.error(`Error during website scraping for ${lead.website}:`, scrapingError);
         // Update lead with error status
-        await storage.updateLead(leadId, { enrichmentStatus: "error" });
+        await storage.updateLead(leadId, { enrichmentStatus: "failed" });
         return res.status(500).json({ 
           error: "Failed to scrape website data", 
-          message: scrapingError.message 
+          message: scrapingError instanceof Error ? scrapingError.message : 'Unknown error' 
         });
       }
       
@@ -564,11 +564,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (scrapingError) {
           console.error(`Error during website scraping for ${lead.website}:`, scrapingError);
           // Update lead with error status
-          await storage.updateLead(leadId, { enrichmentStatus: "error" });
+          await storage.updateLead(leadId, { enrichmentStatus: "failed" });
           results.push({ 
             id: leadId, 
             success: false, 
-            message: `Failed to scrape website data: ${scrapingError.message}` 
+            message: `Failed to scrape website data: ${scrapingError instanceof Error ? scrapingError.message : 'Unknown error'}` 
           });
         }
       }
