@@ -93,8 +93,15 @@ export const storage = {
     if (!ids || ids.length === 0) {
       return { success: false, count: 0 };
     }
+
+    // Start a transaction to ensure both operations succeed or fail together
+    await db.transaction(async (tx) => {
+      // First delete associated email drafts
+      await tx.delete(emailDrafts).where(inArray(emailDrafts.leadId, ids));
+      // Then delete the leads
+      await tx.delete(leads).where(inArray(leads.id, ids));
+    });
     
-    await db.delete(leads).where(inArray(leads.id, ids));
     return { success: true, count: ids.length };
   },
 
