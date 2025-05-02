@@ -16,8 +16,10 @@ import { cn } from "@/lib/utils"
 interface DataTableColumn<T> {
   key: string
   header: string
+  renderHeader?: () => React.ReactNode
   render?: (item: T) => React.ReactNode
   sortable?: boolean
+  width?: string
 }
 
 interface DataTableProps<T> {
@@ -159,15 +161,20 @@ function DataTable<T>({
                   key={column.key}
                   className={column.sortable ? "cursor-pointer" : ""}
                   onClick={column.sortable ? () => handleSort(column.key) : undefined}
+                  style={column.width ? { width: column.width } : undefined}
                 >
-                  <div className="flex items-center">
-                    {column.header}
-                    {column.sortable && sortConfig.key === column.key && (
-                      <span className="ml-1">
-                        {sortConfig.direction === "asc" ? " ↑" : " ↓"}
-                      </span>
-                    )}
-                  </div>
+                  {column.renderHeader ? (
+                    column.renderHeader()
+                  ) : (
+                    <div className="flex items-center">
+                      {column.header}
+                      {column.sortable && sortConfig.key === column.key && (
+                        <span className="ml-1">
+                          {sortConfig.direction === "asc" ? " ↑" : " ↓"}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </TableHead>
               ))}
               {actions && <TableHead>Actions</TableHead>}

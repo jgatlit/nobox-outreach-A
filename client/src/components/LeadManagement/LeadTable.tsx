@@ -155,7 +155,8 @@ export function LeadTable() {
     },
     {
       key: "select",
-      header: () => (
+      header: "", // Empty string header
+      renderHeader: () => (
         <div className="flex items-center justify-center">
           <input
             type="checkbox"
@@ -310,6 +311,38 @@ export function LeadTable() {
             ))}
           </TabsList>
         </Tabs>
+      </div>
+
+      <div className="p-4 border-b border-neutral-200 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          {selectedLeadIds.length > 0 && (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={handleBulkRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-2"
+            >
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Refreshing {selectedLeadIds.length} lead(s)...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh {selectedLeadIds.length} selected lead(s)
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+        <div>
+          <Button variant="outline" size="sm" className="ml-2">
+            <Edit className="h-4 w-4 mr-2" />
+            Add Lead
+          </Button>
+        </div>
       </div>
 
       <DataTable
