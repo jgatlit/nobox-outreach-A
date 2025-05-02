@@ -1,0 +1,5 @@
+firstName,lastName,email,company,title,phoneNumber,website,linkedinUrl,source,status,priority,notes,tags
+John,Doe,john.doe@example.com,Acme Inc,CEO,555-123-4567,acme.com,linkedin.com/in/johndoe,manual,active,high,"Interested in our services","interested,retail"
+Jane,Smith,jane.smith@test.com,Test Corp,CTO,555-987-6543,test.com/about,www.linkedin.com/in/janesmith,manual,qualified,medium,"Met at conference","conference,tech"
+Missing,Email,,NoURL Company,Manager,123-456-7890,,,manual,active,low,,"no-email"
+Sam,Jones,sam.jones@example.org,Invalid Ltd,Developer,,invalid-website,not-a-linkedin-url,unknown,unknown,invalid,"This record has validation issues","test,invalid"
