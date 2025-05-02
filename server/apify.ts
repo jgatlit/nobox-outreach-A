@@ -112,7 +112,20 @@ export async function scrapeWebsiteWithApify(
     
     // Retrieve and process the results
     const { items } = await apifyClient.dataset(run.defaultDatasetId).listItems();
-    return items as ScrapingResult[];
+    
+    // Validate and transform items to ensure they match ScrapingResult structure
+    const validatedItems = items.map(item => {
+      const typedItem = item as Record<string, any>;
+      return {
+        url: typedItem.url || '',
+        title: typedItem.title || '',
+        text: typedItem.text || '',
+        html: typedItem.html,
+        metadata: typedItem.metadata
+      } as ScrapingResult;
+    });
+    
+    return validatedItems;
   } catch (error) {
     console.error('Error scraping website with Apify:', error);
     throw new Error(`Apify scraping failed: ${error instanceof Error ? error.message : 'Unknown error'}`);

@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
 import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions } from "./openai";
+import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
 import path from "path";
@@ -292,59 +293,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update lead enrichment status to in_progress
       await storage.updateLead(leadId, { enrichmentStatus: "in_progress" });
       
-      // Normally this would call a web scraping service
-      // For now, we'll simulate this with a placeholder enrichment data update
-      // In a real implementation, you would initiate a background job to scrape the website
-      
-      // Simulate a delay (this should be removed in production and replaced with actual async processing)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Extract company context from website content
-      // Simulating updated data
-      const updatedData = {
-        companyInfo: JSON.stringify({
-          industry: "Technology",
-          employeeCount: "50-100",
-          location: "San Francisco, CA",
-          founded: "2015",
-          campaignPurpose: "Increase marketing automation capabilities",
-          serviceOffering: "Custom CRM integration services"
-        }),
-        techStack: JSON.stringify({
-          frontend: ["React", "NextJS", "TailwindCSS"],
-          backend: ["Node.js", "Express", "Python"],
-          database: ["PostgreSQL", "MongoDB"],
-          cloud: ["AWS", "Vercel"]
-        }),
-        recentEvents: JSON.stringify({
-          news: [
-            "Recently expanded to European markets",
-            "Launched new product line in Q2 2025",
-            "Acquired smaller competitor last month"
-          ],
-          blogPosts: [
-            "How We Improved Our Developer Experience",
-            "Case Study: Increasing Conversion Rates by 35%"
-          ]
-        }),
-        personalizationHooks: ["Recent expansion to Europe", "New product launch", "Technology adoption"],
-        insights: ["Looking to scale operations", "Investing in automation", "Growth phase"],
-        lastUpdated: new Date()
-      };
-      
-      // Update the enrichment data or create if doesn't exist
-      const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
-      
-      if (existingEnrichment) {
-        await storage.updateLeadEnrichment(leadId, updatedData);
-      } else {
-        await storage.addLeadEnrichment({
-          ...updatedData,
-          leadId,
-          projectHistory: "{}", // Initialize empty structures
-          emailHistory: "{}",
-          relationshipContext: [],
-          previousProposals: "{}"
+      try {
+        console.log(`Starting website scraping process for ${lead.website}`);
+        
+        // Process website using Apify integration
+        const scrapingResult = await processWebsite(lead.website);
+        
+        console.log(`Successfully scraped website data for ${lead.website}`);
+        
+        // Convert scraped data to enrichment format
+        const updatedData = {
+          companyInfo: JSON.stringify({
+            industry: scrapingResult.companyInfo.industry || "Unknown",
+            employeeCount: scrapingResult.companyInfo.employeeCount || "Unknown",
+            location: scrapingResult.companyInfo.location || "Unknown",
+            founded: scrapingResult.companyInfo.founded || "Unknown",
+            description: scrapingResult.companyInfo.description || ""
+          }),
+          techStack: JSON.stringify(scrapingResult.techStack || {
+            frontend: [],
+            backend: [],
+            database: [],
+            cloud: []
+          }),
+          recentEvents: JSON.stringify({
+            news: scrapingResult.recentEvents.news || [],
+            blogPosts: scrapingResult.recentEvents.blogPosts || []
+          }),
+          personalizationHooks: [], 
+          insights: [],
+          lastUpdated: new Date()
+        };
+        
+        // Generate personalization hooks using OpenAI
+        try {
+          // Convert to CompanyContext format expected by OpenAI
+          const companyContext = convertToCompanyContext(
+            scrapingResult, 
+            lead.website, 
+            lead.company || "the company"
+          );
+          
+          // Generate campaign suggestions
+          const campaignSuggestions = await generateCampaignSuggestions(companyContext);
+          
+          if (campaignSuggestions) {
+            // Add suggested campaign purpose and service offering to enrichment data
+            const enrichedCompanyInfo = JSON.parse(updatedData.companyInfo);
+            enrichedCompanyInfo.campaignPurpose = campaignSuggestions.campaignPurpose;
+            enrichedCompanyInfo.serviceOffering = campaignSuggestions.serviceOffering;
+            updatedData.companyInfo = JSON.stringify(enrichedCompanyInfo);
+            
+            // Generate personalization hooks
+            const leadData = {
+              firstName: lead.firstName || "",
+              lastName: lead.lastName || "",
+              title: lead.title || "",
+              email: lead.email
+            };
+            
+            const personalizationHooks = await generatePersonalizationHooks(
+              leadData,
+              companyContext
+            );
+            
+            if (personalizationHooks && personalizationHooks.length > 0) {
+              updatedData.personalizationHooks = personalizationHooks;
+              
+              // Extract insights from personalization hooks (first 3 items)
+              updatedData.insights = personalizationHooks.slice(0, 3).map(hook => {
+                return hook.startsWith("Their ") ? hook : `They ${hook.toLowerCase().startsWith('are') ? hook : 'are ' + hook}`;
+              });
+            }
+          }
+        } catch (aiError) {
+          console.error("Error generating AI insights:", aiError);
+          // Continue with the scraped data even if AI enhancement fails
+        }
+        
+        // Update the enrichment data or create if doesn't exist
+        const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
+        
+        if (existingEnrichment) {
+          await storage.updateLeadEnrichment(leadId, updatedData);
+        } else {
+          await storage.addLeadEnrichment({
+            ...updatedData,
+            leadId,
+            projectHistory: "{}", // Initialize empty structures
+            emailHistory: "{}",
+            relationshipContext: [],
+            previousProposals: "{}"
+          });
+        }
+        
+      } catch (scrapingError) {
+        console.error(`Error during website scraping for ${lead.website}:`, scrapingError);
+        // Update lead with error status
+        await storage.updateLead(leadId, { enrichmentStatus: "error" });
+        return res.status(500).json({ 
+          error: "Failed to scrape website data", 
+          message: scrapingError.message 
         });
       }
       
@@ -356,7 +405,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       return res.status(200).json({ 
         success: true, 
-        message: "Lead enrichment data refreshed successfully",
+        message: "Lead enrichment data refreshed successfully using Apify scraping",
         enrichment
       });
     } catch (error) {
@@ -410,67 +459,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update lead enrichment status
         await storage.updateLead(leadId, { enrichmentStatus: "in_progress" });
         
-        // This would initiate web scraping in production
-        // For now, just update with placeholder data
-        
-        // Extract company context from website content
-        // Simulating updated data
-        const updatedData = {
-          companyInfo: JSON.stringify({
-            industry: "Technology",
-            employeeCount: "50-100",
-            location: "San Francisco, CA",
-            founded: "2015",
-            campaignPurpose: "Increase marketing automation capabilities",
-            serviceOffering: "Custom CRM integration services"
-          }),
-          techStack: JSON.stringify({
-            frontend: ["React", "NextJS", "TailwindCSS"],
-            backend: ["Node.js", "Express", "Python"],
-            database: ["PostgreSQL", "MongoDB"],
-            cloud: ["AWS", "Vercel"]
-          }),
-          recentEvents: JSON.stringify({
-            news: [
-              "Recently expanded to European markets",
-              "Launched new product line in Q2 2025",
-              "Acquired smaller competitor last month"
-            ],
-            blogPosts: [
-              "How We Improved Our Developer Experience",
-              "Case Study: Increasing Conversion Rates by 35%"
-            ]
-          }),
-          personalizationHooks: ["Recent expansion to Europe", "New product launch", "Technology adoption"],
-          insights: ["Looking to scale operations", "Investing in automation", "Growth phase"],
-          lastUpdated: new Date()
-        };
-        
-        // Update the enrichment data or create if doesn't exist
-        const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
-        
-        if (existingEnrichment) {
-          await storage.updateLeadEnrichment(leadId, updatedData);
-        } else {
-          await storage.addLeadEnrichment({
-            ...updatedData,
-            leadId,
-            projectHistory: "{}", // Initialize empty structures
-            emailHistory: "{}",
-            relationshipContext: [],
-            previousProposals: "{}"
+        try {
+          console.log(`Bulk refresh: Starting website scraping for ${lead.website}`);
+          
+          // Process website using Apify integration
+          const scrapingResult = await processWebsite(lead.website);
+          
+          console.log(`Bulk refresh: Successfully scraped website data for ${lead.website}`);
+          
+          // Convert scraped data to enrichment format
+          const updatedData = {
+            companyInfo: JSON.stringify({
+              industry: scrapingResult.companyInfo.industry || "Unknown",
+              employeeCount: scrapingResult.companyInfo.employeeCount || "Unknown",
+              location: scrapingResult.companyInfo.location || "Unknown",
+              founded: scrapingResult.companyInfo.founded || "Unknown",
+              description: scrapingResult.companyInfo.description || ""
+            }),
+            techStack: JSON.stringify(scrapingResult.techStack || {
+              frontend: [],
+              backend: [],
+              database: [],
+              cloud: []
+            }),
+            recentEvents: JSON.stringify({
+              news: scrapingResult.recentEvents.news || [],
+              blogPosts: scrapingResult.recentEvents.blogPosts || []
+            }),
+            personalizationHooks: [], 
+            insights: [],
+            lastUpdated: new Date()
+          };
+          
+          // Generate personalization hooks using OpenAI
+          try {
+            // Convert to CompanyContext format expected by OpenAI
+            const companyContext = convertToCompanyContext(
+              scrapingResult, 
+              lead.website, 
+              lead.company || "the company"
+            );
+            
+            // Generate campaign suggestions
+            const campaignSuggestions = await generateCampaignSuggestions(companyContext);
+            
+            if (campaignSuggestions) {
+              // Add suggested campaign purpose and service offering to enrichment data
+              const enrichedCompanyInfo = JSON.parse(updatedData.companyInfo);
+              enrichedCompanyInfo.campaignPurpose = campaignSuggestions.campaignPurpose;
+              enrichedCompanyInfo.serviceOffering = campaignSuggestions.serviceOffering;
+              updatedData.companyInfo = JSON.stringify(enrichedCompanyInfo);
+              
+              // Generate personalization hooks
+              const leadData = {
+                firstName: lead.firstName || "",
+                lastName: lead.lastName || "",
+                title: lead.title || "",
+                email: lead.email
+              };
+              
+              const personalizationHooks = await generatePersonalizationHooks(
+                leadData,
+                companyContext
+              );
+              
+              if (personalizationHooks && personalizationHooks.length > 0) {
+                updatedData.personalizationHooks = personalizationHooks;
+                
+                // Extract insights from personalization hooks (first 3 items)
+                updatedData.insights = personalizationHooks.slice(0, 3).map(hook => {
+                  return hook.startsWith("Their ") ? hook : `They ${hook.toLowerCase().startsWith('are') ? hook : 'are ' + hook}`;
+                });
+              }
+            }
+          } catch (aiError) {
+            console.error(`Error generating AI insights for lead ${leadId}:`, aiError);
+            // Continue with the scraped data even if AI enhancement fails
+          }
+          
+          // Update the enrichment data or create if doesn't exist
+          const existingEnrichment = (await storage.getLeadWithEnrichment(leadId)).enrichment;
+          
+          if (existingEnrichment) {
+            await storage.updateLeadEnrichment(leadId, updatedData);
+          } else {
+            await storage.addLeadEnrichment({
+              ...updatedData,
+              leadId,
+              projectHistory: "{}", // Initialize empty structures
+              emailHistory: "{}",
+              relationshipContext: [],
+              previousProposals: "{}"
+            });
+          }
+          
+          // Update lead enrichment status
+          await storage.updateLead(leadId, { enrichmentStatus: "complete" });
+          
+          results.push({ 
+            id: leadId, 
+            success: true, 
+            message: "Enrichment data refreshed successfully with Apify" 
+          });
+        } catch (scrapingError) {
+          console.error(`Error during website scraping for ${lead.website}:`, scrapingError);
+          // Update lead with error status
+          await storage.updateLead(leadId, { enrichmentStatus: "error" });
+          results.push({ 
+            id: leadId, 
+            success: false, 
+            message: `Failed to scrape website data: ${scrapingError.message}` 
           });
         }
-        
-        // Update lead enrichment status
-        await storage.updateLead(leadId, { enrichmentStatus: "complete" });
-        
-        results.push({ id: leadId, success: true, message: "Enrichment data refreshed successfully" });
       }
       
       return res.status(200).json({ 
         success: true, 
-        message: `Processed ${results.length} leads`,
+        message: `Processed ${results.length} leads with Apify integration`,
         results
       });
     } catch (error) {

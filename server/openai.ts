@@ -3,7 +3,7 @@ import OpenAI from "openai";
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "your-api-key" });
 
-interface CompanyContext {
+export interface CompanyContext {
   name: string;
   industry?: string;
   website?: string;
@@ -15,7 +15,7 @@ interface CompanyContext {
   serviceOffering?: string;
 }
 
-interface LeadContext {
+export interface LeadContext {
   firstName: string;
   lastName: string;
   title?: string;
@@ -421,7 +421,7 @@ export async function generateCampaignSuggestions(
 export async function generatePersonalizationHooks(
   leadData: LeadContext,
   companyData: CompanyContext,
-  noboxServices: string[]
+  noboxServices: string[] = []
 ): Promise<string[]> {
   const prompt = `
     Generate personalized conversation hooks for outreach to a potential client.
