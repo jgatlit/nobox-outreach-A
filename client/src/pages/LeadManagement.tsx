@@ -214,10 +214,25 @@ export default function LeadManagement() {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Lead Management</h2>
       </div>
-      
-      {/* Action buttons and search */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-        <div className="flex gap-2 order-2 sm:order-1 z-10">
+
+      {/* Lead management toolbar - separate search from buttons completely */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* Search */}
+        <div className="order-2 md:order-1">
+          <form onSubmit={handleSearch} className="relative w-full">
+            <Search className="w-5 h-5 text-neutral-400 absolute left-3 top-2.5" />
+            <Input
+              type="text"
+              placeholder="Search leads..."
+              className="pl-10 pr-4 py-2 w-full"
+              value={searchQuery}
+              onChange={handleInputChange}
+            />
+          </form>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex justify-end gap-3 order-1 md:order-2">
           {/* Add Lead Dialog */}
           <Dialog open={addLeadOpen} onOpenChange={setAddLeadOpen}>
             <DialogTrigger asChild>
@@ -431,17 +446,6 @@ export default function LeadManagement() {
             className="hidden"
           />
         </div>
-        
-        <form onSubmit={handleSearch} className="relative max-w-md w-full order-1 sm:order-2">
-          <Search className="w-5 h-5 text-neutral-400 absolute left-3 top-2.5" />
-          <Input
-            type="text"
-            placeholder="Search leads..."
-            className="pl-10 pr-4 py-2 w-full"
-            value={searchQuery}
-            onChange={handleInputChange}
-          />
-        </form>
       </div>
 
       {/* Search results indicator */}
