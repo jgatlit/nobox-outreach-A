@@ -1,9 +1,13 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
 import { generatePersonalizedEmail, generateMidjourneyPrompt } from "./openai";
+import { upload } from "./middleware/upload";
+import { importAsanaData, importGmailData } from "./importers";
+import path from "path";
+import fs from "fs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Lead Management Routes
@@ -479,6 +483,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Import routes for Asana and Gmail
+  
+  // Import Asana data in various formats (CSV, JSON, XML, MD)
+  app.post("/api/leads/:id/import/asana", upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      // Get file extension to determine file type
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      let fileType: 'csv' | 'json' | 'xml' | 'md';
+      
+      switch (fileExt) {
+        case '.csv':
+          fileType = 'csv';
+          break;
+        case '.json':
+          fileType = 'json';
+          break;
+        case '.xml':
+          fileType = 'xml';
+          break;
+        case '.md':
+          fileType = 'md';
+          break;
+        default:
+          return res.status(400).json({ error: "Unsupported file type. Supported types: CSV, JSON, XML, MD" });
+      }
+      
+      // Process the file and import the data
+      const result = await importAsanaData(file.path, fileType, leadId);
+      
+      // Clean up uploaded file
+      fs.unlinkSync(file.path);
+      
+      if (result.success) {
+        return res.status(200).json({ message: result.message });
+      } else {
+        return res.status(400).json({ error: result.message });
+      }
+    } catch (error) {
+      console.error(`Error importing Asana data for lead ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Failed to import Asana data" });
+    }
+  });
+  
+  // Import Gmail data in various formats (CSV, JSON, XML, MD)
+  app.post("/api/leads/:id/import/gmail", upload.single('file'), async (req: Request, res: Response) => {
+    try {
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      // Get file extension to determine file type
+      const fileExt = path.extname(file.originalname).toLowerCase();
+      let fileType: 'csv' | 'json' | 'xml' | 'md';
+      
+      switch (fileExt) {
+        case '.csv':
+          fileType = 'csv';
+          break;
+        case '.json':
+          fileType = 'json';
+          break;
+        case '.xml':
+          fileType = 'xml';
+          break;
+        case '.md':
+          fileType = 'md';
+          break;
+        default:
+          return res.status(400).json({ error: "Unsupported file type. Supported types: CSV, JSON, XML, MD" });
+      }
+      
+      // Process the file and import the data
+      const result = await importGmailData(file.path, fileType, leadId);
+      
+      // Clean up uploaded file
+      fs.unlinkSync(file.path);
+      
+      if (result.success) {
+        return res.status(200).json({ message: result.message });
+      } else {
+        return res.status(400).json({ error: result.message });
+      }
+    } catch (error) {
+      console.error(`Error importing Gmail data for lead ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Failed to import Gmail data" });
     }
   });
 

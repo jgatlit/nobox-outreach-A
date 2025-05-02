@@ -1,7 +1,7 @@
-import { parse as parseCsv } from 'papaparse';
+import Papa from 'papaparse';
 import { z } from 'zod';
-import { db } from '@/db';
-import { leadEnrichment } from '@/shared/schema';
+import { db } from '../../db';
+import { leadEnrichment } from '../../shared/schema';
 import fs from 'fs';
 import { eq } from 'drizzle-orm';
 
@@ -15,7 +15,7 @@ export async function parseImportFile(
     
     switch (fileType) {
       case 'csv':
-        const result = parseCsv(fileContent, {
+        const result = Papa.parse(fileContent, {
           header: true,
           skipEmptyLines: true,
         });
@@ -26,7 +26,7 @@ export async function parseImportFile(
       
       case 'xml':
         // Simple XML parsing - for production, use a dedicated XML parser
-        const xmlData = {};
+        const xmlData: Record<string, string> = {};
         // Extract content between tags using regex
         const tagMatches = fileContent.match(/<([^>]+)>([^<]+)<\/[^>]+>/g);
         if (tagMatches) {
@@ -41,12 +41,12 @@ export async function parseImportFile(
       
       case 'md':
         // Simple markdown parsing for structured data
-        const mdData = { sections: {} };
+        const mdData: { sections: Record<string, string>, header?: string } = { sections: {} };
         const sections = fileContent.split('## ');
         
         // Process the header section (without ##)
         if (sections[0] && !sections[0].startsWith('##')) {
-          mdData['header'] = sections[0].trim();
+          mdData.header = sections[0].trim();
         }
         
         // Process other sections
@@ -63,7 +63,7 @@ export async function parseImportFile(
       default:
         throw new Error(`Unsupported file type: ${fileType}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error parsing import file:', error);
     throw new Error(`Failed to parse ${fileType} file: ${error.message}`);
   }
@@ -79,7 +79,10 @@ export async function importAsanaData(
     const parsedData = await parseImportFile(filePath, fileType);
     
     // Process Asana data into our format
-    const projectHistory = {
+    const projectHistory: { 
+      pastProjects: Array<any>; 
+      currentProjects: Array<any>; 
+    } = {
       pastProjects: [],
       currentProjects: [],
     };
@@ -89,14 +92,14 @@ export async function importAsanaData(
       const projects = parsedData.data as any[];
       
       // Map CSV data to project structure
-      projects.forEach(project => {
+      projects.forEach((project: any) => {
         const projectData = {
           name: project.name || project.project_name || 'Unnamed Project',
           description: project.description || project.notes || '',
           status: project.status || 'unknown',
           completionDate: project.completion_date || project.completed_at || '',
-          keyOutcomes: project.key_outcomes ? project.key_outcomes.split(',').map(item => item.trim()) : [],
-          milestones: project.milestones ? project.milestones.split(',').map(item => item.trim()) : [],
+          keyOutcomes: project.key_outcomes ? project.key_outcomes.split(',').map((item: string) => item.trim()) : [],
+          milestones: project.milestones ? project.milestones.split(',').map((item: string) => item.trim()) : [],
         };
         
         // Add to past or current projects based on status
@@ -111,7 +114,7 @@ export async function importAsanaData(
       if (Array.isArray(parsedData.projects) || Array.isArray(parsedData.tasks)) {
         const projects = parsedData.projects || parsedData.tasks || [];
         
-        projects.forEach(project => {
+        projects.forEach((project: any) => {
           const projectData = {
             name: project.name || project.title || 'Unnamed Project',
             description: project.description || project.notes || '',
@@ -143,17 +146,17 @@ export async function importAsanaData(
       
       if (sections['Past Projects']) {
         const pastProjectsText = sections['Past Projects'];
-        const projectEntries = pastProjectsText.split('### ').filter(entry => entry.trim().length > 0);
+        const projectEntries = pastProjectsText.split('### ').filter((entry: string) => entry.trim().length > 0);
         
-        projectEntries.forEach(entry => {
+        projectEntries.forEach((entry: string) => {
           const lines = entry.split('\n');
           const name = lines[0].trim();
           let description = '';
           let status = 'completed';
           let completionDate = '';
-          const keyOutcomes = [];
+          const keyOutcomes: string[] = [];
           
-          lines.slice(1).forEach(line => {
+          lines.slice(1).forEach((line: string) => {
             if (line.startsWith('- Status:')) {
               status = line.replace('- Status:', '').trim();
             } else if (line.startsWith('- Completed:')) {
@@ -177,16 +180,16 @@ export async function importAsanaData(
       
       if (sections['Current Projects']) {
         const currentProjectsText = sections['Current Projects'];
-        const projectEntries = currentProjectsText.split('### ').filter(entry => entry.trim().length > 0);
+        const projectEntries = currentProjectsText.split('### ').filter((entry: string) => entry.trim().length > 0);
         
-        projectEntries.forEach(entry => {
+        projectEntries.forEach((entry: string) => {
           const lines = entry.split('\n');
           const name = lines[0].trim();
           let description = '';
           let status = 'in_progress';
-          const milestones = [];
+          const milestones: string[] = [];
           
-          lines.slice(1).forEach(line => {
+          lines.slice(1).forEach((line: string) => {
             if (line.startsWith('- Status:')) {
               status = line.replace('- Status:', '').trim();
             } else if (line.startsWith('- Description:')) {
@@ -239,7 +242,7 @@ export async function importAsanaData(
       success: true,
       message: `Successfully imported ${projectHistory.pastProjects.length} past projects and ${projectHistory.currentProjects.length} current projects from Asana for lead ${leadId}`
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error importing Asana data:', error);
     return {
       success: false,
@@ -258,7 +261,10 @@ export async function importGmailData(
     const parsedData = await parseImportFile(filePath, fileType);
     
     // Process email data into our format
-    const emailHistory = {
+    const emailHistory: {
+      recentThreads: Array<any>;
+      keyContacts: Array<string>;
+    } = {
       recentThreads: [],
       keyContacts: [],
     };
@@ -271,7 +277,7 @@ export async function importGmailData(
       const contacts = new Set<string>();
       
       // Map CSV data to email structure
-      emails.forEach(email => {
+      emails.forEach((email: any) => {
         const threadData = {
           topic: email.subject || email.topic || 'No Subject',
           summary: email.summary || email.body || email.content || 'No content',
@@ -284,7 +290,7 @@ export async function importGmailData(
         // Add contacts
         if (email.from) contacts.add(email.from);
         if (email.to) contacts.add(email.to);
-        if (email.cc) email.cc.split(',').forEach(cc => contacts.add(cc.trim()));
+        if (email.cc) email.cc.split(',').forEach((cc: string) => contacts.add(cc.trim()));
       });
       
       emailHistory.keyContacts = Array.from(contacts);
@@ -295,7 +301,7 @@ export async function importGmailData(
         const emails = parsedData.emails || parsedData.threads || [];
         const contacts = new Set<string>();
         
-        emails.forEach(email => {
+        emails.forEach((email: any) => {
           const threadData = {
             topic: email.subject || email.topic || 'No Subject',
             summary: email.summary || email.body || email.content || 'No content',
@@ -309,7 +315,7 @@ export async function importGmailData(
           if (email.from) contacts.add(email.from);
           if (email.to) contacts.add(email.to);
           if (email.cc && Array.isArray(email.cc)) {
-            email.cc.forEach(cc => contacts.add(cc));
+            email.cc.forEach((cc: string) => contacts.add(cc));
           }
         });
         
@@ -328,17 +334,17 @@ export async function importGmailData(
       const sections = parsedData.sections;
       
       if (sections['Email Threads']) {
-        const threadsText = sections['Email Threads'];
-        const threadEntries = threadsText.split('### ').filter(entry => entry.trim().length > 0);
+        const emailThreadsText = sections['Email Threads'];
+        const threadEntries = emailThreadsText.split('### ').filter((entry: string) => entry.trim().length > 0);
         
-        threadEntries.forEach(entry => {
+        threadEntries.forEach((entry: string) => {
           const lines = entry.split('\n');
           const topic = lines[0].trim();
           let summary = '';
           let sentiment = 'neutral';
           let date = new Date().toISOString();
           
-          lines.slice(1).forEach(line => {
+          lines.slice(1).forEach((line: string) => {
             if (line.startsWith('- Summary:')) {
               summary = line.replace('- Summary:', '').trim();
             } else if (line.startsWith('- Sentiment:')) {
@@ -359,10 +365,13 @@ export async function importGmailData(
       
       if (sections['Key Contacts']) {
         const contactsText = sections['Key Contacts'];
-        emailHistory.keyContacts = contactsText
-          .split('\n')
-          .filter(line => line.trim().startsWith('-'))
-          .map(line => line.replace('-', '').trim());
+        const contactLines = contactsText.split('\n');
+        
+        contactLines.forEach((line: string) => {
+          if (line.startsWith('- ')) {
+            emailHistory.keyContacts.push(line.replace('- ', '').trim());
+          }
+        });
       }
     }
     
@@ -397,9 +406,9 @@ export async function importGmailData(
     
     return {
       success: true,
-      message: `Successfully imported ${emailHistory.recentThreads.length} email threads and ${emailHistory.keyContacts.length} key contacts for lead ${leadId}`
+      message: `Successfully imported ${emailHistory.recentThreads.length} email threads and ${emailHistory.keyContacts.length} key contacts from Gmail for lead ${leadId}`
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error importing Gmail data:', error);
     return {
       success: false,
