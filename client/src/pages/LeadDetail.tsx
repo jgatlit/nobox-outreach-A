@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle } from "lucide-react";
+import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertTriangle, CheckCircle, ArrowUp, Flag } from "lucide-react";
 
 // Lazy-load the EmailGeneratorForm to avoid circular imports
 const EmailGeneratorForm = React.lazy(() => import("@/components/LeadManagement/EmailGeneratorFormWrapped"));
@@ -76,6 +76,7 @@ export default function LeadDetail() {
 
   const { bg: sourceBg, text: sourceText } = getSourceBadgeColor(lead.source);
   const { bg: statusBg, text: statusText } = getStatusColor(lead.status);
+  const { bg: priorityBg, text: priorityText, icon: priorityIcon } = getPriorityColors(lead.priority);
 
   return (
     <main className="p-6 overflow-auto h-[calc(100vh-64px)]">
@@ -107,6 +108,11 @@ export default function LeadDetail() {
                 <Badge variant="outline" className={`${statusBg} ${statusText}`}>
                   {lead.status}
                 </Badge>
+                {lead.priority && (
+                  <Badge variant="outline" className={`${priorityBg} ${priorityText}`}>
+                    {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
+                  </Badge>
+                )}
               </div>
               
               <div className="space-y-3">
@@ -194,6 +200,42 @@ export default function LeadDetail() {
                   </div>
                 )}
               </div>
+              
+              {/* Priority Information */}
+              {lead.priority && (
+                <>
+                  <Separator className="my-4" />
+                  <div>
+                    <div className="flex items-center mb-2">
+                      <Flag className={`h-5 w-5 ${priorityIcon} mr-2`} />
+                      <p className="text-sm font-medium">Priority Information</p>
+                    </div>
+                    <div className="bg-neutral-50 p-3 rounded-md border border-neutral-200">
+                      <div className="flex items-center mb-2">
+                        <span className={`inline-block w-3 h-3 rounded-full ${getPriorityColors(lead.priority).indicator} mr-2`}></span>
+                        <span className={`text-sm font-medium ${priorityText}`}>
+                          {lead.priority.charAt(0).toUpperCase() + lead.priority.slice(1)} Priority
+                        </span>
+                      </div>
+                      {lead.priorityReason && (
+                        <p className="text-sm text-neutral-600 mb-2">
+                          <span className="font-medium">Reason:</span> {lead.priorityReason}
+                        </p>
+                      )}
+                      {lead.priorityScore && (
+                        <p className="text-sm text-neutral-600 mb-2">
+                          <span className="font-medium">Score:</span> {lead.priorityScore}/100
+                        </p>
+                      )}
+                      {lead.priorityUpdatedAt && (
+                        <p className="text-xs text-neutral-500">
+                          Last updated {formatDate(lead.priorityUpdatedAt)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
               
               {lead.notes && (
                 <>
