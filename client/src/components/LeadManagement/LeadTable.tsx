@@ -44,6 +44,59 @@ export function LeadTable({ data }: LeadTableProps = {}) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   
+  // Function to handle bulk delete of leads
+  const handleBulkDelete = async () => {
+    if (selectedLeadIds.length === 0) {
+      toast({
+        title: "No leads selected",
+        description: "Please select at least one lead to delete.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsDeleting(true);
+    
+    try {
+      const response = await fetch(`/api/leads/bulk-delete`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ leadIds: selectedLeadIds })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete leads");
+      }
+      
+      const result = await response.json();
+      
+      // Invalidate queries to refresh the data
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      
+      toast({
+        title: "Success",
+        description: result.message || `Successfully deleted selected lead(s)`,
+        variant: "default"
+      });
+      
+      // Clear selection after successful delete
+      setSelectedLeadIds([]);
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      console.error("Error deleting leads:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete leads",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  
   // Function to handle bulk refresh of leads
   const handleBulkRefresh = async () => {
     if (selectedLeadIds.length === 0) {
@@ -338,25 +391,47 @@ export function LeadTable({ data }: LeadTableProps = {}) {
       <div className="p-4 border-b border-neutral-200 flex justify-between items-center">
         <div className="flex items-center gap-2">
           {selectedLeadIds.length > 0 && (
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={handleBulkRefresh}
-              disabled={isRefreshing}
-              className="flex items-center gap-2"
-            >
-              {isRefreshing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Refreshing {selectedLeadIds.length} lead(s)...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh {selectedLeadIds.length} selected lead(s)
-                </>
-              )}
-            </Button>
+            <>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleBulkRefresh}
+                disabled={isRefreshing || isDeleting}
+                className="flex items-center gap-2"
+              >
+                {isRefreshing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Refreshing {selectedLeadIds.length} lead(s)...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh {selectedLeadIds.length} selected
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={isRefreshing || isDeleting}
+                className="flex items-center gap-2 bg-red-50 border-red-200 hover:bg-red-100 text-red-600"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Delete {selectedLeadIds.length} selected
+                  </>
+                )}
+              </Button>
+            </>
           )}
         </div>
         <div>
@@ -383,6 +458,47 @@ export function LeadTable({ data }: LeadTableProps = {}) {
           onOpenChange={setIsEditModalOpen}
         />
       )}
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              Confirm Deletion
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedLeadIds.length} lead{selectedLeadIds.length !== 1 ? 's' : ''}? 
+              This action cannot be undone and all associated data will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              disabled={isDeleting}
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                handleBulkDelete();
+              }}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                <>Delete</>  
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
