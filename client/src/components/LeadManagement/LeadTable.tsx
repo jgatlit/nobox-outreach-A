@@ -19,7 +19,11 @@ const LEAD_SEGMENTS = [
   { value: "linkedin", label: "LinkedIn" },
 ];
 
-export function LeadTable() {
+interface LeadTableProps {
+  data?: any[];
+}
+
+export function LeadTable({ data }: LeadTableProps = {}) {
   const [segment, setSegment] = React.useState("active");
   const [, navigate] = useLocation();
   const [currentLead, setCurrentLead] = useState<any>(null);
@@ -102,18 +106,21 @@ export function LeadTable() {
   
   // Handle select all checkbox
   const toggleSelectAll = () => {
-    if (leads && leads.length > 0) {
-      if (selectedLeadIds.length === leads.length) {
+    // Use data prop if provided, otherwise use fetchedLeads
+    const currentLeads = data || fetchedLeads;
+    if (currentLeads && currentLeads.length > 0) {
+      if (selectedLeadIds.length === currentLeads.length) {
         // If all are selected, unselect all
         setSelectedLeadIds([]);
       } else {
         // Otherwise, select all
-        setSelectedLeadIds(leads.map(lead => lead.id));
+        setSelectedLeadIds(currentLeads.map(lead => lead.id));
       }
     }
   };
 
-  const { data: leads, isLoading } = useQuery({
+  // Fetch leads if not provided via props
+  const { data: fetchedLeads, isLoading } = useQuery({
     queryKey: ['/api/leads', segment],
     queryFn: async ({ queryKey }) => {
       const [_, segment] = queryKey;
@@ -125,6 +132,9 @@ export function LeadTable() {
     },
   });
 
+  // Use data prop if provided, otherwise use fetchedLeads
+  const currentLeads = data || fetchedLeads;
+  
   const columns = [
     {
       key: "priority_indicator",
@@ -161,7 +171,7 @@ export function LeadTable() {
           <input
             type="checkbox"
             className="h-4 w-4 text-primary-600 border-neutral-300 rounded"
-            checked={leads?.length > 0 && selectedLeadIds.length === leads.length}
+            checked={currentLeads?.length > 0 && selectedLeadIds.length === currentLeads?.length}
             onChange={toggleSelectAll}
           />
         </div>
@@ -338,20 +348,17 @@ export function LeadTable() {
           )}
         </div>
         <div>
-          <Button variant="outline" size="sm" className="ml-2">
-            <Edit className="h-4 w-4 mr-2" />
-            Add Lead
-          </Button>
+          {/* This button is for legacy UI, actual button is now in the parent LeadManagement component */}
         </div>
       </div>
 
       <DataTable
         columns={columns}
-        data={leads || []}
+        data={currentLeads || []}
         rowKey="id"
         pagination={true}
         itemsPerPage={10}
-        isLoading={isLoading}
+        isLoading={!data && isLoading}
         actions={actions}
         emptyMessage={`No ${segment} leads found.`}
       />
