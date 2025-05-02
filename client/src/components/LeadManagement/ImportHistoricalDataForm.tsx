@@ -21,6 +21,7 @@ export function ImportHistoricalDataForm({ leadId }: ImportHistoricalDataFormPro
   const [importSuccess, setImportSuccess] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importType, setImportType] = useState<'asana' | 'gmail'>('asana');
+  const [loadingSample, setLoadingSample] = useState(false);
   
   // Fetch lead enrichment data to display historical context
   const { data: enrichmentData, isLoading: isLoadingEnrichment } = useQuery({
@@ -34,6 +35,24 @@ export function ImportHistoricalDataForm({ leadId }: ImportHistoricalDataFormPro
     },
     enabled: !!leadId,
   });
+  
+  // Function to load sample historical data
+  const loadSampleData = async () => {
+    setLoadingSample(true);
+    try {
+      const response = await fetch(`/api/leads/${leadId}?addHistoricalData=true`);
+      if (!response.ok) {
+        throw new Error("Failed to load sample data");
+      }
+      await queryClient.invalidateQueries({ queryKey: [`/api/leads/${leadId}`] });
+      setImportSuccess(true);
+    } catch (error) {
+      console.error('Error loading sample data:', error);
+      setImportError((error as Error).message || 'Failed to load sample data');
+    } finally {
+      setLoadingSample(false);
+    }
+  };
 
   const handleImport = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -79,6 +98,26 @@ export function ImportHistoricalDataForm({ leadId }: ImportHistoricalDataFormPro
 
   return (
     <div className="space-y-4">
+      {/* Button to load sample data */}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-md font-medium">Historical Context</h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={loadSampleData}
+          disabled={loadingSample}
+        >
+          {loadingSample ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading sample data...
+            </>
+          ) : (
+            <>Load Sample Data</>
+          )}
+        </Button>
+      </div>
+      
       <Tabs defaultValue="asana" onValueChange={(value) => setImportType(value as 'asana' | 'gmail')}>
         <TabsList className="mb-4">
           <TabsTrigger value="asana">

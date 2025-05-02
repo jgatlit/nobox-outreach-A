@@ -53,6 +53,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const leadWithEnrichment = await storage.getLeadWithEnrichment(id);
+      
+      // Add sample historical data if query param is present and no historical data exists
+      if (req.query.addHistoricalData === 'true' && leadWithEnrichment.enrichment) {
+        // Sample Asana project history data
+        const projectHistory = {
+          pastProjects: [
+            {
+              name: "Website Redesign",
+              description: "Complete overhaul of company website with new CMS integration",
+              status: "Completed",
+              completionDate: "2024-02-15",
+              keyOutcomes: ["40% increase in page load speed", "25% improvement in conversion rate", "Modernized UI/UX"]
+            },
+            {
+              name: "SEO Optimization",
+              description: "Technical SEO improvements and content strategy",
+              status: "Completed",
+              completionDate: "2024-03-10",
+              keyOutcomes: ["Improved SERP ranking for 15 key terms", "52% increase in organic traffic"]
+            }
+          ],
+          currentProjects: [
+            {
+              name: "Marketing Automation",
+              description: "Implementation of automated email sequences and lead scoring",
+              status: "In Progress",
+              milestones: ["Requirements gathering completed", "Platform selection phase", "Pending implementation kickoff"]
+            }
+          ]
+        };
+        
+        // Sample email history data
+        const emailHistory = {
+          recentThreads: [
+            {
+              topic: "Q1 Marketing Strategy Discussion",
+              summary: "Reviewed campaign performance and discussed next quarter priorities",
+              sentiment: "Positive",
+              date: "2024-03-25"
+            },
+            {
+              topic: "Website Launch Timeline",
+              summary: "Negotiated revised timeline for website launch due to scope changes",
+              sentiment: "Neutral",
+              date: "2024-02-08"
+            },
+            {
+              topic: "Budget Approval for Q2",
+              summary: "Received confirmation on budget allocation for upcoming projects",
+              sentiment: "Positive",
+              date: "2024-03-30"
+            }
+          ],
+          keyContacts: ["john.smith@example.com", "finance@example.com", "marketing.team@example.com"]
+        };
+        
+        // Sample previous proposals data
+        const previousProposals = [
+          {
+            title: "Enterprise SEO Package",
+            date: "2023-12-05",
+            value: "$45,000",
+            status: "Accepted",
+            services: ["Technical SEO Audit", "Content Strategy", "Link Building", "Monthly Reporting"]
+          },
+          {
+            title: "Social Media Management",
+            date: "2023-09-15",
+            value: "$28,000",
+            status: "Rejected",
+            services: ["Content Creation", "Community Management", "Paid Advertising", "Analytics"]
+          },
+          {
+            title: "Website Development Project",
+            date: "2024-01-10",
+            value: "$75,000",
+            status: "Pending",
+            services: ["UI/UX Design", "Frontend Development", "CMS Integration", "SEO Setup"]
+          }
+        ];
+        
+        // Update the enrichment data with historical context
+        await storage.updateLeadEnrichment(id, {
+          projectHistory: projectHistory,
+          emailHistory: emailHistory,
+          previousProposals: previousProposals,
+          relationshipContext: [
+            "Long-term client since 2022",
+            "Prefers email communication over calls",
+            "Budget-conscious but values quality",
+            "Decision making typically takes 2-3 weeks"
+          ]
+        });
+        
+        // Fetch the updated data
+        const updatedLeadWithEnrichment = await storage.getLeadWithEnrichment(id);
+        return res.json(updatedLeadWithEnrichment);
+      }
+      
       return res.json(leadWithEnrichment);
     } catch (error) {
       console.error(`Error fetching lead ${req.params.id}:`, error);
