@@ -27,6 +27,41 @@ interface StyleOptions {
   emailLength?: 'short' | 'medium' | 'long';
 }
 
+interface HistoricalContext {
+  projectHistory?: {
+    pastProjects?: Array<{
+      name: string;
+      description?: string;
+      status: string;
+      completionDate?: string;
+      keyOutcomes?: string[];
+    }>;
+    currentProjects?: Array<{
+      name: string;
+      description?: string;
+      status: string;
+      milestones?: string[];
+    }>;
+  };
+  emailHistory?: {
+    recentThreads?: Array<{
+      topic: string;
+      summary: string;
+      sentiment?: string;
+      date: string;
+    }>;
+    keyContacts?: string[];
+  };
+  previousProposals?: Array<{
+    title: string;
+    date: string;
+    value?: string;
+    status: string;
+    services: string[];
+  }>;
+  relationshipContext?: string[];
+}
+
 interface EmailGenerationParams {
   lead: LeadContext;
   company: CompanyContext;
@@ -36,6 +71,9 @@ interface EmailGenerationParams {
   callToAction?: string;
   previousEmails?: string[];
   styleOptions?: StyleOptions;
+  // New field for historical context
+  historicalContext?: HistoricalContext;
+  useHistoricalContext?: boolean;
 }
 
 interface MidjourneyPromptParams {
@@ -59,7 +97,9 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     serviceOffering, 
     previousEmails,
     callToAction,
-    styleOptions = {} 
+    styleOptions = {},
+    historicalContext,
+    useHistoricalContext = false
   } = params;
   
   const { 
@@ -100,6 +140,56 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
   const callToActionText = callToAction 
     ? `Use this specific call-to-action: ${callToAction}`
     : "Include a clear and compelling call-to-action";
+    
+  // Process historical context if available and enabled
+  let historicalContextSection = "";
+  if (useHistoricalContext && historicalContext) {
+    let contextParts = [];
+    
+    // Add project history context
+    if (historicalContext.projectHistory) {
+      const { pastProjects, currentProjects } = historicalContext.projectHistory;
+      
+      if (pastProjects && pastProjects.length > 0) {
+        const pastProjectsText = pastProjects.map(project => {
+          return `${project.name} (${project.status}): ${project.description || ""}${project.keyOutcomes ? ` - Outcomes: ${project.keyOutcomes.join(", ")}` : ""}`;
+        }).join("\n");
+        contextParts.push(`Past projects:\n${pastProjectsText}`);
+      }
+      
+      if (currentProjects && currentProjects.length > 0) {
+        const currentProjectsText = currentProjects.map(project => {
+          return `${project.name} (${project.status}): ${project.description || ""}${project.milestones ? ` - Milestones: ${project.milestones.join(", ")}` : ""}`;
+        }).join("\n");
+        contextParts.push(`Current projects:\n${currentProjectsText}`);
+      }
+    }
+    
+    // Add email history context
+    if (historicalContext.emailHistory && historicalContext.emailHistory.recentThreads) {
+      const emailThreads = historicalContext.emailHistory.recentThreads.map(thread => {
+        return `${thread.date} - ${thread.topic}: ${thread.summary}${thread.sentiment ? ` (${thread.sentiment})` : ""}`;
+      }).join("\n");
+      contextParts.push(`Recent email conversations:\n${emailThreads}`);
+    }
+    
+    // Add previous proposals context
+    if (historicalContext.previousProposals && historicalContext.previousProposals.length > 0) {
+      const proposalsText = historicalContext.previousProposals.map(proposal => {
+        return `${proposal.date} - ${proposal.title} (${proposal.status})${proposal.value ? ` - Value: ${proposal.value}` : ""} - Services: ${proposal.services.join(", ")}`;
+      }).join("\n");
+      contextParts.push(`Previous proposals:\n${proposalsText}`);
+    }
+    
+    // Add relationship context
+    if (historicalContext.relationshipContext && historicalContext.relationshipContext.length > 0) {
+      contextParts.push(`Relationship context:\n- ${historicalContext.relationshipContext.join("\n- ")}`);
+    }
+    
+    if (contextParts.length > 0) {
+      historicalContextSection = `\nHistorical Relationship Context:\n${contextParts.join("\n\n")}\n`;
+    }
+  }
   
   const prompt = `
     Generate a personalized outreach email to ${lead.firstName} ${lead.lastName}, ${lead.title || "a decision maker"} at ${company.name}.
@@ -114,6 +204,7 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     
     ${hooksContext}
     ${previousEmailsContext}
+    ${historicalContextSection}
     
     Campaign purpose: ${campaignPurpose}
     Service offering: ${serviceOffering}
@@ -125,6 +216,7 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     - Email length: ${wordCount} words
     - ${callToActionText}
     - Reference one specific personalization hook or recent company event
+    ${useHistoricalContext ? "- Reference relevant past projects or interactions when appropriate" : ""}
     - Don't be too salesy or pushy
     - Don't use generic phrases like "I hope this email finds you well"
     

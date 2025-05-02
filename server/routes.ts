@@ -194,7 +194,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subjectLineStyle = "direct",
         emailLength = "medium",
         callToAction = "",
-        styleParams = {}
+        styleParams = {},
+        // New parameters for historical context
+        useHistoricalContext = false,
+        includeProjectHistory = true,
+        includeEmailHistory = true,
+        includeProposalHistory = true
       } = req.body;
       
       if (!campaignPurpose || !serviceOffering) {
