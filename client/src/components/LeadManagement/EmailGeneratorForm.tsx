@@ -27,6 +27,7 @@ const formSchema = z.object({
   customHooks: z.string().optional(),
   includeRecentEvents: z.boolean().default(true),
   subjectLineStyle: z.string().default("direct"),
+  attentionHookStyle: z.string().default("curiosity"),
   emailLength: z.string().default("medium"),
   callToAction: z.string().min(5, "Call to action is required").optional(),
   // Historical context fields
@@ -51,6 +52,14 @@ const subjectLineOptions = [
   { value: "question", label: "Question" },
   { value: "benefit", label: "Value/Benefit" },
   { value: "curiosity", label: "Curiosity" },
+];
+
+const attentionHookOptions = [
+  { value: "curiosity", label: "Curiosity - Break expectations, create intrigue" },
+  { value: "ego-trigger", label: "Ego Trigger - Novel, personalized praise" },
+  { value: "open-loop", label: "Open Loop - Create unanswered questions" },
+  { value: "hyper-relevance", label: "Hyper Relevance - Show specific research" },
+  { value: "pattern-break", label: "Pattern Break - Flip the script" },
 ];
 
 const lengthOptions = [

@@ -25,6 +25,7 @@ interface StyleOptions {
   formality?: number; // 1-5 scale
   subjectLineStyle?: 'direct' | 'question' | 'benefit' | 'curiosity';
   emailLength?: 'short' | 'medium' | 'long';
+  attentionHookStyle?: 'curiosity' | 'ego-trigger' | 'open-loop' | 'hyper-relevance' | 'pattern-break';
 }
 
 interface HistoricalContext {
@@ -106,7 +107,8 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     tone = 'professional', 
     formality = 3, 
     subjectLineStyle = 'direct',
-    emailLength = 'medium' 
+    emailLength = 'medium',
+    attentionHookStyle = 'curiosity'
   } = styleOptions;
   
   // Map email length to word count
@@ -192,7 +194,7 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
   }
   
   const prompt = `
-    Generate a personalized outreach email to ${lead.firstName} ${lead.lastName}, ${lead.title || "a decision maker"} at ${company.name}.
+    You are an expert cold outreach strategist and copywriter, following the Jordan Platten attention-first, psychology-driven methodology. Generate a personalized outreach email to ${lead.firstName} ${lead.lastName}, ${lead.title || "a decision maker"} at ${company.name}.
     
     About them:
     - Company: ${company.name}
@@ -209,18 +211,43 @@ export async function generatePersonalizedEmail(params: EmailGenerationParams): 
     Campaign purpose: ${campaignPurpose}
     Service offering: ${serviceOffering}
     
-    Email Style Guidelines:
+    ATTENTION HOOK GUIDELINES (MOST IMPORTANT):
+    - Use a "${attentionHookStyle}" style attention hook in the first 1-2 lines
+    - The hook's purpose is to earn the right to be read by breaking patterns and creating intrigue
+    - The hook should bypass the recipient's mental filter (<2-seconds) to avoid immediate deletion
+    - Do not sell or explain in the hook - its only purpose is to create curiosity
+    - For "curiosity" hooks: Break expectations, leave them needing more context
+    - For "ego-trigger" hooks: Use personalized, novel praise that signals you've done homework
+    - For "open-loop" hooks: Leave something unsaid that creates a need for closure (Zeigarnik Effect)
+    - For "hyper-relevance" hooks: Demonstrate specific research on their company/industry/achievements
+    - For "pattern-break" hooks: Flip the script, do the opposite of what's expected in cold emails
+    
+    EMAIL STRUCTURE GUIDELINES:
+    - Subject line style: ${subjectLineStyle}
+    - Create a compelling subject line that aligns with the attention hook style
+    - After the hook, build context and credibility that flows naturally from the hook
+    - Make the email feel relevant to the recipient's specific situation
+    - Use locality references where possible to create a mental image of a real person nearby
+    - Incorporate specific personalization showing you've done homework on them/their company
+    - Avoid robotic language; build subconscious trust and social pressure to reply
     - Tone: ${tone}
     - Formality: ${formalityDescription} (${formality}/5)
-    - Subject line style: ${subjectLineStyle}
     - Email length: ${wordCount} words
     - ${callToActionText}
+    
+    PERSONALIZATION GUIDELINES:
     - Reference one specific personalization hook or recent company event
     ${useHistoricalContext ? "- Reference relevant past projects or interactions when appropriate" : ""}
-    - Don't be too salesy or pushy
-    - Don't use generic phrases like "I hope this email finds you well"
+    - Focus personalization on them, not just what we do
     
-    Output format: Respond with JSON that includes a "subject" field and a "body" field. Do not include any markdown formatting, HTML, or code blocks.
+    AVOID COMPLETELY:
+    - Generic openings like "Hope you're well" or "Just reaching out"
+    - Clichéd or obviously fake personalization
+    - Premature direct offers before establishing curiosity
+    - Anything that screams low-effort automation
+    - Being overly salesy or pushy
+    
+    Output format: Respond with JSON that includes a "subject" field and a "body" field. The email should feel individually crafted for this specific recipient. Do not include any markdown formatting, HTML, or code blocks.
   `;
 
   try {
