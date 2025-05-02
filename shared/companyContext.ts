@@ -102,7 +102,7 @@ export const companyContext = {
 
 ---
 
-**Key Strategic Emphases:**
+// Key Strategic Emphases:
 - nobox creatives is not only an automation and AI consultancy but a full-spectrum digital partner, delivering web design and digital marketing as foundational elements of the modern B2B sales pipeline.
 - Their approach ensures that every client’s online presence is optimized for both discoverability and conversion, tightly integrating AI-driven automation with high-impact digital marketing and web experiences.
 - This unified strategy empowers SMBs to achieve faster, higher-quality lead generation and pipeline advancement, with measurable ROI and sustainable competitive advantage.
