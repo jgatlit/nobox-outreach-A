@@ -90,6 +90,7 @@ export function EmailGeneratorForm({ leadId, lead, enrichment }: EmailGeneratorF
       usePersonalizedHooks: true,
       includeRecentEvents: true,
       subjectLineStyle: "direct",
+      attentionHookStyle: "curiosity",
       emailLength: "medium",
       callToAction: "Would you be available for a 15-minute call next week to discuss this further?",
       // Historical context defaults
@@ -110,6 +111,7 @@ export function EmailGeneratorForm({ leadId, lead, enrichment }: EmailGeneratorF
           formality: values.formality,
           includeRecentEvents: values.includeRecentEvents,
           subjectLineStyle: values.subjectLineStyle,
+          attentionHookStyle: values.attentionHookStyle,
           emailLength: values.emailLength,
         }
       };
@@ -361,6 +363,37 @@ export function EmailGeneratorForm({ leadId, lead, enrichment }: EmailGeneratorF
                       </Select>
                       <FormDescription>
                         The preferred length of the email content.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="attentionHookStyle"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Attention Hook Style</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select hook style" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {attentionHookOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Psychological strategy for the first 1-2 lines to capture attention.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
