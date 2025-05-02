@@ -177,9 +177,9 @@ export function BulkImportModal() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-primary-600 text-white hover:bg-primary-700">
+        <Button className="bg-white text-black border border-gray-200 hover:bg-gray-50">
           <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Bulk Import CSV
+          Import CSV
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
