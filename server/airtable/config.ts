@@ -11,8 +11,11 @@ export const airtableConfig = {
     {
       id: process.env.AIRTABLE_BASE_ID || '',
       tables: [
-        // Add your table names here
-        // Example: 'Leads', 'Companies', 'Projects'
+        'Leads',
+        'Companies',
+        'Projects',
+        'EmailTemplates',
+        'Campaigns'
       ]
     }
   ],

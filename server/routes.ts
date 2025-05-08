@@ -7,6 +7,7 @@ import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSu
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
+import { isAirtableConfigured, searchRecords, listRecords, createRecord, updateRecord, deleteRecord } from "./airtable";
 import path from "path";
 import fs from "fs";
 
