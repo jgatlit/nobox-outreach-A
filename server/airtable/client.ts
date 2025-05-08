@@ -33,8 +33,8 @@ try {
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     log('Airtable not configured. Add AIRTABLE_API_KEY and AIRTABLE_BASE_ID to use Airtable integration.', 'airtable');
   } else {
-    // Initialize with ES module import
-    airtableInstance = airtableLib;
+    // Initialize with ES module import correctly - airtableLib is a constructor function
+    airtableInstance = new airtableLib({ apiKey: process.env.AIRTABLE_API_KEY });
     log('Airtable package loaded successfully', 'airtable');
   }
 } catch (error: any) {
@@ -57,7 +57,7 @@ airtableClient = {
     }
     
     try {
-      const base = airtableInstance({ apiKey }).base(baseId);
+      const base = airtableInstance.base(baseId);
       const records = await base(tableName).select(options).all();
       return records.map((r: any) => ({ id: r.id, fields: r.fields }));
     } catch (error: any) {
@@ -75,7 +75,7 @@ airtableClient = {
       throw new Error('Airtable client not initialized');
     }
     
-    const base = airtableInstance({ apiKey }).base(baseId);
+    const base = airtableInstance.base(baseId);
     const record = await base(tableName).create(fields);
     return { id: record.id, fields: record.fields };
   },
@@ -89,7 +89,7 @@ airtableClient = {
       throw new Error('Airtable client not initialized');
     }
     
-    const base = airtableInstance({ apiKey }).base(baseId);
+    const base = airtableInstance.base(baseId);
     const record = await base(tableName).update(recordId, fields);
     return { id: record.id, fields: record.fields };
   },
@@ -103,7 +103,7 @@ airtableClient = {
       throw new Error('Airtable client not initialized');
     }
     
-    const base = airtableInstance({ apiKey }).base(baseId);
+    const base = airtableInstance.base(baseId);
     await base(tableName).destroy(recordId);
     return { id: recordId, deleted: true };
   }
