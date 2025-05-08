@@ -5,17 +5,54 @@
  * It uses environment variables for sensitive information like API keys.
  */
 
+// Define table interface for better typing
+interface AirtableTable {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+// Define base interface
+interface AirtableBase {
+  id: string;
+  name?: string;
+  description?: string;
+  tables: AirtableTable[];
+}
+
 export const airtableConfig = {
   apiKey: process.env.AIRTABLE_API_KEY,
   bases: [
     {
       id: process.env.AIRTABLE_BASE_ID || '',
+      name: 'noboxLeadGen',
+      description: 'Database for lead generation and management',
       tables: [
-        'Leads',
-        'Companies',
-        'Projects',
-        'EmailTemplates',
-        'Campaigns'
+        {
+          id: 'Leads',
+          name: 'Leads',
+          description: 'Prospect and lead contact information'
+        },
+        {
+          id: 'Companies',
+          name: 'Companies',
+          description: 'Company profile information'
+        },
+        {
+          id: 'Projects',
+          name: 'Projects',
+          description: 'Project details and history'
+        },
+        {
+          id: 'EmailTemplates',
+          name: 'Email Templates',
+          description: 'Email templates for outreach campaigns'
+        },
+        {
+          id: 'Campaigns',
+          name: 'Campaigns',
+          description: 'Marketing and outreach campaigns'
+        }
       ]
     }
   ],
