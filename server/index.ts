@@ -40,7 +40,22 @@ app.use((req, res, next) => {
 (async () => {
   // Start the Airtable MCP server if configured
   if (isAirtableConfigured()) {
-    await startAirtableServer();
+    log('Airtable environment variables detected, initializing MCP server...', 'airtable');
+    try {
+      const serverStatus = await startAirtableServer();
+      log(`Airtable MCP server status: ${JSON.stringify(serverStatus)}`, 'airtable');
+      
+      if (serverStatus?.status === 'running') {
+        log(`Successfully started Airtable MCP server on port ${serverStatus.port}`, 'airtable');
+      } else if (serverStatus?.status === 'fallback_to_direct_client') {
+        log('Using direct Airtable client due to MCP server initialization failure', 'airtable');
+        log(`MCP server error: ${serverStatus.error}`, 'airtable');
+      } else {
+        log(`Unexpected Airtable server status: ${serverStatus?.status || 'unknown'}`, 'airtable');
+      }
+    } catch (error: any) {
+      log(`Error initializing Airtable MCP server: ${error?.message || 'Unknown error'}`, 'airtable');
+    }
   } else {
     log('Airtable not configured. Add AIRTABLE_API_KEY and AIRTABLE_BASE_ID to use Airtable integration.', 'airtable');
   }

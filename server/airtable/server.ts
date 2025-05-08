@@ -25,23 +25,39 @@ export async function startAirtableServer() {
       return null;
     }
 
-    // We'll use a direct Airtable client instead of the MCP server initially
-    // to avoid initialization issues
-    log('Airtable credentials found. Using direct Airtable API client.', 'airtable');
+    // Adding enhanced diagnostics for Airtable MCP server
+    log('Airtable credentials found. Activating MCP server...', 'airtable');
     
-    return { status: 'using_direct_client' };
+    // Log the configuration for diagnostic purposes
+    log(`Airtable configuration: baseId=${airtableConfig.bases[0].id}, server port=${airtableConfig.server.port}`, 'airtable');
+    log(`Airtable tables configured: ${airtableConfig.bases[0].tables.map(t => t.name).join(', ')}`, 'airtable');
     
-    /* Uncomment this code once you have properly configured Airtable API key and base ID
-    log('Starting Airtable MCP server...', 'airtable');
-    // @ts-ignore - The typing for airtable-mcp-server is incomplete
-    const server = AirtableMCP.createServer(airtableConfig);
-    
-    // @ts-ignore - The typing for airtable-mcp-server is incomplete
-    await server.start();
-    log(`Airtable MCP server started on port ${airtableConfig.server.port}`, 'airtable');
-    
-    return server;
-    */
+    try {
+      log('Starting Airtable MCP server...', 'airtable');
+      // @ts-ignore - The typing for airtable-mcp-server is incomplete
+      const server = AirtableMCP.createServer(airtableConfig);
+      
+      log('MCP server created, attempting to start...', 'airtable');
+      
+      // @ts-ignore - The typing for airtable-mcp-server is incomplete
+      await server.start();
+      log(`Airtable MCP server started on port ${airtableConfig.server.port}`, 'airtable');
+      
+      return {
+        status: 'running',
+        port: airtableConfig.server.port,
+        server
+      };
+    } catch (mcpError: any) {
+      log(`Error starting MCP server: ${mcpError?.message || 'Unknown error'}`, 'airtable');
+      log('Falling back to direct Airtable API client', 'airtable');
+      
+      return { 
+        status: 'fallback_to_direct_client',
+        error: mcpError?.message || 'Unknown error',
+        stack: mcpError?.stack
+      };
+    }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log(`Error starting Airtable MCP server: ${errorMessage}`, 'airtable');
