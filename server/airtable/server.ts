@@ -5,9 +5,10 @@
  * between your application and the Airtable API.
  */
 
-import * as AirtableMCP from 'airtable-mcp-server';
+// Using dynamic import for ESM modules
 import { airtableConfig } from './config';
 import { log } from '../vite';
+import { updateMcpServerStatus } from '.';
 
 /**
  * Starts the Airtable MCP server
@@ -34,29 +35,55 @@ export async function startAirtableServer() {
     
     try {
       log('Starting Airtable MCP server...', 'airtable');
-      // @ts-ignore - The typing for airtable-mcp-server is incomplete
-      const server = AirtableMCP.createServer(airtableConfig);
+      
+      // Dynamically import the ESM module
+      const AirtableMCP = await import('airtable-mcp-server');
+      
+      // Check available exports
+      log(`Airtable MCP exports: ${Object.keys(AirtableMCP).join(', ')}`, 'airtable');
+      
+      // If createServer doesn't exist directly, look for it in default export
+      let server;
+      if (typeof AirtableMCP.createServer === 'function') {
+        server = AirtableMCP.createServer(airtableConfig);
+      } else if (AirtableMCP.default && typeof AirtableMCP.default.createServer === 'function') {
+        server = AirtableMCP.default.createServer(airtableConfig);
+      } else {
+        throw new Error('Could not find createServer function in airtable-mcp-server module');
+      }
       
       log('MCP server created, attempting to start...', 'airtable');
       
-      // @ts-ignore - The typing for airtable-mcp-server is incomplete
+      // Start the server
       await server.start();
       log(`Airtable MCP server started on port ${airtableConfig.server.port}`, 'airtable');
       
-      return {
+      const serverStatus = {
         status: 'running',
         port: airtableConfig.server.port,
-        server
+        server,
+        startTime: new Date().toISOString()
       };
+      
+      // Update status tracker
+      updateMcpServerStatus(serverStatus);
+      
+      return serverStatus;
     } catch (mcpError: any) {
       log(`Error starting MCP server: ${mcpError?.message || 'Unknown error'}`, 'airtable');
       log('Falling back to direct Airtable API client', 'airtable');
       
-      return { 
+      const fallbackStatus = { 
         status: 'fallback_to_direct_client',
         error: mcpError?.message || 'Unknown error',
-        stack: mcpError?.stack
+        stack: mcpError?.stack,
+        fallbackTime: new Date().toISOString()
       };
+      
+      // Update status tracker
+      updateMcpServerStatus(fallbackStatus);
+      
+      return fallbackStatus;
     }
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
