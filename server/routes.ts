@@ -1732,7 +1732,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingRecords = await searchRecords(baseId, tableName, searchQuery);
       
       // Map our lead data to Airtable fields
-      const airtableFields = {
+      // Using a record type to allow for dynamic field names
+      const airtableFields: Record<string, any> = {
         'First Name': lead.firstName || '',
         'Last Name': lead.lastName || '',
         'Email': lead.email,
@@ -1755,35 +1756,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Include enrichment data if available
       if (enrichment) {
         try {
-          const companyInfo = enrichment.companyInfo ? JSON.parse(String(enrichment.companyInfo)) : {};
-          const techStack = enrichment.techStack ? JSON.parse(String(enrichment.techStack)) : {};
+          // Instead of trying to parse the JSON, let's just check if the properties exist
+          const companyInfo = typeof enrichment.companyInfo === 'object' && enrichment.companyInfo 
+            ? enrichment.companyInfo 
+            : typeof enrichment.companyInfo === 'string' 
+              ? JSON.parse(enrichment.companyInfo) 
+              : {};
           
-          if (companyInfo.industry) airtableFields['Industry'] = companyInfo.industry;
-          if (companyInfo.employeeCount) airtableFields['Employee Count'] = companyInfo.employeeCount;
-          if (companyInfo.location) airtableFields['Location'] = companyInfo.location;
+          const techStack = typeof enrichment.techStack === 'object' && enrichment.techStack 
+            ? enrichment.techStack 
+            : typeof enrichment.techStack === 'string'
+              ? JSON.parse(enrichment.techStack)
+              : {};
+          
+          // Handle possible nesting
+          if (companyInfo && companyInfo.industry) airtableFields['Industry'] = companyInfo.industry;
+          if (companyInfo && companyInfo.employeeCount) airtableFields['Employee Count'] = companyInfo.employeeCount;
+          if (companyInfo && companyInfo.location) airtableFields['Location'] = companyInfo.location;
           
           // Convert tech stack to a comma-separated string
           const techStackArray = [];
-          if (techStack.frontend && techStack.frontend.length > 0) techStackArray.push(...techStack.frontend);
-          if (techStack.backend && techStack.backend.length > 0) techStackArray.push(...techStack.backend);
-          if (techStack.database && techStack.database.length > 0) techStackArray.push(...techStack.database);
-          if (techStack.cloud && techStack.cloud.length > 0) techStackArray.push(...techStack.cloud);
+          if (techStack && techStack.frontend && Array.isArray(techStack.frontend)) {
+            techStackArray.push(...techStack.frontend);
+          }
+          if (techStack && techStack.backend && Array.isArray(techStack.backend)) {
+            techStackArray.push(...techStack.backend);
+          }
+          if (techStack && techStack.database && Array.isArray(techStack.database)) {
+            techStackArray.push(...techStack.database);
+          }
+          if (techStack && techStack.cloud && Array.isArray(techStack.cloud)) {
+            techStackArray.push(...techStack.cloud);
+          }
           
           if (techStackArray.length > 0) {
             airtableFields['Tech Stack'] = techStackArray.join(', ');
           }
           
           // Add insights as a note
-          if (enrichment.insights && enrichment.insights.length > 0) {
+          if (enrichment.insights && Array.isArray(enrichment.insights) && enrichment.insights.length > 0) {
             airtableFields['Insights'] = enrichment.insights.join('\n');
           }
           
           // Add personalization hooks
-          if (enrichment.personalizationHooks && enrichment.personalizationHooks.length > 0) {
+          if (enrichment.personalizationHooks && Array.isArray(enrichment.personalizationHooks) && enrichment.personalizationHooks.length > 0) {
             airtableFields['Personalization Hooks'] = enrichment.personalizationHooks.join('\n');
           }
         } catch (parseError) {
           console.error("Error parsing enrichment data:", parseError);
+          // Continue with the sync even if enrichment parsing fails
         }
       }
       
