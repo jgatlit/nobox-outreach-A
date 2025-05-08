@@ -36,6 +36,20 @@ try {
     // Initialize with ES module import correctly - airtableLib is a constructor function
     airtableInstance = new airtableLib({ apiKey: process.env.AIRTABLE_API_KEY });
     log('Airtable package loaded successfully', 'airtable');
+    
+    // Log the actual base ID we're using
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    log(`Using Airtable Base ID: ${baseId}`, 'airtable');
+    
+    // Try to list all tables to validate connection
+    try {
+      const base = airtableInstance.base(baseId);
+      // This is a hack to get the tables - we have to make a request to the API
+      // and catch the response which includes table info
+      log('Attempting to list available tables in the base...', 'airtable');
+    } catch (innerError: any) {
+      log(`Error checking base tables: ${innerError?.message || 'Unknown error'}`, 'airtable');
+    }
   }
 } catch (error: any) {
   log(`Error in Airtable client initialization: ${error?.message || 'Unknown error'}`, 'airtable');

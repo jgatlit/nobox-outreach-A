@@ -10,6 +10,7 @@ import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importer
 import { isAirtableConfigured, searchRecords, listRecords, createRecord, updateRecord, deleteRecord } from "./airtable";
 import path from "path";
 import fs from "fs";
+import * as https from 'node:https';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve CSV templates
@@ -1511,6 +1512,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error listing Airtable tables:", error);
       return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Endpoint to fetch information about the Airtable connection status
+  app.get("/api/airtable/status", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({
+          configured: false,
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables."
+        });
+      }
+      
+      const { isAirtableConfigured } = await import("./airtable");
+      const isConfigured = await isAirtableConfigured();
+      
+      if (isConfigured) {
+        // Try to list available tables as a connection test
+        try {
+          const baseId = process.env.AIRTABLE_BASE_ID;
+          const { listRecords } = await import("./airtable");
+          // Just try to connect and query - we don't actually need the results
+          await listRecords(baseId, "Leads");
+          
+          return res.json({
+            configured: true,
+            baseId: process.env.AIRTABLE_BASE_ID,
+            status: "connected",
+            message: "Successfully connected to Airtable API"
+          });
+        } catch (queryError) {
+          console.error("Error querying Airtable:", queryError);
+          return res.json({
+            configured: true,
+            baseId: process.env.AIRTABLE_BASE_ID,
+            status: "error",
+            message: "Connected to Airtable API but error querying tables",
+            error: queryError instanceof Error ? queryError.message : String(queryError)
+          });
+        }
+      } else {
+        return res.json({
+          configured: false,
+          message: "Airtable API not properly configured"
+        });
+      }
+    } catch (error) {
+      console.error("Error checking Airtable status:", error);
+      return res.status(500).json({
+        configured: false,
+        error: "Failed to check Airtable configuration status"
+      });
     }
   });
 
