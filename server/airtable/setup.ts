@@ -23,7 +23,12 @@ const configureAirtable = (): Airtable => {
  * @param baseId Airtable base ID
  * @returns Promise with validation result
  */
-export async function validateAirtableBase(baseId: string): Promise<{ valid: boolean; message: string }> {
+export async function validateAirtableBase(baseId: string): Promise<{ 
+  valid: boolean; 
+  message: string; 
+  existingTables?: string[];
+  missingTables?: string[];
+}> {
   try {
     log(`Validating Airtable base with ID ${baseId}`, 'airtable');
     
@@ -31,26 +36,44 @@ export async function validateAirtableBase(baseId: string): Promise<{ valid: boo
     const base = airtable.base(baseId);
     
     // Try to list tables to verify base exists and is accessible
-    // Use the Airtable API correctly to list tables
-    const tablesList = await Airtable.base(baseId).tables();
+    // We'll use a different approach to verify the base and tables
+    // The Airtable API doesn't have a direct method to list all tables
+    // So we'll try to access each table we need using the table() method
     
-    if (!tablesList || tablesList.length === 0) {
-      return {
-        valid: false,
-        message: 'The base was found but doesn\'t contain any tables. You need to create the tables manually in the Airtable UI first.'
-      };
+    const tablesToCheck = Object.keys(airtableSchema);
+    const existingTables: string[] = [];
+    const missingTables: string[] = [];
+    
+    for (const tableName of tablesToCheck) {
+      try {
+        // Just try to access each table to see if it exists
+        // We don't actually need to fetch records yet
+        await airtable.base(baseId).table(tableName).select({ maxRecords: 1 }).firstPage();
+        existingTables.push(tableName);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes('table not found') || errorMessage.includes('NOT_FOUND')) {
+          missingTables.push(tableName);
+        } else {
+          // If it's another kind of error, rethrow it
+          throw error;
+        }
+      }
     }
     
-    // Check if all our required tables exist
-    const tableNames = tablesList.map((table: any) => table.name);
-    const missingTables = Object.keys(airtableSchema).filter(tableName => 
-      !tableNames.includes(tableName) && !tableNames.includes(tableName.replace(' ', ''))
-    );
+    if (existingTables.length === 0) {
+      return {
+        valid: false,
+        message: 'The base was found but doesn\'t contain any of the required tables. You need to create the tables manually in the Airtable UI first.'
+      };
+    }
     
     if (missingTables.length > 0) {
       return {
         valid: false,
-        message: `The base was found but is missing these tables: ${missingTables.join(', ')}. You need to create them manually in the Airtable UI.`
+        message: `The base was found but is missing these tables: ${missingTables.join(', ')}. You need to create them manually in the Airtable UI.`,
+        existingTables,
+        missingTables
       };
     }
     
@@ -115,7 +138,12 @@ export async function ensureTableFields(baseId: string, tableName: string): Prom
 export async function setupAirtableIntegration(): Promise<{ 
   success: boolean; 
   message: string;
-  baseValidation?: { valid: boolean; message: string };
+  baseValidation?: { 
+    valid: boolean; 
+    message: string;
+    existingTables?: string[];
+    missingTables?: string[];
+  };
 }> {
   try {
     if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
