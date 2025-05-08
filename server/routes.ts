@@ -1468,6 +1468,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Internal server error" });
     }
   });
+  
+  // API endpoint to validate and diagnose Airtable integration
+  app.get("/api/airtable/validate", async (req, res) => {
+    try {
+      const { setupAirtableIntegration } = await import('./airtable/setup');
+      const validationResult = await setupAirtableIntegration();
+      
+      return res.json(validationResult);
+    } catch (error) {
+      console.error("Error validating Airtable integration:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to validate Airtable integration",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   app.get("/api/airtable/tables", async (req, res) => {
     try {
