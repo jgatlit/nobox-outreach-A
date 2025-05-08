@@ -1443,12 +1443,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Airtable Integration Routes
-  app.get("/api/airtable/status", (req, res) => {
+  app.get("/api/airtable/status", async (req, res) => {
     try {
-      const isConfigured = process.env.AIRTABLE_API_KEY && process.env.AIRTABLE_BASE_ID;
+      const { isAirtableConfigured } = await import("./airtable");
+      const { airtableConfig } = await import("./airtable");
+      
+      const isConfigured = isAirtableConfigured();
       return res.json({
         configured: isConfigured,
-        baseId: isConfigured ? process.env.AIRTABLE_BASE_ID : null
+        baseId: process.env.AIRTABLE_BASE_ID,
+        tables: isConfigured ? airtableConfig.bases[0].tables : [],
+        apiKeyConfigured: !!process.env.AIRTABLE_API_KEY
       });
     } catch (error) {
       console.error("Error checking Airtable status:", error);
@@ -1462,21 +1467,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
       }
 
-      const { isAirtableConfigured, listRecords } = await import("./airtable");
+      const { isAirtableConfigured } = await import("./airtable");
+      const { airtableConfig } = await import("./airtable/config");
       
       if (!isAirtableConfigured()) {
         return res.status(400).json({ error: "Airtable not configured correctly" });
       }
 
-      // For this to work, we need access to the schema table or make a request to a known table
-      // This is a simple placeholder that would need to be adjusted based on Airtable's API
       try {
-        // Try to get metadata - this is a mock endpoint as Airtable doesn't directly expose table names
-        // In a real implementation, you might need to make a request to a known table and then
-        // parse the response to determine available tables
+        // Get tables from config
+        const baseId = process.env.AIRTABLE_BASE_ID;
+        const base = airtableConfig.bases.find(b => b.id === baseId);
+        
+        if (!base) {
+          return res.status(404).json({ 
+            error: "Base not found", 
+            message: "The configured base ID was not found in your configuration",
+            configuredBaseId: baseId
+          });
+        }
+        
+        // Return the table names from the configuration
+        const tables = base.tables.map(table => ({
+          id: table.id,
+          name: table.name,
+          description: table.description
+        }));
+        
         return res.json({ 
-          message: "Please specify the table name in your request",
-          knownTables: ["Please configure your table names in server/airtable/config.ts"]
+          baseId: baseId,
+          tables: tables
         });
       } catch (error) {
         return res.status(400).json({ error: "Could not retrieve Airtable tables" });
