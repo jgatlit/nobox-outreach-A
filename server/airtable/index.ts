@@ -12,7 +12,8 @@ export {
   listRecords,
   createRecord,
   updateRecord,
-  deleteRecord
+  deleteRecord,
+  getAvailableTables
 } from './client';
 
 // Main utility function for checking if Airtable is properly configured

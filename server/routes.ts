@@ -1566,6 +1566,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // Endpoint to list all available tables in the Airtable base
+  app.get("/api/airtable/tables", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables."
+        });
+      }
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      
+      // Import the Airtable methods
+      const { getAvailableTables } = await import("./airtable");
+      
+      // Get the list of available tables
+      const tables = await getAvailableTables(baseId);
+      
+      return res.json({
+        baseId,
+        tables
+      });
+    } catch (error) {
+      console.error("Error getting Airtable tables:", error);
+      return res.status(500).json({
+        error: "Failed to retrieve Airtable tables",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   app.get("/api/airtable/:baseId/:tableName", async (req, res) => {
     try {

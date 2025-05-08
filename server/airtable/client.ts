@@ -274,3 +274,33 @@ export async function deleteRecord(baseId: string, tableName: string, recordId: 
     throw error;
   }
 }
+
+/**
+ * Get available tables in the Airtable base
+ * @param baseId The Airtable base ID
+ * @returns Promise that resolves with the table information
+ */
+export async function getAvailableTables(baseId: string) {
+  try {
+    log(`Getting available tables for Airtable base ${baseId}`, 'airtable');
+    
+    // Find the base in our config
+    const base = airtableConfig.bases.find(b => b.id === baseId);
+    
+    if (!base) {
+      log(`Base ID ${baseId} not found in configuration`, 'airtable');
+      return [];
+    }
+    
+    // Return the table information from our config
+    return base.tables.map(table => ({
+      id: table.id,
+      name: table.name,
+      description: table.description
+    }));
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    log(`Error getting Airtable tables: ${errorMessage}`, 'airtable');
+    return [];
+  }
+}
