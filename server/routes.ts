@@ -1486,6 +1486,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // API endpoint to get Airtable table creation instructions
+  app.get("/api/airtable/table-instructions", async (req, res) => {
+    try {
+      const { generateTableCreationInstructions } = await import('./airtable/setup');
+      const instructions = generateTableCreationInstructions();
+      
+      return res.json({ 
+        success: true,
+        instructions 
+      });
+    } catch (error) {
+      console.error("Error generating Airtable table instructions:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to generate Airtable table instructions",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API endpoint to list all available Airtable tables
+  app.get("/api/airtable/tables", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const { getAvailableTables } = await import('./airtable/client');
+      const tables = await getAvailableTables(process.env.AIRTABLE_BASE_ID);
+      
+      return res.json({ 
+        success: true,
+        baseId: process.env.AIRTABLE_BASE_ID,
+        tables
+      });
+    } catch (error) {
+      console.error("Error listing Airtable tables:", error);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to list Airtable tables",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // API endpoints for Airtable Conversations
   
   // Get all conversations for a user

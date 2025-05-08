@@ -132,6 +132,106 @@ export async function ensureTableFields(baseId: string, tableName: string): Prom
 }
 
 /**
+ * Create tables in Airtable base if they don't exist
+ * @param baseId Airtable base ID
+ * @returns Promise with creation results
+ */
+export async function createMissingTables(baseId: string): Promise<{
+  success: boolean;
+  message: string;
+  createdTables: string[];
+  failedTables: string[];
+}> {
+  try {
+    log(`Attempting to create missing tables in Airtable base ${baseId}`, 'airtable');
+    
+    const airtable = configureAirtable();
+    
+    // First validate which tables already exist
+    const validation = await validateAirtableBase(baseId);
+    const tablesSchema = Object.keys(airtableSchema);
+    
+    const tablesToCreate = validation.missingTables || tablesSchema;
+    const createdTables: string[] = [];
+    const failedTables: string[] = [];
+    
+    // Airtable API doesn't provide a direct way to create tables programmatically
+    // We need to use their REST API or direct the user to create the tables manually
+    
+    log(`The following tables need to be created: ${tablesToCreate.join(', ')}`, 'airtable');
+    log('Unfortunately, the Airtable API does not allow programmatic table creation.', 'airtable');
+    log('Please create these tables manually in the Airtable UI.', 'airtable');
+    
+    // For each missing table, provide instructions on what fields are needed
+    for (const tableName of tablesToCreate) {
+      const tableSchema = airtableSchema[tableName];
+      if (tableSchema) {
+        log(`Table '${tableName}' should have these fields:`, 'airtable');
+        for (const field of tableSchema.fields) {
+          log(`- ${field.name} (${field.type})${field.options ? ` with options: ${field.options.join(', ')}` : ''}`, 'airtable');
+        }
+      }
+      
+      failedTables.push(tableName);
+    }
+    
+    return {
+      success: createdTables.length > 0,
+      message: `Attempted to create ${tablesToCreate.length} tables. Created: ${createdTables.length}, Failed: ${failedTables.length}`,
+      createdTables,
+      failedTables
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log(`Error creating tables: ${errorMessage}`, 'airtable');
+    
+    return {
+      success: false,
+      message: `Error creating tables: ${errorMessage}`,
+      createdTables: [],
+      failedTables: Object.keys(airtableSchema)
+    };
+  }
+}
+
+/**
+ * Generate Airtable table creation instructions
+ * @returns String containing instructions
+ */
+export function generateTableCreationInstructions(): string {
+  try {
+    let instructions = '# Airtable Table Creation Instructions\n\n';
+    instructions += 'Follow these steps to create the required tables in your Airtable base:\n\n';
+    instructions += '1. Go to [airtable.com](https://airtable.com) and log in\n';
+    instructions += '2. Navigate to your base (the one with the ID in your AIRTABLE_BASE_ID)\n';
+    instructions += '3. For each table below, click "+ Add a table" and configure the fields as specified\n\n';
+    
+    // Add instructions for each table
+    for (const tableName of Object.keys(airtableSchema)) {
+      const tableSchema = airtableSchema[tableName];
+      
+      instructions += `## ${tableName}\n\n`;
+      instructions += `**Description**: ${tableSchema.description}\n\n`;
+      instructions += '**Fields**:\n\n';
+      
+      for (const field of tableSchema.fields) {
+        instructions += `- **${field.name}** (${field.type})`;
+        if (field.options && field.options.length > 0) {
+          instructions += `\n  - Options: ${field.options.join(', ')}`;
+        }
+        instructions += '\n';
+      }
+      
+      instructions += '\n';
+    }
+    
+    return instructions;
+  } catch (error) {
+    return `Error generating instructions: ${error}`;
+  }
+}
+
+/**
  * Comprehensive setup function for Airtable integration
  * @returns Promise with setup results
  */
@@ -144,6 +244,13 @@ export async function setupAirtableIntegration(): Promise<{
     existingTables?: string[];
     missingTables?: string[];
   };
+  tableCreationResult?: {
+    success: boolean;
+    message: string;
+    createdTables: string[];
+    failedTables: string[];
+  };
+  tableCreationInstructions?: string;
 }> {
   try {
     if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
@@ -156,20 +263,34 @@ export async function setupAirtableIntegration(): Promise<{
     // Validate the base and all required tables
     const baseValidation = await validateAirtableBase(process.env.AIRTABLE_BASE_ID);
     
-    if (!baseValidation.valid) {
+    // If base is valid but missing tables, attempt to create them
+    if (baseValidation.valid) {
+      return {
+        success: true,
+        message: 'Airtable integration setup successfully',
+        baseValidation
+      };
+    } else if (baseValidation.missingTables && baseValidation.missingTables.length > 0) {
+      // Try to create missing tables
+      const tableCreationResult = await createMissingTables(process.env.AIRTABLE_BASE_ID);
+      
+      // Generate instructions for manual table creation
+      const tableCreationInstructions = generateTableCreationInstructions();
+      
+      return {
+        success: false, // Still return false since manual intervention is needed
+        message: `Airtable base found but missing tables. ${tableCreationResult.message} Please follow the instructions to create tables manually.`,
+        baseValidation,
+        tableCreationResult,
+        tableCreationInstructions
+      };
+    } else {
       return {
         success: false,
         message: `Airtable setup validation failed: ${baseValidation.message}`,
         baseValidation
       };
     }
-    
-    // If valid, return success
-    return {
-      success: true,
-      message: 'Airtable integration setup successfully',
-      baseValidation
-    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     log(`Airtable setup error: ${errorMessage}`, 'airtable');
