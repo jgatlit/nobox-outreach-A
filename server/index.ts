@@ -45,11 +45,15 @@ app.use((req, res, next) => {
       const serverStatus = await startAirtableServer();
       log(`Airtable MCP server status: ${JSON.stringify(serverStatus)}`, 'airtable');
       
-      if (serverStatus?.status === 'running') {
-        log(`Successfully started Airtable MCP server on port ${serverStatus.port}`, 'airtable');
-      } else if (serverStatus?.status === 'fallback_to_direct_client') {
+      if (serverStatus && serverStatus.status === 'running') {
+        // Type guard for running status
+        const runningStatus = serverStatus as { status: 'running', port: number, server: any, startTime: string };
+        log(`Successfully started Airtable MCP server on port ${runningStatus.port}`, 'airtable');
+      } else if (serverStatus && serverStatus.status === 'fallback_to_direct_client') {
+        // Type guard for fallback status
+        const fallbackStatus = serverStatus as { status: 'fallback_to_direct_client', error: any, stack: any, fallbackTime: string };
         log('Using direct Airtable client due to MCP server initialization failure', 'airtable');
-        log(`MCP server error: ${serverStatus.error}`, 'airtable');
+        log(`MCP server error: ${fallbackStatus.error}`, 'airtable');
       } else {
         log(`Unexpected Airtable server status: ${serverStatus?.status || 'unknown'}`, 'airtable');
       }

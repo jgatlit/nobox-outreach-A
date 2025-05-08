@@ -36,21 +36,45 @@ export async function startAirtableServer() {
     try {
       log('Starting Airtable MCP server...', 'airtable');
       
-      // Dynamically import the ESM module
-      const AirtableMCP = await import('airtable-mcp-server');
+      // The airtable-mcp-server package is actually a CLI tool, not a library with a createServer function
+      // We'll spawn it as a child process instead
+      const { spawn } = await import('child_process');
       
-      // Check available exports
-      log(`Airtable MCP exports: ${Object.keys(AirtableMCP).join(', ')}`, 'airtable');
+      // Start the MCP server as a child process
+      const mcpProcess = spawn('node', [
+        './node_modules/airtable-mcp-server/dist/index.js',
+        process.env.AIRTABLE_API_KEY || ''
+      ], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: false
+      });
       
-      // If createServer doesn't exist directly, look for it in default export
-      let server;
-      if (typeof AirtableMCP.createServer === 'function') {
-        server = AirtableMCP.createServer(airtableConfig);
-      } else if (AirtableMCP.default && typeof AirtableMCP.default.createServer === 'function') {
-        server = AirtableMCP.default.createServer(airtableConfig);
-      } else {
-        throw new Error('Could not find createServer function in airtable-mcp-server module');
-      }
+      // Set up logging from the process
+      mcpProcess.stdout.on('data', (data) => {
+        log(`MCP stdout: ${data.toString().trim()}`, 'airtable');
+      });
+      
+      mcpProcess.stderr.on('data', (data) => {
+        log(`MCP stderr: ${data.toString().trim()}`, 'airtable');
+      });
+      
+      // Handle process exit
+      mcpProcess.on('exit', (code) => {
+        log(`MCP server process exited with code ${code}`, 'airtable');
+      });
+      
+      // Create a server object with the process reference
+      const server = {
+        process: mcpProcess,
+        start: async () => {
+          log('MCP server process started successfully', 'airtable');
+          return true;
+        },
+        stop: async () => {
+          mcpProcess.kill();
+          return true;
+        }
+      };
       
       log('MCP server created, attempting to start...', 'airtable');
       
