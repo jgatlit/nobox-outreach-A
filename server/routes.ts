@@ -1593,32 +1593,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // API endpoint to list all available Airtable tables
-  app.get("/api/airtable/tables", async (req, res) => {
-    try {
-      if (!process.env.AIRTABLE_API_KEY) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY environment variable." });
-      }
-      
-      // Always use the correct base ID we discovered
-      const correctBaseId = "appUPDttFgRrz9YiC";
-      const { getAvailableTables } = await import('./airtable/client');
-      const tables = await getAvailableTables(correctBaseId);
-      
-      return res.json({ 
-        success: true,
-        baseId: correctBaseId,
-        tables
-      });
-    } catch (error) {
-      console.error("Error listing Airtable tables:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Failed to list Airtable tables",
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+  // Removed duplicate API endpoint
   
   // API endpoints for Airtable Conversations
   
@@ -2003,27 +1978,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint to list all available tables in the Airtable base
   app.get("/api/airtable/tables", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+      if (!process.env.AIRTABLE_API_KEY) {
         return res.status(400).json({
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables."
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY environment variable."
         });
       }
       
-      const baseId = process.env.AIRTABLE_BASE_ID;
+      // Always use the correct base ID, regardless of what's in the environment variables
+      const correctBaseId = 'appUPDttFgRrz9YiC';
       
-      // Import the Airtable methods
-      const { getAvailableTables } = await import("./airtable");
-      
-      // Get the list of available tables
-      const tables = await getAvailableTables(baseId);
-      
-      return res.json({
-        baseId,
-        tables
-      });
+      // Try to get the tables through the Meta API first
+      try {
+        const response = await fetch(`https://api.airtable.com/v0/meta/bases/${correctBaseId}/tables`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const tablesData = await response.json();
+          console.log("Successfully retrieved tables from Meta API");
+          
+          return res.json({
+            success: true,
+            baseId: correctBaseId,
+            source: "meta_api",
+            tables: tablesData.tables.map((table: any) => ({
+              id: table.id,
+              name: table.name,
+              description: table.description || '',
+              fields: table.fields?.map((field: any) => ({
+                id: field.id,
+                name: field.name,
+                type: field.type
+              }))
+            }))
+          });
+        } else {
+          console.log("Failed to retrieve tables from Meta API. Status:", response.status);
+          const errorText = await response.text();
+          console.log("Error response:", errorText);
+          
+          // Fall back to our getAvailableTables method
+          const { getAvailableTables } = await import("./airtable");
+          const { getAirtableBaseId } = await import("./airtable");
+          
+          const tables = await getAvailableTables(correctBaseId);
+          
+          return res.json({
+            success: true,
+            baseId: correctBaseId,
+            source: "fallback_client",
+            tables
+          });
+        }
+      } catch (fetchError) {
+        console.error("Error fetching tables from Meta API:", fetchError);
+        
+        // Fall back to our getAvailableTables method
+        const { getAvailableTables } = await import("./airtable");
+        const tables = await getAvailableTables(correctBaseId);
+        
+        return res.json({
+          success: true,
+          baseId: correctBaseId,
+          source: "fallback_client_after_error",
+          error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+          tables
+        });
+      }
     } catch (error) {
       console.error("Error getting Airtable tables:", error);
       return res.status(500).json({
+        success: false,
         error: "Failed to retrieve Airtable tables",
         details: error instanceof Error ? error.message : String(error)
       });
