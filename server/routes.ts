@@ -1509,16 +1509,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoint to list all available Airtable tables
   app.get("/api/airtable/tables", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      if (!process.env.AIRTABLE_API_KEY) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY environment variable." });
       }
       
+      // Always use the correct base ID we discovered
+      const correctBaseId = "appUPDttFgRrz9YiC";
       const { getAvailableTables } = await import('./airtable/client');
-      const tables = await getAvailableTables(process.env.AIRTABLE_BASE_ID);
+      const tables = await getAvailableTables(correctBaseId);
       
       return res.json({ 
         success: true,
-        baseId: process.env.AIRTABLE_BASE_ID,
+        baseId: correctBaseId,
         tables
       });
     } catch (error) {

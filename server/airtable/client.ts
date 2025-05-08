@@ -33,15 +33,16 @@ try {
   log('Initializing direct Airtable client...', 'airtable');
   
   // Check if we have the necessary API key
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    log('Airtable not configured. Add AIRTABLE_API_KEY and AIRTABLE_BASE_ID to use Airtable integration.', 'airtable');
+  if (!process.env.AIRTABLE_API_KEY) {
+    log('Airtable not configured. Add AIRTABLE_API_KEY to use Airtable integration.', 'airtable');
   } else {
     // Initialize with ES module import correctly - airtableLib is a constructor function
     airtableInstance = new airtableLib({ apiKey: process.env.AIRTABLE_API_KEY });
     log('Airtable package loaded successfully', 'airtable');
     
-    // Log the actual base ID we're using
-    const baseId = process.env.AIRTABLE_BASE_ID;
+    // Use the correct base ID from config or environment variable
+    // Use the verified base ID from our config, not the environment variable
+    const baseId = airtableConfig.bases[0].id;
     log(`Using Airtable Base ID: ${baseId}`, 'airtable');
     
     // Try to list all tables to validate connection
@@ -50,6 +51,15 @@ try {
       // This is a hack to get the tables - we have to make a request to the API
       // and catch the response which includes table info
       log('Attempting to list available tables in the base...', 'airtable');
+      
+      // Try to ping the Pipelines table which we know exists
+      base('Pipelines').select({ maxRecords: 1 }).firstPage()
+        .then(() => {
+          log('Successfully connected to Airtable base and verified "Pipelines" table exists', 'airtable');
+        })
+        .catch((err: any) => {
+          log(`Error accessing Pipelines table: ${err?.message || 'Unknown error'}`, 'airtable');
+        });
     } catch (innerError: any) {
       log(`Error checking base tables: ${innerError?.message || 'Unknown error'}`, 'airtable');
     }
@@ -61,14 +71,14 @@ try {
 // Initialize with either environment variable or config file value
 const apiKey = process.env.AIRTABLE_API_KEY || airtableConfig.apiKey;
 
-// Initialize the MCP client adapter if we have a base ID
-if (process.env.AIRTABLE_BASE_ID) {
-  try {
-    mcpClientAdapter = getMcpClientAdapter(process.env.AIRTABLE_BASE_ID);
-    log('MCP client adapter initialized', 'airtable');
-  } catch (error: any) {
-    log(`Error initializing MCP client adapter: ${error?.message || 'Unknown error'}`, 'airtable');
-  }
+// Initialize the MCP client adapter with the correct base ID
+try {
+  // Use the correct base ID from our config
+  const baseId = airtableConfig.bases[0].id;
+  mcpClientAdapter = getMcpClientAdapter(baseId);
+  log(`MCP client adapter initialized with baseId: ${baseId}`, 'airtable');
+} catch (error: any) {
+  log(`Error initializing MCP client adapter: ${error?.message || 'Unknown error'}`, 'airtable');
 }
 
 // Check if the MCP server is running
@@ -241,20 +251,30 @@ function getTableId(tableNameOrId: string): string {
   
   // Otherwise, look up the ID from our config
   try {
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    if (!baseId) return tableNameOrId;
+    // Always use the correct base ID from our config
+    const base = airtableConfig.bases[0];
     
-    const base = airtableConfig.bases.find(b => b.id === baseId);
-    if (!base) return tableNameOrId;
+    // For the "Pipelines" table, use the discovered table ID
+    if (tableNameOrId.toLowerCase() === 'pipelines') {
+      return 'tbleLCTwQcmeJxmS9'; // This is the actual ID we discovered from the API
+    }
     
+    // For other tables, look them up in our config
     const table = base.tables.find(t => 
       t.name.toLowerCase() === tableNameOrId.toLowerCase() || 
       t.id.toLowerCase() === tableNameOrId.toLowerCase()
     );
     
-    return table ? table.id : tableNameOrId;
+    if (table) {
+      log(`Found table '${tableNameOrId}' in configuration`, 'airtable');
+      return table.id;
+    } else {
+      log(`Table '${tableNameOrId}' not found in configuration, using as-is`, 'airtable');
+      return tableNameOrId;
+    }
   } catch (error) {
     // If anything goes wrong, return the original value
+    log(`Error in getTableId: ${error}`, 'airtable');
     return tableNameOrId;
   }
 }
@@ -364,7 +384,9 @@ export async function deleteRecord(baseId: string, tableName: string, recordId: 
  */
 export async function getAvailableTables(baseId: string) {
   try {
-    log(`Getting available tables for Airtable base ${baseId}`, 'airtable');
+    // Always use the correct base ID from config
+    const correctBaseId = airtableConfig.bases[0].id;
+    log(`Getting available tables for Airtable base ${correctBaseId}`, 'airtable');
     
     // Method 1: Check if tables from our schema are accessible
     const discoveredTables: Array<{id: string, name: string, status: 'available' | 'error', error?: string}> = [];
@@ -373,50 +395,67 @@ export async function getAvailableTables(baseId: string) {
       throw new Error('Airtable client not initialized');
     }
     
-    // Get the base
-    const base = airtableInstance.base(baseId);
+    // Get the base using the correct ID
+    const base = airtableInstance.base(correctBaseId);
     
-    // Try different methods of discovering tables
+    // Add the Pipelines table which we know exists
+    discoveredTables.push({
+      id: 'tbleLCTwQcmeJxmS9',
+      name: 'Pipelines',
+      status: 'available'
+    });
     
-    // Try each table in our schema to see if they exist
+    // Try to check if we can access the Pipelines table
     try {
-      const allTableNames = ['Conversations', 'ToolExecutions'];
+      log('Checking if Pipelines table is accessible...', 'airtable');
+      const pipelinesRecords = await base('Pipelines').select({ maxRecords: 1 }).firstPage();
+      log(`Successfully accessed Pipelines table with ${pipelinesRecords.length} records`, 'airtable');
+    } catch (pipelineError) {
+      log(`Error accessing Pipelines table: ${pipelineError}`, 'airtable');
       
-      for (const tableName of allTableNames) {
-        try {
-          // Try to query the table to see if it exists
-          log(`Checking if table '${tableName}' exists...`, 'airtable');
-          const records = await base(tableName).select({ maxRecords: 1 }).all();
-          
-          log(`Table '${tableName}' exists and has ${records.length} records`, 'airtable');
-          discoveredTables.push({
-            id: tableName,
-            name: tableName,
-            status: 'available'
-          });
-        } catch (tableError) {
-          const errorMessage = tableError instanceof Error ? tableError.message : String(tableError);
-          log(`Error accessing table '${tableName}': ${errorMessage}`, 'airtable');
-          
-          discoveredTables.push({
-            id: tableName,
-            name: tableName,
-            status: 'error',
-            error: errorMessage
-          });
-        }
+      // Update the status to error
+      const pipelinesTable = discoveredTables.find(t => t.name === 'Pipelines');
+      if (pipelinesTable) {
+        pipelinesTable.status = 'error';
+        pipelinesTable.error = pipelineError instanceof Error ? pipelineError.message : String(pipelineError);
       }
-    } catch (error) {
-      log(`Error checking tables in schema: ${error}`, 'airtable');
     }
     
-    // Method 2: Try to use Airtable's internal APIs to list all tables (requires specific permissions)
+    // Attempt to create our needed tables
+    const allTableNames = ['Conversations', 'ToolExecutions'];
+    
+    for (const tableName of allTableNames) {
+      try {
+        // Try to query the table to see if it exists
+        log(`Checking if table '${tableName}' exists...`, 'airtable');
+        const records = await base(tableName).select({ maxRecords: 1 }).firstPage();
+        
+        log(`Table '${tableName}' exists and has ${records.length} records`, 'airtable');
+        discoveredTables.push({
+          id: tableName,
+          name: tableName,
+          status: 'available'
+        });
+      } catch (tableError) {
+        const errorMessage = tableError instanceof Error ? tableError.message : String(tableError);
+        log(`Error accessing table '${tableName}': ${errorMessage}`, 'airtable');
+        
+        discoveredTables.push({
+          id: tableName,
+          name: tableName,
+          status: 'error',
+          error: errorMessage
+        });
+      }
+    }
+    
+    // Method 2: Use the Airtable metadata API to list all tables
     try {
-      // Direct API call to a hidden endpoint that might list tables
-      log('Attempting to get tables via metadata API...', 'airtable');
+      // Direct API call to the metadata endpoint
+      log('Fetching tables via Airtable metadata API...', 'airtable');
       
-      // Using fetch to make a direct API call
-      const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+      // Using fetch to make a direct API call with the correct base ID
+      const response = await fetch(`https://api.airtable.com/v0/meta/bases/${correctBaseId}/tables`, {
         headers: {
           'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
           'Content-Type': 'application/json'
@@ -425,12 +464,15 @@ export async function getAvailableTables(baseId: string) {
       
       if (response.ok) {
         const data = await response.json();
+        log('Metadata API response: ' + JSON.stringify(data).substring(0, 200) + '...', 'airtable');
+        
         if (data && data.tables && Array.isArray(data.tables)) {
           log(`Retrieved ${data.tables.length} tables from metadata API`, 'airtable');
           
           // Add any tables that weren't already discovered
           for (const table of data.tables) {
             if (!discoveredTables.some(t => t.name === table.name)) {
+              log(`Found additional table from metadata API: ${table.name} (${table.id})`, 'airtable');
               discoveredTables.push({
                 id: table.id || table.name,
                 name: table.name,
@@ -440,7 +482,8 @@ export async function getAvailableTables(baseId: string) {
           }
         }
       } else {
-        log(`Metadata API request failed with status ${response.status}`, 'airtable');
+        const errorText = await response.text();
+        log(`Metadata API request failed with status ${response.status}: ${errorText}`, 'airtable');
       }
     } catch (error) {
       log(`Error using metadata API: ${error}`, 'airtable');
