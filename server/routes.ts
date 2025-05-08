@@ -1451,21 +1451,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Add debug logs
       console.log("AIRTABLE_API_KEY exists:", !!process.env.AIRTABLE_API_KEY);
-      console.log("AIRTABLE_BASE_ID:", process.env.AIRTABLE_BASE_ID);
+      
+      // Always use the correct base ID we discovered
+      const correctBaseId = "appUPDttFgRrz9YiC";
+      console.log("Using correct base ID:", correctBaseId);
       
       const isConfigured = isAirtableConfigured();
       console.log("isAirtableConfigured returned:", isConfigured);
       
+      // Get more detailed information about the base from the API
+      let baseDetails = null;
+      try {
+        const response = await fetch(`https://api.airtable.com/v0/meta/bases/${correctBaseId}`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          baseDetails = await response.json();
+          console.log("Successfully retrieved base details");
+        } else {
+          console.log("Failed to retrieve base details. Status:", response.status);
+          const errorText = await response.text();
+          console.log("Error response:", errorText);
+        }
+      } catch (fetchError) {
+        console.error("Error fetching base details:", fetchError);
+      }
+      
       return res.json({
         configured: isConfigured,
-        baseId: process.env.AIRTABLE_BASE_ID,
+        baseId: correctBaseId,
+        originalBaseId: process.env.AIRTABLE_BASE_ID,
         baseIdExists: !!process.env.AIRTABLE_BASE_ID,
         tables: isConfigured && airtableConfig.bases[0] ? airtableConfig.bases[0].tables : [],
-        apiKeyConfigured: !!process.env.AIRTABLE_API_KEY
+        apiKeyConfigured: !!process.env.AIRTABLE_API_KEY,
+        baseDetails
       });
     } catch (error) {
       console.error("Error checking Airtable status:", error);
       return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Add a new endpoint to get data from the Pipelines table
+  app.get("/api/airtable/pipelines", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY) {
+        return res.status(400).json({ error: "Airtable API key not configured" });
+      }
+      
+      // Always use the correct base ID
+      const correctBaseId = "appUPDttFgRrz9YiC";
+      
+      // Use the known table ID for Pipelines
+      const tableId = 'tbleLCTwQcmeJxmS9';
+      
+      // Try a direct fetch using the Airtable REST API
+      try {
+        console.log("Fetching Pipelines data using direct Airtable API call");
+        const response = await fetch(`https://api.airtable.com/v0/${correctBaseId}/${tableId}?maxRecords=100`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`Successfully retrieved ${data.records?.length || 0} pipeline records`);
+          return res.json({
+            success: true,
+            baseId: correctBaseId,
+            tableId,
+            tableName: 'Pipelines',
+            count: data.records?.length || 0,
+            records: data.records
+          });
+        } else {
+          const errorText = await response.text();
+          console.error("Error from Airtable API:", response.status, errorText);
+          return res.status(response.status).json({
+            success: false,
+            error: `Airtable API error: ${response.status}`,
+            details: errorText
+          });
+        }
+      } catch (fetchError) {
+        console.error("Error fetching from Airtable API:", fetchError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to fetch data from Airtable API",
+          details: fetchError instanceof Error ? fetchError.message : String(fetchError)
+        });
+      }
+    } catch (error) {
+      console.error("Error retrieving Pipelines records:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to retrieve Pipelines records",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
