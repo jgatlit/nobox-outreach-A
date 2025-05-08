@@ -9,6 +9,7 @@
 import { airtableConfig } from './config';
 import { log } from '../vite';
 import { updateMcpServerStatus } from '.';
+import { getMcpClientAdapter } from './mcp-client';
 
 /**
  * Starts the Airtable MCP server
@@ -91,6 +92,17 @@ export async function startAirtableServer() {
       
       // Update status tracker
       updateMcpServerStatus(serverStatus);
+      
+      // Connect the client adapter to the MCP server process
+      if (process.env.AIRTABLE_BASE_ID) {
+        try {
+          const mcpClientAdapter = getMcpClientAdapter(process.env.AIRTABLE_BASE_ID);
+          mcpClientAdapter.connectToProcess(mcpProcess);
+          log('MCP client adapter connected to server process', 'airtable');
+        } catch (adapterError: any) {
+          log(`Error connecting MCP client adapter: ${adapterError?.message || 'Unknown error'}`, 'airtable');
+        }
+      }
       
       return serverStatus;
     } catch (mcpError: any) {

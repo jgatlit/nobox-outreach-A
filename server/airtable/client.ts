@@ -7,6 +7,8 @@
 import * as Airtable from 'airtable';
 import { airtableConfig } from './config';
 import { log } from '../vite';
+import { getMcpClientAdapter } from './mcp-client';
+import { getMcpServerStatus } from '.';
 
 // Define client interface since type definitions are incomplete
 interface AirtableMCPClient {
@@ -16,15 +18,16 @@ interface AirtableMCPClient {
   delete: (baseId: string, tableName: string, recordId: string) => Promise<any>;
 }
 
-// Create a mock client for TypeScript until we have proper types
+// Create a client for TypeScript until we have proper types
 export let airtableClient: AirtableMCPClient;
 
 // Import Airtable
 import airtableLib from 'airtable';
 
 // Initialize the client directly with Airtable API
-// We're skipping the MCP server for now to simplify initial implementation
+// Will use MCP server when available with fallback to direct client
 let airtableInstance: any = null;
+let mcpClientAdapter: any = null;
 
 try {
   log('Initializing direct Airtable client...', 'airtable');
@@ -58,19 +61,53 @@ try {
 // Initialize with either environment variable or config file value
 const apiKey = process.env.AIRTABLE_API_KEY || airtableConfig.apiKey;
 
-// Create a compatible interface adapter with error handling
+// Initialize the MCP client adapter if we have a base ID
+if (process.env.AIRTABLE_BASE_ID) {
+  try {
+    mcpClientAdapter = getMcpClientAdapter(process.env.AIRTABLE_BASE_ID);
+    log('MCP client adapter initialized', 'airtable');
+  } catch (error: any) {
+    log(`Error initializing MCP client adapter: ${error?.message || 'Unknown error'}`, 'airtable');
+  }
+}
+
+// Check if the MCP server is running
+async function isMcpServerRunning(): Promise<boolean> {
+  try {
+    const serverStatus = await getMcpServerStatus();
+    return Boolean(serverStatus && serverStatus.status === 'running');
+  } catch (error) {
+    return false;
+  }
+}
+
+// Create a compatible interface adapter with error handling and MCP server support
 airtableClient = {
   query: async (baseId: string, tableName: string, options = {}) => {
     if (!apiKey) {
       throw new Error('Airtable API key not configured');
     }
     
+    // Try to use MCP server if available
+    const mcpRunning = await isMcpServerRunning();
+    if (mcpRunning && mcpClientAdapter && mcpClientAdapter.isAvailable()) {
+      try {
+        log('Using MCP server for query operation', 'airtable');
+        return await mcpClientAdapter.query(baseId, tableName, options);
+      } catch (mcpError: any) {
+        log(`MCP query failed, falling back to direct client: ${mcpError?.message || 'Unknown error'}`, 'airtable');
+        // Fall through to direct client if MCP fails
+      }
+    }
+
+    // Fall back to direct client
     if (!airtableInstance) {
-      log('Airtable client not initialized. Creating mock response.', 'airtable');
+      log('Airtable client not initialized. Creating empty response.', 'airtable');
       return [];
     }
     
     try {
+      log('Using direct Airtable client for query operation', 'airtable');
       const base = airtableInstance.base(baseId);
       const records = await base(tableName).select(options).all();
       return records.map((r: any) => ({ id: r.id, fields: r.fields }));
@@ -79,44 +116,89 @@ airtableClient = {
       return [];
     }
   },
+  
   create: async (baseId: string, tableName: string, fields: Record<string, any>) => {
     if (!apiKey) {
       throw new Error('Airtable API key not configured');
     }
     
+    // Try to use MCP server if available
+    const mcpRunning = await isMcpServerRunning();
+    if (mcpRunning && mcpClientAdapter && mcpClientAdapter.isAvailable()) {
+      try {
+        log('Using MCP server for create operation', 'airtable');
+        return await mcpClientAdapter.create(baseId, tableName, fields);
+      } catch (mcpError: any) {
+        log(`MCP create failed, falling back to direct client: ${mcpError?.message || 'Unknown error'}`, 'airtable');
+        // Fall through to direct client if MCP fails
+      }
+    }
+    
+    // Fall back to direct client
     if (!airtableInstance) {
       log('Airtable client not initialized. Creation operation failed.', 'airtable');
       throw new Error('Airtable client not initialized');
     }
     
+    log('Using direct Airtable client for create operation', 'airtable');
     const base = airtableInstance.base(baseId);
     const record = await base(tableName).create(fields);
     return { id: record.id, fields: record.fields };
   },
+  
   update: async (baseId: string, tableName: string, recordId: string, fields: Record<string, any>) => {
     if (!apiKey) {
       throw new Error('Airtable API key not configured');
     }
     
+    // Try to use MCP server if available
+    const mcpRunning = await isMcpServerRunning();
+    if (mcpRunning && mcpClientAdapter && mcpClientAdapter.isAvailable()) {
+      try {
+        log('Using MCP server for update operation', 'airtable');
+        return await mcpClientAdapter.update(baseId, tableName, recordId, fields);
+      } catch (mcpError: any) {
+        log(`MCP update failed, falling back to direct client: ${mcpError?.message || 'Unknown error'}`, 'airtable');
+        // Fall through to direct client if MCP fails
+      }
+    }
+    
+    // Fall back to direct client
     if (!airtableInstance) {
       log('Airtable client not initialized. Update operation failed.', 'airtable');
       throw new Error('Airtable client not initialized');
     }
     
+    log('Using direct Airtable client for update operation', 'airtable');
     const base = airtableInstance.base(baseId);
     const record = await base(tableName).update(recordId, fields);
     return { id: record.id, fields: record.fields };
   },
+  
   delete: async (baseId: string, tableName: string, recordId: string) => {
     if (!apiKey) {
       throw new Error('Airtable API key not configured');
     }
     
+    // Try to use MCP server if available
+    const mcpRunning = await isMcpServerRunning();
+    if (mcpRunning && mcpClientAdapter && mcpClientAdapter.isAvailable()) {
+      try {
+        log('Using MCP server for delete operation', 'airtable');
+        return await mcpClientAdapter.delete(baseId, tableName, recordId);
+      } catch (mcpError: any) {
+        log(`MCP delete failed, falling back to direct client: ${mcpError?.message || 'Unknown error'}`, 'airtable');
+        // Fall through to direct client if MCP fails
+      }
+    }
+    
+    // Fall back to direct client
     if (!airtableInstance) {
       log('Airtable client not initialized. Delete operation failed.', 'airtable');
       throw new Error('Airtable client not initialized');
     }
     
+    log('Using direct Airtable client for delete operation', 'airtable');
     const base = airtableInstance.base(baseId);
     await base(tableName).destroy(recordId);
     return { id: recordId, deleted: true };
