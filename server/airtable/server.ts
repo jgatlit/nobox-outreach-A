@@ -99,6 +99,21 @@ export async function startAirtableServer() {
           const mcpClientAdapter = getMcpClientAdapter(process.env.AIRTABLE_BASE_ID);
           mcpClientAdapter.connectToProcess(mcpProcess);
           log('MCP client adapter connected to server process', 'airtable');
+          
+          // Verify Airtable tables
+          try {
+            const { verifyAirtableTables } = await import('./schema');
+            // Run table verification in the background to avoid blocking startup
+            setTimeout(async () => {
+              try {
+                await verifyAirtableTables(process.env.AIRTABLE_BASE_ID || '');
+              } catch (verificationError) {
+                log(`Error verifying Airtable tables: ${verificationError}`, 'airtable');
+              }
+            }, 5000);
+          } catch (schemaError) {
+            log(`Error importing schema helper: ${schemaError}`, 'airtable');
+          }
         } catch (adapterError: any) {
           log(`Error connecting MCP client adapter: ${adapterError?.message || 'Unknown error'}`, 'airtable');
         }
