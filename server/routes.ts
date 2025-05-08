@@ -1441,6 +1441,154 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Airtable Integration Routes
+  app.get("/api/airtable/status", (req, res) => {
+    try {
+      const isConfigured = process.env.AIRTABLE_API_KEY && process.env.AIRTABLE_BASE_ID;
+      return res.json({
+        configured: isConfigured,
+        baseId: isConfigured ? process.env.AIRTABLE_BASE_ID : null
+      });
+    } catch (error) {
+      console.error("Error checking Airtable status:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/airtable/tables", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+
+      const { isAirtableConfigured, listRecords } = await import("./airtable");
+      
+      if (!isAirtableConfigured()) {
+        return res.status(400).json({ error: "Airtable not configured correctly" });
+      }
+
+      // For this to work, we need access to the schema table or make a request to a known table
+      // This is a simple placeholder that would need to be adjusted based on Airtable's API
+      try {
+        // Try to get metadata - this is a mock endpoint as Airtable doesn't directly expose table names
+        // In a real implementation, you might need to make a request to a known table and then
+        // parse the response to determine available tables
+        return res.json({ 
+          message: "Please specify the table name in your request",
+          knownTables: ["Please configure your table names in server/airtable/config.ts"]
+        });
+      } catch (error) {
+        return res.status(400).json({ error: "Could not retrieve Airtable tables" });
+      }
+    } catch (error) {
+      console.error("Error listing Airtable tables:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/airtable/:baseId/:tableName", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+
+      const { baseId, tableName } = req.params;
+      const { listRecords } = await import("./airtable");
+      
+      const records = await listRecords(baseId, tableName);
+      return res.json(records);
+    } catch (error) {
+      console.error(`Error listing records from Airtable table ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to retrieve records from Airtable" });
+    }
+  });
+
+  app.get("/api/airtable/:baseId/:tableName/search", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+
+      const { baseId, tableName } = req.params;
+      const query = req.query.q as string;
+      
+      if (!query) {
+        return res.status(400).json({ error: "Search query is required" });
+      }
+      
+      const { searchRecords } = await import("./airtable");
+      
+      const records = await searchRecords(baseId, tableName, query);
+      return res.json(records);
+    } catch (error) {
+      console.error(`Error searching Airtable table ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to search records in Airtable" });
+    }
+  });
+
+  app.post("/api/airtable/:baseId/:tableName", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+
+      const { baseId, tableName } = req.params;
+      const fields = req.body;
+      
+      if (!fields || Object.keys(fields).length === 0) {
+        return res.status(400).json({ error: "Record data is required" });
+      }
+      
+      const { createRecord } = await import("./airtable");
+      
+      const record = await createRecord(baseId, tableName, fields);
+      return res.status(201).json(record);
+    } catch (error) {
+      console.error(`Error creating record in Airtable table ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to create record in Airtable" });
+    }
+  });
+
+  app.put("/api/airtable/:baseId/:tableName/:recordId", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+
+      const { baseId, tableName, recordId } = req.params;
+      const fields = req.body;
+      
+      if (!fields || Object.keys(fields).length === 0) {
+        return res.status(400).json({ error: "Record data is required" });
+      }
+      
+      const { updateRecord } = await import("./airtable");
+      
+      const record = await updateRecord(baseId, tableName, recordId, fields);
+      return res.json(record);
+    } catch (error) {
+      console.error(`Error updating record in Airtable table ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to update record in Airtable" });
+    }
+  });
+
+  app.delete("/api/airtable/:baseId/:tableName/:recordId", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+
+      const { baseId, tableName, recordId } = req.params;
+      const { deleteRecord } = await import("./airtable");
+      
+      await deleteRecord(baseId, tableName, recordId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error(`Error deleting record from Airtable table ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to delete record from Airtable" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
