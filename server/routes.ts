@@ -1593,26 +1593,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Removed duplicate API endpoint
+  // Diagnostic endpoint to directly test Airtable API connection
+  // Diagnostic endpoint for the Airtable configuration and connection status
+  app.get("/api/airtable/diagnostics", async (req, res) => {
+    try {
+      const { diagnoseAirtableIntegration } = await import('./airtable');
+      const result = await diagnoseAirtableIntegration();
+      
+      return res.json({
+        success: true,
+        diagnostics: result
+      });
+    } catch (error) {
+      console.error("Error running Airtable diagnostics:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to run Airtable diagnostics",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Direct test endpoint for the Airtable API connection
+  app.get("/api/airtable/test-connection", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Airtable API Key not configured" 
+        });
+      }
+      
+      // Test the base metadata API first
+      try {
+        const baseId = "appUPDttFgRrz9YiC"; // Always use the correct ID
+        
+        console.log(`Testing Airtable API connection with baseId: ${baseId}`);
+        
+        // Attempt to access the base metadata
+        const metaResponse = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const metaStatus = metaResponse.status;
+        console.log(`Airtable meta API status: ${metaStatus}`);
+        
+        let metaData = null;
+        let metaError = null;
+        
+        try {
+          if (metaResponse.ok) {
+            metaData = await metaResponse.json();
+          } else {
+            metaError = await metaResponse.text();
+          }
+        } catch (parseError) {
+          metaError = `Error parsing response: ${parseError.message}`;
+        }
+        
+        // Now try the data API
+        const dataResponse = await fetch(`https://api.airtable.com/v0/${baseId}/Pipelines?maxRecords=1`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`
+          }
+        });
+        
+        const dataStatus = dataResponse.status;
+        console.log(`Airtable data API status: ${dataStatus}`);
+        
+        let dataResult = null;
+        let dataError = null;
+        
+        try {
+          if (dataResponse.ok) {
+            dataResult = await dataResponse.json();
+          } else {
+            dataError = await dataResponse.text();
+          }
+        } catch (parseError) {
+          dataError = `Error parsing response: ${parseError.message}`;
+        }
+        
+        return res.json({
+          success: true,
+          baseId: baseId,
+          meta: {
+            status: metaStatus,
+            success: metaResponse.ok,
+            data: metaData,
+            error: metaError
+          },
+          data: {
+            status: dataStatus,
+            success: dataResponse.ok,
+            result: dataResult,
+            error: dataError
+          }
+        });
+      } catch (fetchError) {
+        console.error("Error testing Airtable connection:", fetchError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to test Airtable connection",
+          details: fetchError instanceof Error ? fetchError.message : String(fetchError)
+        });
+      }
+    } catch (error) {
+      console.error("Error in test-connection endpoint:", error);
+      return res.status(500).json({
+        success: false, 
+        error: "Internal server error", 
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
   
   // API endpoints for Airtable Conversations
   
   // Get all conversations for a user
   app.get("/api/airtable/conversations", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      const { isAirtableConfigured, getAirtableBaseId } = await import('./airtable');
+      
+      if (!isAirtableConfigured()) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Airtable not configured correctly. Please check API key configuration." 
+        });
       }
       
       const user = req.query.user as string;
       if (!user) {
-        return res.status(400).json({ error: "User parameter is required" });
+        return res.status(400).json({ 
+          success: false,
+          error: "User parameter is required" 
+        });
       }
       
       const { getUserConversations } = await import("./airtable/conversations");
-      const conversations = await getUserConversations(process.env.AIRTABLE_BASE_ID, user);
+      const conversations = await getUserConversations(getAirtableBaseId(), user);
       
-      return res.json(conversations);
+      return res.json({
+        success: true,
+        conversations
+      });
     } catch (error) {
       console.error("Error getting conversations from Airtable:", error);
       return res.status(500).json({ 
@@ -1625,20 +1752,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get a single conversation by ID
   app.get("/api/airtable/conversations/:id", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      const { isAirtableConfigured, getAirtableBaseId } = await import('./airtable');
+      
+      if (!isAirtableConfigured()) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Airtable not configured correctly. Please check API key configuration." 
+        });
       }
       
       const conversationId = req.params.id;
       
       const { getConversation } = await import("./airtable/conversations");
-      const conversation = await getConversation(process.env.AIRTABLE_BASE_ID, conversationId);
+      const conversation = await getConversation(getAirtableBaseId(), conversationId);
       
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ 
+          success: false,
+          error: "Conversation not found" 
+        });
       }
       
-      return res.json(conversation);
+      return res.json({
+        success: true,
+        conversation
+      });
     } catch (error) {
       console.error("Error getting conversation from Airtable:", error);
       return res.status(500).json({ 
