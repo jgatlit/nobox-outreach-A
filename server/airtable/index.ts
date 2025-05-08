@@ -42,7 +42,14 @@ let mcpServerStatus: any = null;
 
 // Main utility function for checking if Airtable is properly configured
 export function isAirtableConfigured(): boolean {
-  return Boolean(process.env.AIRTABLE_API_KEY && process.env.AIRTABLE_BASE_ID);
+  // We only need to check for API key since we're hardcoding the correct base ID
+  return Boolean(process.env.AIRTABLE_API_KEY);
+}
+
+// Get the correct Airtable base ID - always use our discovered ID
+export function getAirtableBaseId(): string {
+  // Always return the correct base ID we discovered
+  return 'appUPDttFgRrz9YiC';
 }
 
 /**
