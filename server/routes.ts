@@ -1485,6 +1485,338 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // API endpoints for Airtable Conversations
+  
+  // Get all conversations for a user
+  app.get("/api/airtable/conversations", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const user = req.query.user as string;
+      if (!user) {
+        return res.status(400).json({ error: "User parameter is required" });
+      }
+      
+      const { getUserConversations } = await import("./airtable/conversations");
+      const conversations = await getUserConversations(process.env.AIRTABLE_BASE_ID, user);
+      
+      return res.json(conversations);
+    } catch (error) {
+      console.error("Error getting conversations from Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve conversations from Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Get a single conversation by ID
+  app.get("/api/airtable/conversations/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const conversationId = req.params.id;
+      
+      const { getConversation } = await import("./airtable/conversations");
+      const conversation = await getConversation(process.env.AIRTABLE_BASE_ID, conversationId);
+      
+      if (!conversation) {
+        return res.status(404).json({ error: "Conversation not found" });
+      }
+      
+      return res.json(conversation);
+    } catch (error) {
+      console.error("Error getting conversation from Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve conversation from Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Create a new conversation
+  app.post("/api/airtable/conversations", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const conversationData = req.body;
+      
+      if (!conversationData.id || !conversationData.title || !conversationData.user) {
+        return res.status(400).json({ error: "Conversation requires id, title, and user fields" });
+      }
+      
+      const { createConversation } = await import("./airtable/conversations");
+      const result = await createConversation(process.env.AIRTABLE_BASE_ID, conversationData);
+      
+      return res.status(201).json(result);
+    } catch (error) {
+      console.error("Error creating conversation in Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to create conversation in Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Update an existing conversation
+  app.patch("/api/airtable/conversations/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const conversationId = req.params.id;
+      const updates = req.body;
+      
+      const { updateConversation } = await import("./airtable/conversations");
+      const result = await updateConversation(process.env.AIRTABLE_BASE_ID, conversationId, updates);
+      
+      return res.json(result);
+    } catch (error) {
+      console.error("Error updating conversation in Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to update conversation in Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Add a message to a conversation
+  app.post("/api/airtable/conversations/:id/messages", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const conversationId = req.params.id;
+      const message = req.body;
+      
+      if (!message.role || !message.content) {
+        return res.status(400).json({ error: "Message requires role and content fields" });
+      }
+      
+      // Add timestamp if not provided
+      if (!message.timestamp) {
+        message.timestamp = new Date().toISOString();
+      }
+      
+      const { addMessageToConversation } = await import("./airtable/conversations");
+      const result = await addMessageToConversation(process.env.AIRTABLE_BASE_ID, conversationId, message);
+      
+      return res.json(result);
+    } catch (error) {
+      console.error("Error adding message to conversation in Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to add message to conversation in Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Delete a conversation (soft delete)
+  app.delete("/api/airtable/conversations/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const conversationId = req.params.id;
+      const hardDelete = req.query.hard === 'true';
+      
+      if (hardDelete) {
+        const { hardDeleteConversation } = await import("./airtable/conversations");
+        await hardDeleteConversation(process.env.AIRTABLE_BASE_ID, conversationId);
+      } else {
+        const { softDeleteConversation } = await import("./airtable/conversations");
+        await softDeleteConversation(process.env.AIRTABLE_BASE_ID, conversationId);
+      }
+      
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting conversation from Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to delete conversation from Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API endpoints for Airtable Tool Executions
+  
+  // Get tool executions for a conversation
+  app.get("/api/airtable/tool-executions", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const conversationId = req.query.conversationId as string;
+      const toolName = req.query.toolName as string;
+      
+      if (!conversationId && !toolName) {
+        return res.status(400).json({ error: "Either conversationId or toolName parameter is required" });
+      }
+      
+      if (conversationId) {
+        const { getConversationToolExecutions } = await import("./airtable/toolExecutions");
+        const executions = await getConversationToolExecutions(process.env.AIRTABLE_BASE_ID, conversationId);
+        return res.json(executions);
+      } else {
+        const { getToolExecutionsByName } = await import("./airtable/toolExecutions");
+        const maxRecords = req.query.max ? parseInt(req.query.max as string) : 100;
+        const executions = await getToolExecutionsByName(process.env.AIRTABLE_BASE_ID, toolName, maxRecords);
+        return res.json(executions);
+      }
+    } catch (error) {
+      console.error("Error getting tool executions from Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve tool executions from Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Get a single tool execution by ID
+  app.get("/api/airtable/tool-executions/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const executionId = req.params.id;
+      
+      const { getToolExecution } = await import("./airtable/toolExecutions");
+      const execution = await getToolExecution(process.env.AIRTABLE_BASE_ID, executionId);
+      
+      if (!execution) {
+        return res.status(404).json({ error: "Tool execution not found" });
+      }
+      
+      return res.json(execution);
+    } catch (error) {
+      console.error("Error getting tool execution from Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve tool execution from Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Create a new tool execution
+  app.post("/api/airtable/tool-executions", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const executionData = req.body;
+      
+      if (!executionData.id || !executionData.conversationId || !executionData.toolName) {
+        return res.status(400).json({ error: "Tool execution requires id, conversationId, and toolName fields" });
+      }
+      
+      // Set default values if not provided
+      if (!executionData.status) executionData.status = 'pending';
+      if (!executionData.createdAt) executionData.createdAt = new Date().toISOString();
+      
+      const { createToolExecution } = await import("./airtable/toolExecutions");
+      const result = await createToolExecution(process.env.AIRTABLE_BASE_ID, executionData);
+      
+      return res.status(201).json(result);
+    } catch (error) {
+      console.error("Error creating tool execution in Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to create tool execution in Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Update a tool execution
+  app.patch("/api/airtable/tool-executions/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const executionId = req.params.id;
+      const updates = req.body;
+      
+      const { updateToolExecution } = await import("./airtable/toolExecutions");
+      const result = await updateToolExecution(process.env.AIRTABLE_BASE_ID, executionId, updates);
+      
+      return res.json(result);
+    } catch (error) {
+      console.error("Error updating tool execution in Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to update tool execution in Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Complete a tool execution
+  app.post("/api/airtable/tool-executions/:id/complete", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const executionId = req.params.id;
+      const { success, outputs, executionTime, errorMessage } = req.body;
+      
+      if (success === undefined) {
+        return res.status(400).json({ error: "Success parameter is required" });
+      }
+      
+      const { completeToolExecution } = await import("./airtable/toolExecutions");
+      const result = await completeToolExecution(
+        process.env.AIRTABLE_BASE_ID, 
+        executionId, 
+        success, 
+        outputs, 
+        executionTime, 
+        errorMessage
+      );
+      
+      return res.json(result);
+    } catch (error) {
+      console.error("Error completing tool execution in Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to complete tool execution in Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Delete a tool execution
+  app.delete("/api/airtable/tool-executions/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      }
+      
+      const executionId = req.params.id;
+      
+      const { deleteToolExecution } = await import("./airtable/toolExecutions");
+      await deleteToolExecution(process.env.AIRTABLE_BASE_ID, executionId);
+      
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting tool execution from Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to delete tool execution from Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   app.get("/api/airtable/tables", async (req, res) => {
     try {

@@ -27,88 +27,38 @@ interface AirtableSchema {
 
 // Define the schema for each table
 export const airtableSchema: AirtableSchema = {
-  Leads: {
-    name: 'Leads',
-    description: 'Prospect and lead contact information',
+  Conversations: {
+    name: 'Conversations',
+    description: 'AI conversation history and metadata',
     fields: [
-      { name: 'First Name', type: 'singleLineText' },
-      { name: 'Last Name', type: 'singleLineText' },
-      { name: 'Email', type: 'email' },
-      { name: 'Company', type: 'singleLineText' },
+      { name: 'Id', type: 'singleLineText' },
       { name: 'Title', type: 'singleLineText' },
-      { name: 'Phone', type: 'phone' },
-      { name: 'Website', type: 'url' },
-      { name: 'LinkedIn URL', type: 'url' },
-      { name: 'Source', type: 'singleSelect', options: ['email', 'pipedrive', 'asana', 'instantly', 'cyberleads', 'linkedin', 'manual'] },
-      { name: 'Status', type: 'singleSelect', options: ['active', 'inactive', 'contacted', 'responded', 'qualified', 'disqualified'] },
-      { name: 'Priority', type: 'singleSelect', options: ['low', 'medium', 'high', 'urgent'] },
-      { name: 'Notes', type: 'multilineText' },
-      { name: 'Tags', type: 'multipleSelect', options: ['conference', 'tech', 'referral', 'cold', 'warm'] },
-      { name: 'Last Contact Date', type: 'date' },
+      { name: 'User', type: 'singleLineText' },
+      { name: 'Status', type: 'singleSelect', options: ['active', 'archived', 'deleted'] },
+      { name: 'Messages', type: 'multilineText' }, // JSON stringified messages
+      { name: 'Tags', type: 'multipleSelect', options: ['important', 'follow-up', 'completed', 'technical', 'sales', 'support'] },
       { name: 'Created At', type: 'date' },
       { name: 'Updated At', type: 'date' },
-      { name: 'Email Status', type: 'singleSelect', options: ['not_started', 'draft_generated', 'sent', 'opened', 'clicked', 'replied'] },
-      { name: 'Industry', type: 'singleLineText' },
-      { name: 'Employee Count', type: 'singleLineText' },
-      { name: 'Location', type: 'singleLineText' },
-      { name: 'Tech Stack', type: 'multilineText' },
-      { name: 'Insights', type: 'multilineText' },
-      { name: 'Personalization Hooks', type: 'multilineText' }
+      { name: 'Last Message Date', type: 'date' },
+      { name: 'Model Used', type: 'singleLineText' },
+      { name: 'Tool Executions Count', type: 'number' },
+      { name: 'Metadata', type: 'multilineText' } // JSON stringified metadata
     ]
   },
-  Companies: {
-    name: 'Companies',
-    description: 'Company profile information',
+  ToolExecutions: {
+    name: 'ToolExecutions',
+    description: 'Records of tool usage during AI conversations',
     fields: [
-      { name: 'Name', type: 'singleLineText' },
-      { name: 'Website', type: 'url' },
-      { name: 'Industry', type: 'singleLineText' },
-      { name: 'Description', type: 'multilineText' },
-      { name: 'Size', type: 'singleLineText' },
-      { name: 'Location', type: 'singleLineText' },
-      { name: 'LinkedIn URL', type: 'url' },
+      { name: 'Id', type: 'singleLineText' },
+      { name: 'Conversation Id', type: 'singleLineText' },
+      { name: 'Tool Name', type: 'singleLineText' },
+      { name: 'Status', type: 'singleSelect', options: ['success', 'failure', 'pending'] },
+      { name: 'Inputs', type: 'multilineText' }, // JSON stringified inputs
+      { name: 'Outputs', type: 'multilineText' }, // JSON stringified outputs
+      { name: 'Execution Time', type: 'number' }, // in milliseconds
       { name: 'Created At', type: 'date' },
-      { name: 'Updated At', type: 'date' }
-    ]
-  },
-  Projects: {
-    name: 'Projects',
-    description: 'Project details and history',
-    fields: [
-      { name: 'Name', type: 'singleLineText' },
-      { name: 'Description', type: 'multilineText' },
-      { name: 'Client', type: 'singleLineText' },
-      { name: 'Status', type: 'singleSelect', options: ['planning', 'in_progress', 'on_hold', 'completed', 'cancelled'] },
-      { name: 'Start Date', type: 'date' },
-      { name: 'End Date', type: 'date' },
-      { name: 'Created At', type: 'date' },
-      { name: 'Updated At', type: 'date' }
-    ]
-  },
-  'Email Templates': {
-    name: 'Email Templates',
-    description: 'Email templates for outreach campaigns',
-    fields: [
-      { name: 'Name', type: 'singleLineText' },
-      { name: 'Subject', type: 'singleLineText' },
-      { name: 'Body', type: 'multilineText' },
-      { name: 'Tags', type: 'multilineText' },
-      { name: 'Created At', type: 'date' },
-      { name: 'Updated At', type: 'date' }
-    ]
-  },
-  Campaigns: {
-    name: 'Campaigns',
-    description: 'Marketing and outreach campaigns',
-    fields: [
-      { name: 'Name', type: 'singleLineText' },
-      { name: 'Description', type: 'multilineText' },
-      { name: 'Status', type: 'singleSelect', options: ['draft', 'active', 'paused', 'completed'] },
-      { name: 'Start Date', type: 'date' },
-      { name: 'End Date', type: 'date' },
-      { name: 'Goal', type: 'singleLineText' },
-      { name: 'Created At', type: 'date' },
-      { name: 'Updated At', type: 'date' }
+      { name: 'Error Message', type: 'multilineText' },
+      { name: 'Metadata', type: 'multilineText' } // JSON stringified metadata
     ]
   }
 };
@@ -194,17 +144,29 @@ export async function createSampleRecordIfEmpty(baseId: string, tableName: strin
     });
     
     // Special handling for specific tables
-    if (tableName === 'Leads') {
-      sampleRecord['First Name'] = 'Sample';
-      sampleRecord['Last Name'] = 'User';
-      sampleRecord['Email'] = 'sample.user@example.com';
-      sampleRecord['Company'] = 'Example Corp';
-      sampleRecord['Source'] = 'manual';
+    if (tableName === 'Conversations') {
+      const sampleMessages = JSON.stringify([
+        { role: 'user', content: 'Hello, I need help with sales automation.', timestamp: new Date().toISOString() },
+        { role: 'assistant', content: 'I can help with that! What specific aspects of sales automation are you interested in?', timestamp: new Date().toISOString() }
+      ]);
+      
+      sampleRecord['Id'] = `conv_${Date.now()}`;
+      sampleRecord['Title'] = 'Sample Conversation';
+      sampleRecord['User'] = 'sample.user@example.com';
       sampleRecord['Status'] = 'active';
-    } else if (tableName === 'Companies') {
-      sampleRecord['Name'] = 'Example Corp';
-      sampleRecord['Website'] = 'https://example.com';
-      sampleRecord['Industry'] = 'Technology';
+      sampleRecord['Messages'] = sampleMessages;
+      sampleRecord['Model Used'] = 'gpt-4o';
+      sampleRecord['Tool Executions Count'] = 0;
+      sampleRecord['Metadata'] = JSON.stringify({ source: 'sample_data', version: '1.0' });
+    } else if (tableName === 'ToolExecutions') {
+      sampleRecord['Id'] = `tool_${Date.now()}`;
+      sampleRecord['Conversation Id'] = `conv_${Date.now()}`;
+      sampleRecord['Tool Name'] = 'generate_email';
+      sampleRecord['Status'] = 'success';
+      sampleRecord['Inputs'] = JSON.stringify({ recipient: 'test@example.com', subject: 'Hello', template: 'welcome' });
+      sampleRecord['Outputs'] = JSON.stringify({ success: true, messageId: '123456' });
+      sampleRecord['Execution Time'] = 1250; // milliseconds
+      sampleRecord['Metadata'] = JSON.stringify({ source: 'sample_data', version: '1.0' });
     }
     
     log(`Creating sample record for table ${tableName}`, 'airtable');

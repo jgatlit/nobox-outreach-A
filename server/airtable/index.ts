@@ -16,6 +16,27 @@ export {
   getAvailableTables
 } from './client';
 
+// New exports for conversations and tool executions
+export {
+  createConversation,
+  getUserConversations,
+  getConversation,
+  updateConversation,
+  addMessageToConversation,
+  softDeleteConversation,
+  hardDeleteConversation
+} from './conversations';
+
+export {
+  createToolExecution,
+  getConversationToolExecutions,
+  getToolExecution,
+  updateToolExecution,
+  completeToolExecution,
+  deleteToolExecution,
+  getToolExecutionsByName
+} from './toolExecutions';
+
 // Store the MCP server status to check later
 let mcpServerStatus: any = null;
 
