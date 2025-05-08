@@ -1446,13 +1446,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/airtable/status", async (req, res) => {
     try {
       const { isAirtableConfigured } = await import("./airtable");
-      const { airtableConfig } = await import("./airtable");
+      const { airtableConfig } = await import("./airtable/config");
+      
+      // Add debug logs
+      console.log("AIRTABLE_API_KEY exists:", !!process.env.AIRTABLE_API_KEY);
+      console.log("AIRTABLE_BASE_ID:", process.env.AIRTABLE_BASE_ID);
       
       const isConfigured = isAirtableConfigured();
+      console.log("isAirtableConfigured returned:", isConfigured);
+      
       return res.json({
         configured: isConfigured,
         baseId: process.env.AIRTABLE_BASE_ID,
-        tables: isConfigured ? airtableConfig.bases[0].tables : [],
+        baseIdExists: !!process.env.AIRTABLE_BASE_ID,
+        tables: isConfigured && airtableConfig.bases[0] ? airtableConfig.bases[0].tables : [],
         apiKeyConfigured: !!process.env.AIRTABLE_API_KEY
       });
     } catch (error) {
