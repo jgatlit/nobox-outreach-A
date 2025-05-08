@@ -20,38 +20,35 @@ interface AirtableBase {
   tables: AirtableTable[];
 }
 
+// Use the correct base ID we discovered
+const CORRECT_BASE_ID = 'appUPDttFgRrz9YiC';
+
 export const airtableConfig = {
   apiKey: process.env.AIRTABLE_API_KEY,
+  // Use the correct base ID we discovered through the Airtable API
   bases: [
     {
-      id: process.env.AIRTABLE_BASE_ID || '',
-      name: 'noboxLeadGen',
-      description: 'Database for lead generation and management',
+      // Override the base ID from environment variable if it doesn't seem correct
+      id: (process.env.AIRTABLE_BASE_ID && process.env.AIRTABLE_BASE_ID.startsWith('app')) 
+        ? process.env.AIRTABLE_BASE_ID 
+        : CORRECT_BASE_ID,
+      name: 'Proposal Automation System',
+      description: 'Database for proposal automation and AI conversations',
       tables: [
         {
-          id: 'Leads',
-          name: 'Leads',
-          description: 'Prospect and lead contact information'
+          id: 'Conversations',
+          name: 'Conversations',
+          description: 'AI conversation history and metadata'
         },
         {
-          id: 'Companies',
-          name: 'Companies',
-          description: 'Company profile information'
+          id: 'ToolExecutions',
+          name: 'ToolExecutions',
+          description: 'Records of tool usage during AI conversations'
         },
         {
-          id: 'Projects',
-          name: 'Projects',
-          description: 'Project details and history'
-        },
-        {
-          id: 'EmailTemplates',
-          name: 'Email Templates',
-          description: 'Email templates for outreach campaigns'
-        },
-        {
-          id: 'Campaigns',
-          name: 'Campaigns',
-          description: 'Marketing and outreach campaigns'
+          id: 'Pipelines',
+          name: 'Pipelines',
+          description: 'Sales pipeline data'
         }
       ]
     }
