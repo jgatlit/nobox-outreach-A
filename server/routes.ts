@@ -1699,6 +1699,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to delete record from Airtable" });
     }
   });
+  
+  // Endpoint to sync a lead to Airtable
+  app.post("/api/leads/:id/sync-to-airtable", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      // Get the lead with enrichment data
+      const { lead, enrichment } = await storage.getLeadWithEnrichment(leadId);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      const tableName = "Leads"; // Using the Leads table from our configuration
+      
+      const { createRecord, searchRecords, updateRecord } = await import("./airtable");
+      
+      // Check if the lead already exists in Airtable by email
+      const searchQuery = `{Email} = "${lead.email}"`;
+      const existingRecords = await searchRecords(baseId, tableName, searchQuery);
+      
+      // Map our lead data to Airtable fields
+      const airtableFields = {
+        'First Name': lead.firstName || '',
+        'Last Name': lead.lastName || '',
+        'Email': lead.email,
+        'Company': lead.company || '',
+        'Title': lead.title || '',
+        'Phone': lead.phoneNumber || '',
+        'Website': lead.website || '',
+        'LinkedIn URL': lead.linkedinUrl || '',
+        'Source': lead.source,
+        'Status': lead.status || 'active',
+        'Priority': lead.priority || 'medium',
+        'Notes': lead.notes || '',
+        'Tags': lead.tags ? lead.tags.join(', ') : '',
+        'Last Contact Date': lead.lastContactDate ? new Date(lead.lastContactDate).toISOString() : '',
+        'Created At': new Date(lead.createdAt).toISOString(),
+        'Updated At': new Date(lead.updatedAt).toISOString(),
+        'Email Status': lead.emailStatus || 'not_started',
+      };
+      
+      // Include enrichment data if available
+      if (enrichment) {
+        try {
+          const companyInfo = enrichment.companyInfo ? JSON.parse(String(enrichment.companyInfo)) : {};
+          const techStack = enrichment.techStack ? JSON.parse(String(enrichment.techStack)) : {};
+          
+          if (companyInfo.industry) airtableFields['Industry'] = companyInfo.industry;
+          if (companyInfo.employeeCount) airtableFields['Employee Count'] = companyInfo.employeeCount;
+          if (companyInfo.location) airtableFields['Location'] = companyInfo.location;
+          
+          // Convert tech stack to a comma-separated string
+          const techStackArray = [];
+          if (techStack.frontend && techStack.frontend.length > 0) techStackArray.push(...techStack.frontend);
+          if (techStack.backend && techStack.backend.length > 0) techStackArray.push(...techStack.backend);
+          if (techStack.database && techStack.database.length > 0) techStackArray.push(...techStack.database);
+          if (techStack.cloud && techStack.cloud.length > 0) techStackArray.push(...techStack.cloud);
+          
+          if (techStackArray.length > 0) {
+            airtableFields['Tech Stack'] = techStackArray.join(', ');
+          }
+          
+          // Add insights as a note
+          if (enrichment.insights && enrichment.insights.length > 0) {
+            airtableFields['Insights'] = enrichment.insights.join('\n');
+          }
+          
+          // Add personalization hooks
+          if (enrichment.personalizationHooks && enrichment.personalizationHooks.length > 0) {
+            airtableFields['Personalization Hooks'] = enrichment.personalizationHooks.join('\n');
+          }
+        } catch (parseError) {
+          console.error("Error parsing enrichment data:", parseError);
+        }
+      }
+      
+      let result;
+      
+      // If record exists, update it, otherwise create a new one
+      if (existingRecords && existingRecords.length > 0) {
+        const recordId = existingRecords[0].id;
+        result = await updateRecord(baseId, tableName, recordId, airtableFields);
+        return res.json({
+          success: true,
+          message: "Lead successfully updated in Airtable",
+          recordId: result.id,
+          operation: "update"
+        });
+      } else {
+        result = await createRecord(baseId, tableName, airtableFields);
+        return res.json({
+          success: true,
+          message: "Lead successfully created in Airtable",
+          recordId: result.id,
+          operation: "create"
+        });
+      }
+    } catch (error) {
+      console.error("Error syncing lead to Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to sync lead to Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
