@@ -118,16 +118,48 @@ airtableClient = {
  */
 export async function searchRecords(baseId: string, tableName: string, query: string) {
   try {
-    log(`Searching Airtable table ${tableName} with query: ${query}`, 'airtable');
-    const results = await airtableClient.query(baseId, tableName, {
+    const tableId = getTableId(tableName);
+    log(`Searching Airtable table ${tableId} with query: ${query}`, 'airtable');
+    const results = await airtableClient.query(baseId, tableId, {
       filterByFormula: query
     });
-    log(`Found ${results.length} records in ${tableName}`, 'airtable');
+    log(`Found ${results.length} records in ${tableId}`, 'airtable');
     return results;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     log(`Error searching Airtable: ${errorMessage}`, 'airtable');
     throw error;
+  }
+}
+
+/**
+ * Gets the actual table ID from the table name or ID
+ * @param tableNameOrId The name or ID of the table
+ * @returns The table ID
+ */
+function getTableId(tableNameOrId: string): string {
+  // If this is already an ID format (e.g., tblXXXXXXXXXXXX), return as is
+  if (tableNameOrId.startsWith('tbl')) {
+    return tableNameOrId;
+  }
+  
+  // Otherwise, look up the ID from our config
+  try {
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    if (!baseId) return tableNameOrId;
+    
+    const base = airtableConfig.bases.find(b => b.id === baseId);
+    if (!base) return tableNameOrId;
+    
+    const table = base.tables.find(t => 
+      t.name.toLowerCase() === tableNameOrId.toLowerCase() || 
+      t.id.toLowerCase() === tableNameOrId.toLowerCase()
+    );
+    
+    return table ? table.id : tableNameOrId;
+  } catch (error) {
+    // If anything goes wrong, return the original value
+    return tableNameOrId;
   }
 }
 
@@ -148,9 +180,10 @@ export async function listRecords(
   } = {}
 ) {
   try {
-    log(`Listing records from Airtable table ${tableName}`, 'airtable');
-    const results = await airtableClient.query(baseId, tableName, options);
-    log(`Retrieved ${results.length} records from ${tableName}`, 'airtable');
+    const tableId = getTableId(tableName);
+    log(`Listing records from Airtable table ${tableId}`, 'airtable');
+    const results = await airtableClient.query(baseId, tableId, options);
+    log(`Retrieved ${results.length} records from ${tableId}`, 'airtable');
     return results;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -168,9 +201,10 @@ export async function listRecords(
  */
 export async function createRecord(baseId: string, tableName: string, fields: Record<string, any>) {
   try {
-    log(`Creating record in Airtable table ${tableName}`, 'airtable');
-    const result = await airtableClient.create(baseId, tableName, fields);
-    log(`Record created successfully in ${tableName}`, 'airtable');
+    const tableId = getTableId(tableName);
+    log(`Creating record in Airtable table ${tableId}`, 'airtable');
+    const result = await airtableClient.create(baseId, tableId, fields);
+    log(`Record created successfully in ${tableId}`, 'airtable');
     return result;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -194,9 +228,10 @@ export async function updateRecord(
   fields: Record<string, any>
 ) {
   try {
-    log(`Updating record ${recordId} in Airtable table ${tableName}`, 'airtable');
-    const result = await airtableClient.update(baseId, tableName, recordId, fields);
-    log(`Record ${recordId} updated successfully in ${tableName}`, 'airtable');
+    const tableId = getTableId(tableName);
+    log(`Updating record ${recordId} in Airtable table ${tableId}`, 'airtable');
+    const result = await airtableClient.update(baseId, tableId, recordId, fields);
+    log(`Record ${recordId} updated successfully in ${tableId}`, 'airtable');
     return result;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -214,9 +249,10 @@ export async function updateRecord(
  */
 export async function deleteRecord(baseId: string, tableName: string, recordId: string) {
   try {
-    log(`Deleting record ${recordId} from Airtable table ${tableName}`, 'airtable');
-    const result = await airtableClient.delete(baseId, tableName, recordId);
-    log(`Record ${recordId} deleted successfully from ${tableName}`, 'airtable');
+    const tableId = getTableId(tableName);
+    log(`Deleting record ${recordId} from Airtable table ${tableId}`, 'airtable');
+    const result = await airtableClient.delete(baseId, tableId, recordId);
+    log(`Record ${recordId} deleted successfully from ${tableId}`, 'airtable');
     return result;
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
