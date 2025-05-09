@@ -187,18 +187,23 @@ export async function diagnoseAirtableIntegration() {
       errorText = e instanceof Error ? e.message : String(e);
     }
     
+    // Also test the tables access with direct API call
+    const tablesResult = await testTableAccess(apiKey, CORRECT_BASE_ID);
+    
     apiConnectionResult = {
       status,
       isSuccess,
       data,
-      error: errorText
+      error: errorText,
+      tablesAccess: tablesResult
     };
   } catch (error) {
     apiConnectionResult = {
       status: 0,
       isSuccess: false,
       data: null,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      tablesAccess: { success: false, error: error instanceof Error ? error.message : String(error) }
     };
   }
   
@@ -210,4 +215,88 @@ export async function diagnoseAirtableIntegration() {
     },
     apiConnection: apiConnectionResult
   };
+}
+
+/**
+ * Tests access to key tables in the Airtable base to verify correct permissions
+ * @param apiKey The Airtable API key
+ * @param baseId The Airtable base ID
+ * @returns Result of the table access test
+ */
+async function testTableAccess(apiKey: string | undefined, baseId: string) {
+  // The tables we want to test
+  const tablesToTest = ['Conversations', 'ToolExecutions', 'Pipelines'];
+  const results: Record<string, any> = {};
+  
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "API key is missing",
+      tables: {}
+    };
+  }
+  
+  try {
+    // Test each table
+    for (const tableName of tablesToTest) {
+      try {
+        console.log(`[airtable] Testing access to ${tableName} table...`);
+        
+        const tableUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?maxRecords=1`;
+        const response = await fetch(tableUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          }
+        });
+        
+        const status = response.status;
+        const isSuccess = response.ok;
+        
+        let responseData = null;
+        let errorText = null;
+        
+        try {
+          if (isSuccess) {
+            responseData = await response.json();
+          } else {
+            errorText = await response.text();
+          }
+        } catch (e) {
+          errorText = e instanceof Error ? e.message : String(e);
+        }
+        
+        results[tableName] = {
+          status,
+          success: isSuccess,
+          error: errorText,
+          hasRecords: isSuccess && responseData?.records?.length > 0
+        };
+        
+        if (isSuccess) {
+          console.log(`[airtable] Successfully accessed ${tableName} table.`);
+        } else {
+          console.log(`[airtable] Failed to access ${tableName} table. Status: ${status}, Error: ${errorText}`);
+        }
+      } catch (tableError) {
+        console.error(`[airtable] Error testing ${tableName} table:`, tableError);
+        results[tableName] = {
+          status: 0,
+          success: false,
+          error: tableError instanceof Error ? tableError.message : String(tableError)
+        };
+      }
+    }
+    
+    return {
+      success: Object.values(results).some((r: any) => r.success),
+      tables: results
+    };
+  } catch (error) {
+    console.error("[airtable] Error testing table access:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      tables: results
+    };
+  }
 }
