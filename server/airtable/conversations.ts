@@ -43,18 +43,18 @@ export async function createConversation(baseId: string, conversation: Conversat
     
     // Prepare the record for Airtable
     const record = {
-      'Id': conversation.id,
-      'Title': conversation.title,
-      'User': conversation.user,
-      'Status': conversation.status,
-      'Messages': JSON.stringify(conversation.messages),
-      'Tags': conversation.tags || [],
-      'Created At': conversation.createdAt,
-      'Updated At': conversation.updatedAt,
-      'Last Message Date': conversation.lastMessageDate || conversation.updatedAt,
-      'Model Used': conversation.modelUsed || '',
-      'Tool Executions Count': conversation.toolExecutionsCount || 0,
-      'Metadata': conversation.metadata ? JSON.stringify(conversation.metadata) : '{}'
+      'id': conversation.id,
+      'title': conversation.title,
+      'user': conversation.user,
+      'status': conversation.status,
+      'messages': JSON.stringify(conversation.messages),
+      'tags': conversation.tags || [],
+      'created_at': conversation.createdAt,
+      'updated_at': conversation.updatedAt,
+      'last_message_date': conversation.lastMessageDate || conversation.updatedAt,
+      'model_used': conversation.modelUsed || '',
+      'tool_executions_count': conversation.toolExecutionsCount || 0,
+      'metadata': conversation.metadata ? JSON.stringify(conversation.metadata) : '{}'
     };
     
     return await createRecord(baseId, 'Conversations', record);
@@ -76,7 +76,7 @@ export async function getUserConversations(baseId: string, user: string): Promis
     log(`Getting conversations for user: ${user}`, 'airtable');
     
     // Search for conversations by user
-    const formula = `{User} = "${user}"`;
+    const formula = `{user} = "${user}"`;
     const records = await searchRecords(baseId, 'Conversations', formula);
     
     // Convert records to our internal format
@@ -120,7 +120,7 @@ export async function getConversation(baseId: string, conversationId: string): P
     log(`Getting conversation: ${conversationId}`, 'airtable');
     
     // Search for the conversation by ID
-    const formula = `{Id} = "${conversationId}"`;
+    const formula = `{id} = "${conversationId}"`;
     const records = await searchRecords(baseId, 'Conversations', formula);
     
     if (!records || records.length === 0) {
@@ -173,7 +173,7 @@ export async function updateConversation(
     log(`Updating conversation: ${conversationId}`, 'airtable');
     
     // First get the Airtable record ID for this conversation
-    const formula = `{Id} = "${conversationId}"`;
+    const formula = `{id} = "${conversationId}"`;
     const records = await searchRecords(baseId, 'Conversations', formula);
     
     if (!records || records.length === 0) {
@@ -185,15 +185,15 @@ export async function updateConversation(
     // Prepare the updates for Airtable
     const fields: Record<string, any> = {};
     
-    if (updates.title) fields['Title'] = updates.title;
-    if (updates.status) fields['Status'] = updates.status;
-    if (updates.messages) fields['Messages'] = JSON.stringify(updates.messages);
-    if (updates.tags) fields['Tags'] = updates.tags;
-    if (updates.updatedAt) fields['Updated At'] = updates.updatedAt;
-    if (updates.lastMessageDate) fields['Last Message Date'] = updates.lastMessageDate;
-    if (updates.modelUsed) fields['Model Used'] = updates.modelUsed;
-    if (updates.toolExecutionsCount !== undefined) fields['Tool Executions Count'] = updates.toolExecutionsCount;
-    if (updates.metadata) fields['Metadata'] = JSON.stringify(updates.metadata);
+    if (updates.title) fields['title'] = updates.title;
+    if (updates.status) fields['status'] = updates.status;
+    if (updates.messages) fields['messages'] = JSON.stringify(updates.messages);
+    if (updates.tags) fields['tags'] = updates.tags;
+    if (updates.updatedAt) fields['updated_at'] = updates.updatedAt;
+    if (updates.lastMessageDate) fields['last_message_date'] = updates.lastMessageDate;
+    if (updates.modelUsed) fields['model_used'] = updates.modelUsed;
+    if (updates.toolExecutionsCount !== undefined) fields['tool_executions_count'] = updates.toolExecutionsCount;
+    if (updates.metadata) fields['metadata'] = JSON.stringify(updates.metadata);
     
     return await updateRecord(baseId, 'Conversations', recordId, fields);
   } catch (error) {

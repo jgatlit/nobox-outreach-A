@@ -29,6 +29,7 @@ function Router() {
           <Route path="/ad-generator" component={AdGenerator} />
           <Route path="/workflows" component={Workflows} />
           <Route path="/integrations" component={Integrations} />
+          <Route path="/airtable-status" component={AirtableStatus} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
