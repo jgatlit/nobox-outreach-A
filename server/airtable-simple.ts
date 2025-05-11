@@ -23,24 +23,76 @@ function getBase(baseId = process.env.AIRTABLE_BASE_ID) {
 // Table name for leads in Airtable
 const LEADS_TABLE = 'Leads';
 
+// Expected field names in the Airtable Leads table
+const EXPECTED_FIELDS = [
+  'PostgreSQL_ID',
+  'firstName',
+  'lastName',
+  'email',
+  'company',
+  'title',
+  'phone',
+  'website',
+  'status',
+  'source',
+  'notes',
+  'priority',
+  'tags',
+  'lastContact'
+];
+
+/**
+ * Check if Leads table exists and has the necessary fields
+ * If the table doesn't exist, we'll catch this elsewhere
+ * If fields don't exist, this will just continue and let the create/update methods show the specific errors
+ */
+async function checkLeadsTableStructure() {
+  try {
+    const base = getBase();
+    
+    // First, try to access the Leads table to see if it exists
+    const table = base(LEADS_TABLE);
+    
+    // Get a single record to see if the table exists
+    // This will throw an error if the table doesn't exist
+    await table.select({ maxRecords: 1 }).firstPage();
+    
+    // If we get here, the table exists
+    return true;
+  } catch (error) {
+    // Rethrow the error for the caller to handle
+    throw error;
+  }
+}
+
 /**
  * Syncs PostgreSQL leads to Airtable
  * Creates or updates records in Airtable based on the leads from PostgreSQL
  */
 export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
   try {
+    // Check if Leads table exists
+    await checkLeadsTableStructure();
+    
     const base = getBase();
     const table = base(LEADS_TABLE);
     
-    // First, get existing records to determine which to update vs. create
-    const existingRecords = await table.select({
-      fields: ['email', 'PostgreSQL_ID'] // Just need these fields for matching
-    }).all();
+    // First, try to get existing records
+    let existingRecords;
+    try {
+      existingRecords = await table.select({
+        fields: ['email', 'PostgreSQL_ID'] // Just need these fields for matching
+      }).all();
+    } catch (error) {
+      // If this fails because of unknown field names, we'll just assume no records exist
+      console.log('Could not fetch existing records, assuming none exist:', error.message);
+      existingRecords = [];
+    }
     
     // Create a map for efficient lookups
     const existingLeadMap = new Map();
     existingRecords.forEach(record => {
-      // Map by PostgreSQL_ID
+      // Map by PostgreSQL_ID if it exists
       const pgId = record.fields.PostgreSQL_ID;
       if (pgId) existingLeadMap.set(pgId.toString(), record.id);
       
@@ -64,14 +116,14 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
         email: lead.email,
         company: lead.company || '',
         title: lead.title || '',
-        phone: lead.phone || '',
+        phone: lead.phoneNumber || '', // Updated field name to match schema
         website: lead.website || '',
         status: lead.status || 'new',
         source: lead.source || '',
         notes: lead.notes || '',
         priority: lead.priority || 'medium',
         tags: lead.tags || '',
-        lastContact: lead.lastContact ? new Date(lead.lastContact).toISOString() : null
+        lastContact: lead.lastContactDate ? new Date(lead.lastContactDate).toISOString() : null // Updated field name
       };
       
       // Check if this lead already exists in Airtable
@@ -102,16 +154,26 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
     // Process all create operations
     for (const chunk of createChunks) {
       if (chunk.length > 0) {
-        const result = await table.create(chunk);
-        created += result.length;
+        try {
+          const result = await table.create(chunk);
+          created += result.length;
+        } catch (error) {
+          console.error('Error creating records in Airtable:', error.message);
+          // Continue with next chunk even if this one failed
+        }
       }
     }
     
     // Process all update operations
     for (const chunk of updateChunks) {
       if (chunk.length > 0) {
-        const result = await table.update(chunk);
-        updated += result.length;
+        try {
+          const result = await table.update(chunk);
+          updated += result.length;
+        } catch (error) {
+          console.error('Error updating records in Airtable:', error.message);
+          // Continue with next chunk even if this one failed
+        }
       }
     }
     

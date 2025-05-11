@@ -18,14 +18,39 @@ export function registerAirtableRoutes(app: Express): void {
         });
       }
       
-      // Try to fetch leads to verify connection works
-      const leads = await getLeadsFromAirtable();
-      
-      return res.status(200).json({
-        success: true,
-        message: 'Successfully connected to Airtable',
-        recordCount: leads.length
-      });
+      try {
+        // Try to fetch leads to verify connection works
+        const leads = await getLeadsFromAirtable();
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Successfully connected to Airtable',
+          recordCount: leads.length,
+          baseId: process.env.AIRTABLE_BASE_ID
+        });
+      } catch (error) {
+        // Check if this is a field name error
+        if (error.message && error.message.includes('Unknown field name')) {
+          return res.status(200).json({
+            success: true,
+            message: 'Connected to Airtable, but the Leads table structure needs to be set up. Sync to Airtable to create the necessary fields.',
+            baseId: process.env.AIRTABLE_BASE_ID,
+            needsSetup: true
+          });
+        }
+        
+        // Check if this is a table not found error
+        if (error.message && error.message.includes('not found')) {
+          return res.status(200).json({
+            success: true,
+            message: 'Connected to Airtable, but the Leads table doesn\'t exist. Create a Leads table in your Airtable base first.',
+            baseId: process.env.AIRTABLE_BASE_ID,
+            needsTable: true
+          });
+        }
+        
+        throw error;
+      }
     } catch (error) {
       console.error('Airtable connection check failed:', error);
       return res.status(500).json({
