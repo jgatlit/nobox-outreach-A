@@ -49,6 +49,11 @@ export const airtableConfig = {
           id: 'Pipelines',
           name: 'Pipelines',
           description: 'Sales pipeline data'
+        },
+        {
+          id: 'Leads',
+          name: 'Leads',
+          description: 'Lead data synchronized with PostgreSQL'
         }
       ]
     }
