@@ -43,7 +43,7 @@ export async function initializeAirtableClient() {
     authInfo = getAuth();
     
     if (!authInfo.rawValue) {
-      log('Airtable not configured. Add AIRTABLE_API_KEY to use Airtable integration.', 'airtable');
+      log('Airtable not configured. Add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY to use Airtable integration.', 'airtable');
       return false;
     }
     

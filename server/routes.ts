@@ -1709,7 +1709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
         return res.status(400).json({ 
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
         });
       }
       
@@ -1892,7 +1892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
         return res.status(400).json({ 
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
         });
       }
       
@@ -1911,7 +1911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
         return res.status(400).json({ 
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
         });
       }
       
@@ -1930,7 +1930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
         return res.status(400).json({ 
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
         });
       }
       
@@ -1954,7 +1954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
         return res.status(400).json({ 
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
         });
       }
       
@@ -2208,7 +2208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isAirtableConfigured()) {
         return res.status(400).json({ 
           success: false,
-          error: "Airtable not configured correctly. Please check API key configuration." 
+          error: "Airtable not configured correctly. Please check your Personal Access Token (PAT) configuration. Please check your Personal Access Token (PAT) configuration." 
         });
       }
       
@@ -2244,7 +2244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isAirtableConfigured()) {
         return res.status(400).json({ 
           success: false,
-          error: "Airtable not configured correctly. Please check API key configuration." 
+          error: "Airtable not configured correctly. Please check your Personal Access Token (PAT) configuration. Please check your Personal Access Token (PAT) configuration." 
         });
       }
       
@@ -2277,7 +2277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/airtable/conversations", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const conversationData = req.body;
@@ -2303,7 +2303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/airtable/conversations/:id", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const conversationId = req.params.id;
@@ -2326,7 +2326,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/airtable/conversations/:id/messages", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const conversationId = req.params.id;
@@ -2358,7 +2358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/airtable/conversations/:id", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const conversationId = req.params.id;
@@ -2388,7 +2388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/airtable/tool-executions", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const conversationId = req.query.conversationId as string;
@@ -2421,7 +2421,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/airtable/tool-executions/:id", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const executionId = req.params.id;
@@ -2447,7 +2447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/airtable/tool-executions", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const executionData = req.body;
@@ -2477,7 +2477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/airtable/tool-executions/:id", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const executionId = req.params.id;
@@ -2500,7 +2500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/airtable/tool-executions/:id/complete", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const executionId = req.params.id;
@@ -2534,7 +2534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/airtable/tool-executions/:id", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
       
       const executionId = req.params.id;
@@ -2555,14 +2555,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/airtable/tables", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
 
       const { isAirtableConfigured } = await import("./airtable");
       const { airtableConfig } = await import("./airtable/config");
       
       if (!isAirtableConfigured()) {
-        return res.status(400).json({ error: "Airtable not configured correctly" });
+        return res.status(400).json({ error: "Airtable not configured correctly. Please check your Personal Access Token (PAT) configuration" });
       }
 
       try {
@@ -2605,7 +2605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!process.env.AIRTABLE_API_KEY) {
         return res.status(400).json({
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY environment variable."
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY environment variable."
         });
       }
       
@@ -2686,7 +2686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/airtable/:baseId/:tableName", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
 
       const { baseId, tableName } = req.params;
@@ -2703,7 +2703,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/airtable/:baseId/:tableName/search", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
 
       const { baseId, tableName } = req.params;
@@ -2726,7 +2726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/airtable/:baseId/:tableName", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
 
       const { baseId, tableName } = req.params;
@@ -2749,7 +2749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/airtable/:baseId/:tableName/:recordId", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
 
       const { baseId, tableName, recordId } = req.params;
@@ -2772,7 +2772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/airtable/:baseId/:tableName/:recordId", async (req, res) => {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+        return res.status(400).json({ error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." });
       }
 
       const { baseId, tableName, recordId } = req.params;
@@ -2791,7 +2791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
         return res.status(400).json({ 
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
         });
       }
       

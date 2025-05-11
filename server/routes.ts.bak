@@ -7,7 +7,25 @@ import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSu
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
-import { isAirtableConfigured, searchRecords, listRecords, createRecord, updateRecord, deleteRecord } from "./airtable";
+import { 
+  isAirtableConfigured, 
+  searchRecords, 
+  listRecords, 
+  createRecord, 
+  updateRecord, 
+  deleteRecord,
+  createLeadsTable
+} from "./airtable";
+import { 
+  getSyncStatus, 
+  triggerFullSync, 
+  syncLeadsToAirtable, 
+  syncAirtableToLeads,
+  syncSpecificLeadToAirtable
+} from "./airtable/sync";
+import { runDiagnostics } from "./airtable/diagnostics";
+import { validateApiKey, formatApiKey } from "./airtable/api-key-tool";
+import { startLeadSyncScheduler, stopLeadSyncScheduler } from "./scheduler";
 import path from "path";
 import fs from "fs";
 import * as https from 'node:https';
@@ -1380,7 +1398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Process the file and import the data
-      const result = await importLeadsFromCSV(file.path);
+      const result = await importLeadsFromCSV(file.path, false);
       
       // Remove the temporary file
       fs.unlinkSync(file.path);
@@ -1392,6 +1410,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint for importing leads from pasted CSV content
+  app.post("/api/leads/import/csv-paste", async (req: Request, res: Response) => {
+    try {
+      const { csvContent } = req.body;
+      
+      if (!csvContent || typeof csvContent !== 'string') {
+        return res.status(400).json({ error: "No CSV content was provided" });
+      }
+      
+      // Process the pasted content
+      const result = await importLeadsFromCSV(csvContent, true);
+      
+      return res.status(result.success ? 200 : 422).json(result);
+    } catch (error) {
+      console.error(`Error importing leads from pasted CSV:`, error);
+      return res.status(500).json({ error: "Failed to import leads from pasted CSV" });
+    }
+  });
+  
+  // Endpoint for importing leads from Google Sheets
+  app.post("/api/leads/import/google-sheet", async (req: Request, res: Response) => {
+    try {
+      const { spreadsheetId, apiKey } = req.body;
+      
+      if (!spreadsheetId) {
+        return res.status(400).json({ error: "Google Sheet ID is required" });
+      }
+      
+      if (!apiKey && !process.env.GOOGLE_SHEETS_API_KEY) {
+        return res.status(400).json({ error: "Google Sheets API key is required" });
+      }
+      
+      // Use provided API key or fall back to environment variable
+      const sheetsApiKey = apiKey || process.env.GOOGLE_SHEETS_API_KEY;
+      
+      // Format the Google Sheets API URL (we'll use the first sheet by default)
+      const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1?key=${sheetsApiKey}`;
+      
+      // Fetch the sheet data
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.status(response.status).json({
+          error: `Failed to fetch Google Sheet data: ${response.statusText}`,
+          details: errorText
+        });
+      }
+      
+      const sheetData = await response.json();
+      
+      if (!sheetData.values || !Array.isArray(sheetData.values) || sheetData.values.length < 2) {
+        return res.status(400).json({ error: "Sheet contains no valid data. It should have headers and at least one row of data." });
+      }
+      
+      // Extract headers and data rows
+      const headers = sheetData.values[0];
+      const dataRows = sheetData.values.slice(1);
+      
+      // Convert to CSV format
+      const csvRows = [
+        headers.join(','), // Header row
+        ...dataRows.map(row => {
+          // Pad row if needed (ensure all rows have same number of columns as header)
+          while (row.length < headers.length) {
+            row.push('');
+          }
+          return row.map(cell => {
+            // Escape commas and quotes in cell values
+            const cellStr = String(cell || '');
+            if (cellStr.includes(',') || cellStr.includes('"')) {
+              return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+          }).join(',');
+        })
+      ];
+      
+      const csvContent = csvRows.join('\n');
+      
+      // Process the CSV content
+      const result = await importLeadsFromCSV(csvContent, true);
+      
+      return res.status(result.success ? 200 : 422).json(result);
+    } catch (error) {
+      console.error(`Error importing leads from Google Sheet:`, error);
+      return res.status(500).json({ 
+        error: "Failed to import leads from Google Sheet",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   app.post("/api/leads/:id/import/gmail", upload.single('file'), async (req: Request, res: Response) => {
     try {
       const leadId = parseInt(req.params.id, 10);
@@ -1593,29 +1704,496 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // API endpoint to list all available Airtable tables
-  app.get("/api/airtable/tables", async (req, res) => {
+  // Diagnostic endpoint to directly test Airtable API connection
+  app.get("/api/airtable/diagnostics", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY environment variable." });
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
       }
       
-      // Always use the correct base ID we discovered
-      const correctBaseId = "appUPDttFgRrz9YiC";
-      const { getAvailableTables } = await import('./airtable/client');
-      const tables = await getAvailableTables(correctBaseId);
+      const diagnostics = await runDiagnostics();
+      return res.json(diagnostics);
+    } catch (error) {
+      console.error("Error running Airtable diagnostics:", error);
+      return res.status(500).json({ 
+        error: "Failed to run Airtable diagnostics",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API endpoint to validate an Airtable API key
+  app.post("/api/airtable/validate-key", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
       
-      return res.json({ 
+      if (!apiKey) {
+        return res.status(400).json({ 
+          error: "No API key provided" 
+        });
+      }
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      if (!baseId) {
+        return res.status(400).json({ 
+          error: "No Airtable Base ID configured. Please add AIRTABLE_BASE_ID environment variable." 
+        });
+      }
+      
+      const result = await validateApiKey(apiKey, baseId);
+      return res.json(result);
+    } catch (error) {
+      console.error("Error validating API key:", error);
+      return res.status(500).json({ 
+        error: "Failed to validate API key",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API endpoint to validate an Airtable API key without storing it
+  app.post("/api/airtable/validate-key", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      
+      if (!apiKey) {
+        return res.status(400).json({ 
+          success: false,
+          error: "No API key provided" 
+        });
+      }
+      
+      // Import the new auth functions
+      const { processAuth, testAuth } = await import('./airtable/auth');
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      if (!baseId) {
+        return res.status(400).json({ 
+          success: false,
+          error: "No Airtable Base ID configured. Please add AIRTABLE_BASE_ID environment variable." 
+        });
+      }
+      
+      // Process and validate the authentication token
+      const auth = processAuth(apiKey);
+      
+      // Test the authentication against the base
+      try {
+        const testedAuth = await testAuth(baseId, auth);
+        
+        return res.json({ 
+          success: true,
+          valid: testedAuth.status === 'valid',
+          type: testedAuth.type,
+          hasPrefix: testedAuth.hasPrefix,
+          status: testedAuth.status,
+          message: testedAuth.status === 'valid' 
+            ? "API key validated successfully" 
+            : "API key validation failed"
+        });
+      } catch (error) {
+        return res.status(400).json({ 
+          success: false,
+          valid: false,
+          error: "Failed to validate API key", 
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    } catch (error) {
+      console.error("Error validating API key:", error);
+      return res.status(500).json({ 
+        success: false,
+        valid: false,
+        error: "Failed to validate API key",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API endpoint to update the stored Airtable API key
+  app.post("/api/airtable/update-key", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      
+      if (!apiKey) {
+        return res.status(400).json({ 
+          success: false,
+          error: "No API key provided" 
+        });
+      }
+      
+      // Import the new auth functions
+      const { processAuth, testAuth, setApiKey } = await import('./airtable/auth');
+      const { initializeAirtableClient } = await import('./airtable/client');
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      if (!baseId) {
+        return res.status(400).json({ 
+          success: false,
+          error: "No Airtable Base ID configured. Please add AIRTABLE_BASE_ID environment variable." 
+        });
+      }
+      
+      // Process and validate the authentication token
+      const auth = processAuth(apiKey);
+      
+      // Test the authentication against the base
+      try {
+        const testedAuth = await testAuth(baseId, auth);
+        
+        if (testedAuth.status !== 'valid') {
+          return res.status(401).json({ 
+            success: false, 
+            error: 'Invalid API key - unable to authenticate with Airtable',
+            details: {
+              type: testedAuth.type,
+              status: testedAuth.status,
+              hasPrefix: testedAuth.hasPrefix
+            }
+          });
+        }
+        
+        // Save the API key to environment
+        setApiKey(apiKey);
+        
+        // Restart the Airtable client to pick up the new key
+        await initializeAirtableClient();
+        
+        return res.json({ 
+          success: true,
+          message: `API key updated successfully (${testedAuth.type})`,
+          details: {
+            type: testedAuth.type,
+            status: testedAuth.status,
+            hasPrefix: testedAuth.hasPrefix
+          }
+        });
+      } catch (error) {
+        return res.status(500).json({ 
+          success: false,
+          error: "Failed to validate API key", 
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    } catch (error) {
+      console.error("Error updating API key:", error);
+      return res.status(500).json({ 
+        success: false,
+        error: "Failed to update API key",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API routes for lead synchronization with Airtable
+  app.get("/api/airtable/sync/status", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const status = await getSyncStatus();
+      return res.json(status);
+    } catch (error) {
+      console.error("Error getting sync status:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve sync status",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/leads", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const result = await triggerFullSync();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error triggering lead sync:", error);
+      return res.status(500).json({ 
+        error: "Failed to sync leads with Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/leads/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const leadId = parseInt(req.params.id);
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      const result = await syncSpecificLeadToAirtable(leadId);
+      return res.json(result);
+    } catch (error) {
+      console.error(`Error syncing lead ${req.params.id}:`, error);
+      return res.status(500).json({ 
+        error: "Failed to sync lead with Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/scheduler/start", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const result = startLeadSyncScheduler();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error starting sync scheduler:", error);
+      return res.status(500).json({ 
+        error: "Failed to start sync scheduler",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/scheduler/stop", async (req, res) => {
+    try {
+      const result = stopLeadSyncScheduler();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error stopping sync scheduler:", error);
+      return res.status(500).json({ 
+        error: "Failed to stop sync scheduler",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Get diagnostics for Airtable connection
+  app.get("/api/airtable/diagnostics", async (req, res) => {
+    try {
+      const { diagnoseAirtableIntegration } = await import('./airtable');
+      const result = await diagnoseAirtableIntegration();
+      
+      return res.json({
         success: true,
-        baseId: correctBaseId,
-        tables
+        diagnostics: result
       });
     } catch (error) {
-      console.error("Error listing Airtable tables:", error);
-      return res.status(500).json({ 
+      console.error("Error running Airtable diagnostics:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to run Airtable diagnostics",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Route to update Airtable configuration
+  app.post("/api/airtable/config", async (req, res) => {
+    try {
+      const { apiKey, baseId } = req.body;
+      
+      if (!apiKey && !baseId) {
+        return res.status(400).json({
+          success: false,
+          message: 'No configuration changes provided'
+        });
+      }
+      
+      // Save Personal Access Token to environment
+      if (apiKey) {
+        // Format is either "patXXXXXXXXXXXXXX" or "Bearer patXXXXXXXXXXXXXX"
+        // We support both formats, but expect PAT only (not classic API keys)
+        // Store the token as-is
+        process.env.AIRTABLE_API_KEY = apiKey;
+        console.log('[airtable] Personal Access Token has been updated');
+      }
+      
+      if (baseId) {
+        process.env.AIRTABLE_BASE_ID = baseId;
+        console.log('[airtable] Base ID has been updated to', baseId);
+      }
+      
+      // Test the new credentials
+      try {
+        const testUrl = `https://api.airtable.com/v0/${baseId || process.env.AIRTABLE_BASE_ID}/Conversations?maxRecords=1`;
+        
+        // Format the API key properly
+        let authHeader = apiKey || process.env.AIRTABLE_API_KEY || '';
+        
+        // If it's a PAT (starts with "pat") but doesn't have "Bearer " prefix, add it
+        if (authHeader.startsWith('pat') && !authHeader.startsWith('Bearer ')) {
+          authHeader = `Bearer ${authHeader}`;
+          console.log('[airtable] Added Bearer prefix to PAT for API test');
+        }
+        
+        const testResponse = await fetch(testUrl, {
+          headers: {
+            'Authorization': authHeader
+          }
+        });
+        
+        if (testResponse.ok) {
+          console.log('[airtable] Test connection successful');
+        } else {
+          const errorText = await testResponse.text();
+          console.error('[airtable] Test connection failed:', errorText);
+        }
+        
+        // Restart the Airtable server
+        try {
+          const { startAirtableServer } = await import('./airtable');
+          console.log('[airtable] Restarting Airtable MCP server with new credentials...');
+          const serverStatus = await startAirtableServer();
+          
+          return res.json({
+            success: true,
+            message: 'Airtable configuration updated successfully',
+            connectionTest: {
+              success: testResponse.ok,
+              status: testResponse.status,
+              statusText: testResponse.statusText
+            },
+            serverRestarted: Boolean(serverStatus)
+          });
+        } catch (serverError: any) {
+          console.error('[airtable] Error restarting Airtable server:', serverError);
+          return res.json({
+            success: true,
+            message: 'Airtable configuration updated but server restart failed',
+            connectionTest: {
+              success: testResponse.ok,
+              status: testResponse.status,
+              statusText: testResponse.statusText
+            },
+            serverError: serverError?.message || String(serverError)
+          });
+        }
+      } catch (testError: any) {
+        console.error('[airtable] Error testing new credentials:', testError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to test new Airtable credentials',
+          error: testError?.message || String(testError)
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating Airtable configuration:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update Airtable configuration',
+        error: error?.message || String(error)
+      });
+    }
+  });
+  
+  // Direct test endpoint for the Airtable API connection
+  app.get("/api/airtable/test-connection", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Airtable API Key not configured" 
+        });
+      }
+      
+      // Test the base metadata API first
+      try {
+        const baseId = "appUPDttFgRrz9YiC"; // Always use the correct ID
+        
+        console.log(`Testing Airtable API connection with baseId: ${baseId}`);
+        
+        // Attempt to access the base metadata
+        const metaResponse = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const metaStatus = metaResponse.status;
+        console.log(`Airtable meta API status: ${metaStatus}`);
+        
+        let metaData = null;
+        let metaError = null;
+        
+        try {
+          if (metaResponse.ok) {
+            metaData = await metaResponse.json();
+          } else {
+            metaError = await metaResponse.text();
+          }
+        } catch (parseError) {
+          metaError = `Error parsing response: ${parseError.message}`;
+        }
+        
+        // Now try the data API
+        const dataResponse = await fetch(`https://api.airtable.com/v0/${baseId}/Pipelines?maxRecords=1`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`
+          }
+        });
+        
+        const dataStatus = dataResponse.status;
+        console.log(`Airtable data API status: ${dataStatus}`);
+        
+        let dataResult = null;
+        let dataError = null;
+        
+        try {
+          if (dataResponse.ok) {
+            dataResult = await dataResponse.json();
+          } else {
+            dataError = await dataResponse.text();
+          }
+        } catch (parseError) {
+          dataError = `Error parsing response: ${parseError.message}`;
+        }
+        
+        return res.json({
+          success: true,
+          baseId: baseId,
+          meta: {
+            status: metaStatus,
+            success: metaResponse.ok,
+            data: metaData,
+            error: metaError
+          },
+          data: {
+            status: dataStatus,
+            success: dataResponse.ok,
+            result: dataResult,
+            error: dataError
+          }
+        });
+      } catch (fetchError) {
+        console.error("Error testing Airtable connection:", fetchError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to test Airtable connection",
+          details: fetchError instanceof Error ? fetchError.message : String(fetchError)
+        });
+      }
+    } catch (error) {
+      console.error("Error in test-connection endpoint:", error);
+      return res.status(500).json({
         success: false, 
-        message: "Failed to list Airtable tables",
-        error: error instanceof Error ? error.message : String(error)
+        error: "Internal server error", 
+        details: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -1625,19 +2203,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all conversations for a user
   app.get("/api/airtable/conversations", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      const { isAirtableConfigured, getAirtableBaseId } = await import('./airtable');
+      
+      if (!isAirtableConfigured()) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Airtable not configured correctly. Please check API key configuration." 
+        });
       }
       
       const user = req.query.user as string;
       if (!user) {
-        return res.status(400).json({ error: "User parameter is required" });
+        return res.status(400).json({ 
+          success: false,
+          error: "User parameter is required" 
+        });
       }
       
       const { getUserConversations } = await import("./airtable/conversations");
-      const conversations = await getUserConversations(process.env.AIRTABLE_BASE_ID, user);
+      const conversations = await getUserConversations(getAirtableBaseId(), user);
       
-      return res.json(conversations);
+      return res.json({
+        success: true,
+        conversations
+      });
     } catch (error) {
       console.error("Error getting conversations from Airtable:", error);
       return res.status(500).json({ 
@@ -1650,20 +2239,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get a single conversation by ID
   app.get("/api/airtable/conversations/:id", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({ error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." });
+      const { isAirtableConfigured, getAirtableBaseId } = await import('./airtable');
+      
+      if (!isAirtableConfigured()) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Airtable not configured correctly. Please check API key configuration." 
+        });
       }
       
       const conversationId = req.params.id;
       
       const { getConversation } = await import("./airtable/conversations");
-      const conversation = await getConversation(process.env.AIRTABLE_BASE_ID, conversationId);
+      const conversation = await getConversation(getAirtableBaseId(), conversationId);
       
       if (!conversation) {
-        return res.status(404).json({ error: "Conversation not found" });
+        return res.status(404).json({ 
+          success: false,
+          error: "Conversation not found" 
+        });
       }
       
-      return res.json(conversation);
+      return res.json({
+        success: true,
+        conversation
+      });
     } catch (error) {
       console.error("Error getting conversation from Airtable:", error);
       return res.status(500).json({ 
@@ -1998,82 +2598,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Endpoint to fetch information about the Airtable connection status
-  app.get("/api/airtable/status", async (req, res) => {
-    try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-        return res.status(400).json({
-          configured: false,
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables."
-        });
-      }
-      
-      const { isAirtableConfigured } = await import("./airtable");
-      const isConfigured = await isAirtableConfigured();
-      
-      if (isConfigured) {
-        // Try to list available tables as a connection test
-        try {
-          const baseId = process.env.AIRTABLE_BASE_ID;
-          const { listRecords } = await import("./airtable");
-          // Just try to connect and query - we don't actually need the results
-          await listRecords(baseId, "Leads");
-          
-          return res.json({
-            configured: true,
-            baseId: process.env.AIRTABLE_BASE_ID,
-            status: "connected",
-            message: "Successfully connected to Airtable API"
-          });
-        } catch (queryError) {
-          console.error("Error querying Airtable:", queryError);
-          return res.json({
-            configured: true,
-            baseId: process.env.AIRTABLE_BASE_ID,
-            status: "error",
-            message: "Connected to Airtable API but error querying tables",
-            error: queryError instanceof Error ? queryError.message : String(queryError)
-          });
-        }
-      } else {
-        return res.json({
-          configured: false,
-          message: "Airtable API not properly configured"
-        });
-      }
-    } catch (error) {
-      console.error("Error checking Airtable status:", error);
-      return res.status(500).json({
-        configured: false,
-        error: "Failed to check Airtable configuration status"
-      });
-    }
-  });
+  // Removed duplicate status endpoint
   
   // Endpoint to list all available tables in the Airtable base
   app.get("/api/airtable/tables", async (req, res) => {
     try {
-      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+      if (!process.env.AIRTABLE_API_KEY) {
         return res.status(400).json({
-          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables."
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY environment variable."
         });
       }
       
-      const baseId = process.env.AIRTABLE_BASE_ID;
+      // Always use the correct base ID, regardless of what's in the environment variables
+      const correctBaseId = 'appUPDttFgRrz9YiC';
       
-      // Import the Airtable methods
-      const { getAvailableTables } = await import("./airtable");
-      
-      // Get the list of available tables
-      const tables = await getAvailableTables(baseId);
-      
-      return res.json({
-        baseId,
-        tables
-      });
+      // Try to get the tables through the Meta API first
+      try {
+        const response = await fetch(`https://api.airtable.com/v0/meta/bases/${correctBaseId}/tables`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const tablesData = await response.json();
+          console.log("Successfully retrieved tables from Meta API");
+          
+          return res.json({
+            success: true,
+            baseId: correctBaseId,
+            source: "meta_api",
+            tables: tablesData.tables.map((table: any) => ({
+              id: table.id,
+              name: table.name,
+              description: table.description || '',
+              fields: table.fields?.map((field: any) => ({
+                id: field.id,
+                name: field.name,
+                type: field.type
+              }))
+            }))
+          });
+        } else {
+          console.log("Failed to retrieve tables from Meta API. Status:", response.status);
+          const errorText = await response.text();
+          console.log("Error response:", errorText);
+          
+          // Fall back to our getAvailableTables method
+          const { getAvailableTables } = await import("./airtable");
+          const { getAirtableBaseId } = await import("./airtable");
+          
+          const tables = await getAvailableTables(correctBaseId);
+          
+          return res.json({
+            success: true,
+            baseId: correctBaseId,
+            source: "fallback_client",
+            tables
+          });
+        }
+      } catch (fetchError) {
+        console.error("Error fetching tables from Meta API:", fetchError);
+        
+        // Fall back to our getAvailableTables method
+        const { getAvailableTables } = await import("./airtable");
+        const tables = await getAvailableTables(correctBaseId);
+        
+        return res.json({
+          success: true,
+          baseId: correctBaseId,
+          source: "fallback_client_after_error",
+          error: fetchError instanceof Error ? fetchError.message : String(fetchError),
+          tables
+        });
+      }
     } catch (error) {
       console.error("Error getting Airtable tables:", error);
       return res.status(500).json({
+        success: false,
         error: "Failed to retrieve Airtable tables",
         details: error instanceof Error ? error.message : String(error)
       });

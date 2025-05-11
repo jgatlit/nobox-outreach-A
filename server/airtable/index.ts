@@ -79,7 +79,7 @@ export function checkAirtableConfig() {
     baseIdPresent,
     baseIdCorrect,
     usedBaseId,
-    error: !apiKeyPresent ? 'Missing Airtable API Key' : 
+    error: !apiKeyPresent ? 'Missing Airtable Personal Access Token (PAT)' : 
            (baseIdPresent && !baseIdCorrect ? `Incorrect Base ID: ${configuredBaseId} (should be ${CORRECT_BASE_ID})` : undefined)
   };
   
