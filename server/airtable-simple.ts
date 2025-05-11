@@ -128,7 +128,7 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<{ count: numbe
         PostgreSQL_ID: lead.id.toString(),
         firstName: lead.firstName,
         lastName: lead.lastName,
-        email: lead.email,
+        email: lead.email || '', // Ensure email is always a string, never null or undefined
         company: lead.company || '',
         title: lead.title || '',
         phoneNumber: lead.phoneNumber || '', // Field name matches EXPECTED_FIELDS

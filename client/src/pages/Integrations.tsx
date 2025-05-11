@@ -183,9 +183,46 @@ export default function Integrations() {
               setAirtableNeedsSetup(true);
               setAirtableConnectionMessage(`Connected to Airtable, but you need to create a field named "${errorJson.missingField}" in your Airtable "Leads" table.`);
               return;
+            } 
+            
+            if (errorJson.emailFieldError) {
+              toast({
+                title: "Email field format error",
+                description: "The email field in your Airtable is likely set as 'Email' type which is validating emails. Change it to 'Single line text' to fix this issue.",
+                variant: "destructive",
+              });
+              
+              // Update connection status
+              setAirtableNeedsSetup(true);
+              setAirtableConnectionMessage("Connected to Airtable, but there's an issue with the email field format. Change the email field in Airtable from 'Email' to 'Single line text' type.");
+              return;
+            }
+            
+            if (errorJson.tableError) {
+              toast({
+                title: "Table error in Airtable",
+                description: "You need to create a 'Leads' table in your Airtable base first.",
+                variant: "destructive",
+              });
+              
+              // Update connection status
+              setAirtableNeedsTable(true);
+              setAirtableConnectionMessage("Connected to Airtable, but 'Leads' table doesn't exist. Create a table named 'Leads' in your Airtable base first.");
+              return;
+            }
+            
+            // Generic error with message from server
+            if (errorJson.message) {
+              toast({
+                title: "Airtable sync error",
+                description: errorJson.message,
+                variant: "destructive",
+              });
+              return;
             }
           } catch (parseError) {
             // Error response wasn't in JSON format, use generic error
+            console.log("Error parsing error response:", parseError);
           }
         }
         

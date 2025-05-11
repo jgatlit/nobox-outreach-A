@@ -102,7 +102,7 @@ export function registerAirtableRoutes(app: Express): void {
           message: `Successfully synced ${result.count} leads to Airtable`,
           syncedCount: result.count
         });
-      } catch (error) {
+      } catch (error: any) {
         // Check if this is a field name error
         if (error.message && error.message.includes('Unknown field name')) {
           return res.status(400).json({
@@ -121,12 +121,26 @@ export function registerAirtableRoutes(app: Express): void {
             tableError: true
           });
         }
+
+        // Check if email validation error
+        if (error.message && error.message.includes('Field "email" cannot accept the provided value')) {
+          return res.status(400).json({
+            success: false,
+            message: `Airtable sync failed: Email field format in Airtable is not accepting one or more email values. Make sure the email field in Airtable is set to 'Single line text' type and not 'Email' type.`,
+            emailFieldError: true
+          });
+        }
         
-        throw error;
+        // Other errors should be returned with 400 status, not 500
+        return res.status(400).json({
+          success: false,
+          message: `Airtable sync failed: ${error.message}`,
+          error: error.message
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error syncing to Airtable:', error);
-      return res.status(500).json({
+      return res.status(400).json({
         success: false,
         message: `Failed to sync leads to Airtable: ${error.message}`
       });
