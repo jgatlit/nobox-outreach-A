@@ -12,12 +12,32 @@ interface ApiRequestOptions {
 }
 
 export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
+  methodOrUrl: string,
+  urlOrData?: string | unknown,
+  dataOrOptions?: unknown | ApiRequestOptions,
   options?: ApiRequestOptions
-): Promise<Response> {
-  const isFormData = options?.isFormData || false;
+): Promise<any> {
+  // Handle overloaded method signatures
+  let method: string;
+  let url: string;
+  let data: unknown | undefined;
+  let opts: ApiRequestOptions | undefined;
+  
+  if (urlOrData && typeof urlOrData === 'string') {
+    // First overload: (method, url, data?, options?)
+    method = methodOrUrl;
+    url = urlOrData;
+    data = dataOrOptions;
+    opts = options;
+  } else {
+    // Second overload: (url, data?, options?)
+    method = 'GET';
+    url = methodOrUrl;
+    data = urlOrData;
+    opts = dataOrOptions as ApiRequestOptions;
+  }
+  
+  const isFormData = opts?.isFormData || false;
   
   const res = await fetch(url, {
     method,
@@ -27,7 +47,17 @@ export async function apiRequest(
   });
 
   await throwIfResNotOk(res);
-  return res;
+  
+  // Try to parse as JSON, but fall back to returning the response if not JSON
+  try {
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await res.json();
+    }
+    return res;
+  } catch (error) {
+    return res;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

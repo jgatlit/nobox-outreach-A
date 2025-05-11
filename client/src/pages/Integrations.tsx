@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatRelativeTime } from "@/lib/utils";
 import { checkAirtableConnection, syncLeadsToAirtable, syncLeadsFromAirtable } from "@/lib/airtable";
+import { Link } from "wouter";
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -504,6 +505,68 @@ export default function Integrations() {
       
       {/* Airtable Integration Card */}
       <AirtableCard />
+      
+      {/* Google Sheets Integration Card */}
+      <Card className="mb-6 overflow-hidden">
+        <CardHeader className="pb-4 pt-6 px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="bg-green-100 p-2 rounded-lg mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-6 h-6 text-green-600" fill="currentColor">
+                  <path d="M14.5 14.5v-7h3.5v7h-3.5Zm-8.5 0v-7h7v7H6ZM6 16h3.5v3.5H6V16Zm5 0h3.5v3.5H11V16Zm5 0h3.5v3.5H16V16Zm3.5-9h-14v-1.5h14V7Z"/>
+                </svg>
+              </div>
+              <div>
+                <CardTitle className="text-lg">Google Sheets</CardTitle>
+                <CardDescription>Import leads from Google Sheets</CardDescription>
+              </div>
+            </div>
+            <Badge className="bg-green-100 text-green-800 hover:bg-green-200" variant="outline">Available</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="pb-4 px-6">
+          <p className="text-sm text-gray-500 mb-4">
+            Import your leads directly from Google Sheets. You can map columns to lead fields and process data efficiently.
+          </p>
+          <div className="bg-neutral-50 p-3 rounded-md border border-neutral-200 text-sm">
+            <h4 className="font-medium mb-2 flex items-center">
+              <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+              Features
+            </h4>
+            <ul className="grid grid-cols-2 gap-2 text-neutral-700">
+              <li className="flex items-center">
+                <div className="w-1 h-1 bg-neutral-400 rounded-full mr-2"></div>
+                Column mapping
+              </li>
+              <li className="flex items-center">
+                <div className="w-1 h-1 bg-neutral-400 rounded-full mr-2"></div>
+                Data preview
+              </li>
+              <li className="flex items-center">
+                <div className="w-1 h-1 bg-neutral-400 rounded-full mr-2"></div>
+                Duplicate detection
+              </li>
+              <li className="flex items-center">
+                <div className="w-1 h-1 bg-neutral-400 rounded-full mr-2"></div>
+                Import validation
+              </li>
+            </ul>
+          </div>
+        </CardContent>
+        <CardFooter className="px-6 py-4 bg-gray-50 border-t">
+          <Button 
+            variant="default" 
+            size="sm"
+            className="w-full"
+            asChild
+          >
+            <Link href="/google-sheets-import">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Import from Google Sheets
+            </Link>
+          </Button>
+        </CardFooter>
+      </Card>
       
       <div className="mb-6">
         <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
