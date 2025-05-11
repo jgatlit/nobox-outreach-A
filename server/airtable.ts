@@ -20,8 +20,8 @@ const airtableClient = new Airtable({
  * with your actual Airtable Base ID.
  */
 function getBase(explicitBaseId?: string) {
-  // Default fallback base ID - replace with your actual base ID
-  const DEFAULT_BASE_ID = 'appXXXXXXXXXXXXX';
+  // Default fallback base ID with the actual base ID
+  const DEFAULT_BASE_ID = 'appUPDttFgRrz9YiC';
   
   // Use explicitBaseId first, then env var, then fallback
   const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
@@ -40,7 +40,7 @@ export async function callAirtableApi(
   baseId?: string
 ): Promise<any> {
   // Default fallback base ID - replace with your actual base ID
-  const DEFAULT_BASE_ID = 'appXXXXXXXXXXXXX';
+  const DEFAULT_BASE_ID = 'appUPDttFgRrz9YiC';
   
   // Use provided baseId first, then env var, then fallback
   const apiBaseId = baseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
@@ -70,9 +70,18 @@ export async function callAirtableApi(
  */
 export async function listAirtableTables(baseId?: string): Promise<string[]> {
   try {
+    console.log(`Attempting to list tables for Airtable base: ${baseId || process.env.AIRTABLE_BASE_ID || 'appUPDttFgRrz9YiC'}`);
+    
     // Using direct API call to get metadata
     const response = await callAirtableApi('', 'GET', null, baseId);
-    return Object.keys(response.tables || {});
+    
+    // Log the response for debugging
+    console.log('Airtable tables response:', response);
+    
+    const tables = Object.keys(response.tables || {});
+    console.log(`Found ${tables.length} tables in Airtable base`);
+    
+    return tables;
   } catch (error) {
     console.error('Error listing Airtable tables:', error);
     throw new Error(`Failed to list Airtable tables: ${error.message}`);
@@ -325,11 +334,13 @@ export async function syncCampaignsFromAirtable(tableName: string = 'Campaigns',
  */
 export async function validateAirtableAccess(baseId?: string): Promise<{success: boolean, message?: string}> {
   try {
-    // Default fallback base ID - replace with your actual base ID
-    const DEFAULT_BASE_ID = 'appXXXXXXXXXXXXX';
+    // Default fallback base ID with the actual base ID
+    const DEFAULT_BASE_ID = 'appUPDttFgRrz9YiC';
     
     // Use provided baseId first, then env var, then fallback
     const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
+    
+    console.log(`Validating Airtable access with Base ID: ${effectiveBaseId}`); // Add logging for testing
 
     if (!process.env.AIRTABLE_PAT) {
       return {
