@@ -1579,17 +1579,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/airtable/sync/leads-to-airtable", async (req, res) => {
     try {
-      const { tableName, baseId } = req.body;
+      const { tableName } = req.body;
 
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
       
-      // Check if baseId is provided or available in environment
-      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      // Using hard-coded Airtable Base ID - no need to pass it as it's also hard-coded in the validation function
+      const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
       
       // Validate Airtable access
-      const validation = await validateAirtableAccess(effectiveBaseId);
+      const validation = await validateAirtableAccess();
       if (!validation.success) {
         return res.status(400).json({ 
           error: "Airtable Base ID validation failed", 
@@ -1611,7 +1611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             fields: mapFields(lead, fieldMappings.dbToAirtable)
           }));
 
-          const batchResult = await processAirtableBatch(tableName, effectiveBaseId, mappedBatch);
+          const batchResult = await processAirtableBatch(tableName, AIRTABLE_BASE_ID, mappedBatch);
           syncResults.push(...batchResult);
           await delay(250); // Rate limit protection
         } catch (batchError) {
@@ -1657,17 +1657,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/airtable/sync/leads-from-airtable", async (req, res) => {
     try {
-      const { tableName, baseId } = req.body;
+      const { tableName } = req.body;
 
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
       
-      // Check if baseId is provided or available in environment
-      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      // Using hard-coded Airtable Base ID
+      const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
       
       // Validate Airtable access
-      const validation = await validateAirtableAccess(effectiveBaseId);
+      const validation = await validateAirtableAccess();
       if (!validation.success) {
         return res.status(400).json({ 
           error: "Airtable Base ID validation failed", 
@@ -1676,7 +1676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       try {
-        const leadsFromAirtable = await syncLeadsFromAirtable(tableName, effectiveBaseId);
+        const leadsFromAirtable = await syncLeadsFromAirtable(tableName);
         const createdLeads = [];
         const updatedLeads = [];
         const skippedLeads = [];
@@ -1753,18 +1753,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return [];
     }
     
-    // Check if baseId is provided either as parameter or environment variable
-    const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
-    
-    if (!effectiveBaseId) {
-      throw new Error("Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable.");
-    }
+    // Using hard-coded Airtable Base ID
+    const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
     
     try {
       // Use the Airtable API to create records in a batch
       const response = await callAirtableApi({
         method: 'POST',
-        url: `/${effectiveBaseId}/${tableName}`,
+        url: `/${AIRTABLE_BASE_ID}/${tableName}`,
         data: {
           records
         }
