@@ -111,7 +111,7 @@ export async function getAirtableRecords(tableName: string): Promise<any[]> {
  * Sync leads from PostgreSQL to Airtable
  * Creates a "Leads" table if it doesn't exist, or updates existing records
  */
-export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Leads', baseId?: string): Promise<any[]> {
+export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Leads'): Promise<any[]> {
   try {
     // First, check if the table exists and get existing records
     let existingRecords = [];
@@ -162,8 +162,7 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
         const updatedRecord = await callAirtableApi(
           `${tableName}/${existingRecord.id}`,
           'PATCH',
-          leadData,
-          baseId
+          leadData
         );
         results.push(updatedRecord);
       } else {
@@ -171,8 +170,7 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
         const newRecord = await callAirtableApi(
           `${tableName}`,
           'POST',
-          { records: [leadData] },
-          baseId
+          { records: [leadData] }
         );
         results.push(newRecord.records[0]);
       }
