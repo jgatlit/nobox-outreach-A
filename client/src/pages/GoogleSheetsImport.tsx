@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 
 // Import assistant components
-import { GoogleSheetsImportAssistant } from '@/components/GoogleSheetsImportAssistant';
+import { GoogleSheetsImportAssistant, GoogleSheetsImportProgress } from '../components/GoogleSheetsImportAssistant';
 
 const leadFieldOptions = [
   { label: 'First Name', value: 'firstName' },
@@ -171,7 +171,7 @@ export default function GoogleSheetsImport() {
   const handleColumnMapping = (leadField: string, sheetColumn: string) => {
     setColumnMapping(prev => ({
       ...prev,
-      [leadField]: sheetColumn,
+      [leadField]: sheetColumn === "not_mapped" ? "" : sheetColumn,
     }));
   };
   
@@ -322,7 +322,7 @@ export default function GoogleSheetsImport() {
                                   <SelectValue placeholder="Select a column" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">Not mapped</SelectItem>
+                                  <SelectItem value="not_mapped">Not mapped</SelectItem>
                                   {getSelectedSheetData()?.columns.map((column) => (
                                     <SelectItem key={column} value={column}>
                                       {column}
