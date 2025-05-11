@@ -1696,6 +1696,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Diagnostic endpoint to directly test Airtable API connection
   // Diagnostic endpoint for the Airtable configuration and connection status
+  // API routes for lead synchronization with Airtable
+  app.get("/api/airtable/sync/status", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const status = await getSyncStatus();
+      return res.json(status);
+    } catch (error) {
+      console.error("Error getting sync status:", error);
+      return res.status(500).json({ 
+        error: "Failed to retrieve sync status",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/leads", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const result = await triggerFullSync();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error triggering lead sync:", error);
+      return res.status(500).json({ 
+        error: "Failed to sync leads with Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/leads/:id", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const leadId = parseInt(req.params.id);
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      const result = await syncSpecificLeadToAirtable(leadId);
+      return res.json(result);
+    } catch (error) {
+      console.error(`Error syncing lead ${req.params.id}:`, error);
+      return res.status(500).json({ 
+        error: "Failed to sync lead with Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/scheduler/start", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const result = startLeadSyncScheduler();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error starting sync scheduler:", error);
+      return res.status(500).json({ 
+        error: "Failed to start sync scheduler",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  app.post("/api/airtable/sync/scheduler/stop", async (req, res) => {
+    try {
+      const result = stopLeadSyncScheduler();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error stopping sync scheduler:", error);
+      return res.status(500).json({ 
+        error: "Failed to stop sync scheduler",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Get diagnostics for Airtable connection
   app.get("/api/airtable/diagnostics", async (req, res) => {
     try {
       const { diagnoseAirtableIntegration } = await import('./airtable');

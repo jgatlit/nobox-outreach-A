@@ -7,13 +7,40 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 
+// Define the sync status response type
+interface SyncStatusResponse {
+  toAirtable: {
+    id: number;
+    type: string;
+    lastSyncTime: string;
+    lastSyncSuccess: boolean;
+    totalSynced: number;
+    details?: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+  fromAirtable: {
+    id: number;
+    type: string;
+    lastSyncTime: string;
+    lastSyncSuccess: boolean;
+    totalSynced: number;
+    details?: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+  lastSyncTime: string | null;
+  lastSyncSuccess: boolean;
+  totalSynced: number;
+}
+
 export function LeadsSyncStatus() {
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   // Fetch sync status
-  const { data: syncStatus, isLoading, refetch } = useQuery({
+  const { data: syncStatus, isLoading, refetch } = useQuery<SyncStatusResponse>({
     queryKey: ['/api/airtable/sync/status'],
     staleTime: 60000,
   });
@@ -50,6 +77,15 @@ export function LeadsSyncStatus() {
   const formatSyncTime = (time: string | null) => {
     if (!time) return 'Never';
     return new Date(time).toLocaleString();
+  };
+  
+  // Default empty state to use when data is not yet loaded
+  const emptyStatus: SyncStatusResponse = {
+    toAirtable: null,
+    fromAirtable: null,
+    lastSyncTime: null,
+    lastSyncSuccess: false,
+    totalSynced: 0
   };
   
   const getStatusBadge = () => {
