@@ -1777,17 +1777,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync all campaigns to Airtable
   app.post("/api/airtable/sync/campaigns-to-airtable", async (req, res) => {
     try {
-      const { tableName, baseId } = req.body;
+      const { tableName } = req.body;
       
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
       
-      // Check if baseId is provided or available in environment
-      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      // Using hard-coded Airtable Base ID
+      const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
       
       // Validate Airtable access
-      const validation = await validateAirtableAccess(effectiveBaseId);
+      const validation = await validateAirtableAccess();
       if (!validation.success) {
         return res.status(400).json({ 
           error: "Airtable Base ID validation failed", 
@@ -1800,7 +1800,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         // Sync campaigns to Airtable
-        const syncResults = await syncCampaignsToAirtable(campaigns, tableName, effectiveBaseId);
+        const syncResults = await syncCampaignsToAirtable(campaigns, tableName);
         
         return res.status(200).json({
           message: `Successfully synced ${syncResults.length} campaigns to Airtable`,
@@ -1825,17 +1825,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync campaigns from Airtable to PostgreSQL
   app.post("/api/airtable/sync/campaigns-from-airtable", async (req, res) => {
     try {
-      const { tableName, baseId } = req.body;
+      const { tableName } = req.body;
       
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
       
-      // Check if baseId is provided or available in environment
-      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      // Using hard-coded Airtable Base ID
+      const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
       
       // Validate Airtable access
-      const validation = await validateAirtableAccess(effectiveBaseId);
+      const validation = await validateAirtableAccess();
       if (!validation.success) {
         return res.status(400).json({ 
           error: "Airtable Base ID validation failed", 
@@ -1845,7 +1845,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         // Sync campaigns from Airtable
-        const campaignsFromAirtable = await syncCampaignsFromAirtable(tableName, effectiveBaseId);
+        const campaignsFromAirtable = await syncCampaignsFromAirtable(tableName);
       
       // Keep track of created and updated campaigns
       const createdCampaigns = [];
