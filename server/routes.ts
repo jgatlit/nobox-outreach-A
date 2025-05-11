@@ -1614,6 +1614,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
+  /**
+   * Process a batch of records for Airtable
+   * 
+   * @param tableName The name of the Airtable table
+   * @param baseId Optional base ID (if not provided in environment)
+   * @param records Records to process, already mapped with proper Airtable fields
+   * @returns The processed records
+   */
+  const processAirtableBatch = async (tableName: string, baseId?: string, records?: any[]) => {
+    if (!records || !records.length) {
+      return [];
+    }
+    
+    try {
+      // Use the Airtable API to create records in a batch
+      const response = await callAirtableApi({
+        method: 'POST',
+        url: `/${baseId || process.env.AIRTABLE_BASE_ID}/${tableName}`,
+        data: {
+          records
+        }
+      });
+      
+      return response.data.records || [];
+    } catch (error) {
+      console.error('Error processing Airtable batch:', error);
+      // Return empty array instead of throwing to allow process to continue with other batches
+      return [];
+    }
+  };
+  
   // Sync all campaigns to Airtable
   app.post("/api/airtable/sync/campaigns-to-airtable", async (req, res) => {
     try {
