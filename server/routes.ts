@@ -1516,9 +1516,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if baseId is provided or available in environment
       const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
       
-      if (!effectiveBaseId) {
+      // Validate Airtable access
+      const validation = await validateAirtableAccess(effectiveBaseId);
+      if (!validation.success) {
         return res.status(400).json({ 
-          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+          error: "Airtable Base ID validation failed", 
+          message: validation.message 
         });
       }
 

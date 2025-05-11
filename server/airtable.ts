@@ -17,7 +17,12 @@ const airtableClient = new Airtable({
  * otherwise it will expect the base ID to be provided as a parameter
  */
 function getBase(explicitBaseId?: string) {
-  const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID || 'appUPDttFgRrz9YiC'; // Fallback to example ID
+  const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID;
+  
+  if (!baseId) {
+    throw new Error("No Airtable Base ID provided. Either set AIRTABLE_BASE_ID in environment variables or provide a baseId parameter.");
+  }
+  
   return airtableClient.base(baseId);
 }
 
@@ -31,7 +36,12 @@ export async function callAirtableApi(
   data?: any,
   baseId?: string
 ): Promise<any> {
-  const apiBaseId = baseId || process.env.AIRTABLE_BASE_ID || 'appUPDttFgRrz9YiC';
+  const apiBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+  
+  if (!apiBaseId) {
+    throw new Error("No Airtable Base ID provided. Either set AIRTABLE_BASE_ID in environment variables or provide a baseId parameter.");
+  }
+  
   const url = `https://api.airtable.com/v0/${apiBaseId}/${endpoint}`;
   
   try {
@@ -303,6 +313,55 @@ export async function syncCampaignsFromAirtable(tableName: string = 'Campaigns',
   } catch (error) {
     console.error('Error syncing campaigns from Airtable:', error);
     throw new Error(`Failed to sync campaigns from Airtable: ${error.message}`);
+  }
+}
+
+/**
+ * Validates Airtable access by checking if we can list the tables in a base
+ * This helps catch permission issues early before attempting data operations
+ */
+export async function validateAirtableAccess(baseId?: string): Promise<{success: boolean, message?: string}> {
+  try {
+    // If no base ID is provided or available in env, fail early with a clear message
+    const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+    if (!effectiveBaseId) {
+      return {
+        success: false,
+        message: "No Airtable Base ID provided. Either set AIRTABLE_BASE_ID in environment variables or provide a baseId parameter."
+      };
+    }
+
+    if (!process.env.AIRTABLE_PAT) {
+      return {
+        success: false,
+        message: "Airtable Personal Access Token not found in environment variables (AIRTABLE_PAT)"
+      };
+    }
+
+    // Test API access by listing tables
+    await listAirtableTables(effectiveBaseId);
+    
+    return { success: true };
+  } catch (error: any) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error("Airtable validation error:", errorMsg);
+    
+    if (errorMsg.includes("403") || errorMsg.includes("INVALID_PERMISSIONS")) {
+      return {
+        success: false,
+        message: "Invalid permissions to access Airtable base. Please check your Airtable PAT and Base ID."
+      };
+    } else if (errorMsg.includes("404") || errorMsg.includes("NOT_FOUND")) {
+      return {
+        success: false,
+        message: "Airtable base not found. Please verify the Base ID is correct."
+      };
+    }
+    
+    return {
+      success: false,
+      message: `Failed to validate Airtable access: ${errorMsg}`
+    };
   }
 }
 
