@@ -277,7 +277,14 @@ export async function createLeadsTable(baseId: string): Promise<{
               ]
             }
           },
-          { name: 'lastActivityDate', type: 'date', description: 'Date of last activity' },
+          { 
+            name: 'lastActivityDate', 
+            type: 'date', 
+            description: 'Date of last activity',
+            options: {
+              dateFormat: { name: 'iso' }
+            }
+          },
           { name: 'website', type: 'url', description: 'Website URL' },
           { name: 'notes', type: 'multilineText', description: 'Additional notes' },
           { name: 'tags', type: 'multipleSelects', description: 'Tags',
@@ -293,9 +300,36 @@ export async function createLeadsTable(baseId: string): Promise<{
               ]
             }
           },
-          { name: 'createdAt', type: 'dateTime', description: 'Creation timestamp' },
-          { name: 'updatedAt', type: 'dateTime', description: 'Last update timestamp' },
-          { name: 'lastSyncedAt', type: 'dateTime', description: 'Last synchronization timestamp' },
+          { 
+            name: 'createdAt', 
+            type: 'dateTime', 
+            description: 'Creation timestamp',
+            options: {
+              dateFormat: { name: 'iso' },
+              timeFormat: { name: '24hour' },
+              timeZone: 'UTC'
+            } 
+          },
+          { 
+            name: 'updatedAt', 
+            type: 'dateTime', 
+            description: 'Last update timestamp',
+            options: {
+              dateFormat: { name: 'iso' },
+              timeFormat: { name: '24hour' },
+              timeZone: 'UTC'
+            } 
+          },
+          { 
+            name: 'lastSyncedAt', 
+            type: 'dateTime', 
+            description: 'Last synchronization timestamp',
+            options: {
+              dateFormat: { name: 'iso' },
+              timeFormat: { name: '24hour' },
+              timeZone: 'UTC'
+            } 
+          },
           { name: 'syncSource', type: 'singleSelect', description: 'Synchronization source',
             options: {
               choices: [
