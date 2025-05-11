@@ -264,15 +264,15 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Airtable API Configuration</DialogTitle>
+                <DialogTitle>Airtable Authentication</DialogTitle>
                 <DialogDescription>
-                  Configure your Airtable API key and Base ID to enable integration
+                  Configure your Airtable Personal Access Token (PAT) and Base ID to enable integration
                 </DialogDescription>
               </DialogHeader>
               
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="airtable-api-key">Airtable Personal Access Token</Label>
+                  <Label htmlFor="airtable-api-key">Airtable Personal Access Token (PAT)</Label>
                   <Input 
                     id="airtable-api-key" 
                     type="password" 
@@ -281,7 +281,7 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
                     onChange={(e) => setApiKey(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Starts with "pat" (e.g., patXXXXXXXX)
+                    Must start with "pat" (e.g., patXXXXXXXX). Airtable now uses Personal Access Tokens only.
                   </p>
                 </div>
                 

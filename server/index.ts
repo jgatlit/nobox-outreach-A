@@ -62,7 +62,7 @@ app.use((req, res, next) => {
       log(`Error initializing Airtable MCP server: ${error?.message || 'Unknown error'}`, 'airtable');
     }
   } else {
-    log('Airtable not configured. Add AIRTABLE_API_KEY and AIRTABLE_BASE_ID to use Airtable integration.', 'airtable');
+    log('Airtable not configured. Add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and AIRTABLE_BASE_ID to use Airtable integration.', 'airtable');
   }
 
   const server = await registerRoutes(app);

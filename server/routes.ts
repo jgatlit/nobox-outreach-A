@@ -2014,13 +2014,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Save API key to .env or environment
+      // Save Personal Access Token to environment
       if (apiKey) {
-        // Format is "Bearer patXXXXXXXXXXXXXX" for Airtable PAT
-        // or just "patXXXXXXXXXXXXXX" is also acceptable
-        // Store the API key as-is
+        // Format is either "patXXXXXXXXXXXXXX" or "Bearer patXXXXXXXXXXXXXX"
+        // We support both formats, but expect PAT only (not classic API keys)
+        // Store the token as-is
         process.env.AIRTABLE_API_KEY = apiKey;
-        console.log('[airtable] API key has been updated');
+        console.log('[airtable] Personal Access Token has been updated');
       }
       
       if (baseId) {
