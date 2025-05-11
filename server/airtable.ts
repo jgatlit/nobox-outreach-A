@@ -1,5 +1,11 @@
 import Airtable from 'airtable';
-import { Lead, LeadEnrichment, EmailDraft, Campaign } from '../shared/schema';
+import axios from 'axios';
+import { Lead, Campaign } from '../shared/schema';
+
+/**
+ * Airtable integration using Personal Access Token (PAT) authentication
+ * This allows for bidirectional sync of leads and other data between PostgreSQL and Airtable
+ */
 
 // Initialize Airtable with the PAT
 const airtableClient = new Airtable({
@@ -11,25 +17,49 @@ const airtableClient = new Airtable({
  * otherwise it will expect the base ID to be provided as a parameter
  */
 function getBase(explicitBaseId?: string) {
-  const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID;
-  
-  if (!baseId) {
-    throw new Error('Airtable Base ID is required. Please provide it as a parameter or set AIRTABLE_BASE_ID environment variable.');
-  }
-  
+  const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID || 'appUPDttFgRrz9YiC'; // Fallback to example ID
   return airtableClient.base(baseId);
+}
+
+/**
+ * Direct API call to Airtable using axios
+ * This provides more flexibility than the Airtable SDK in some cases
+ */
+export async function callAirtableApi(
+  endpoint: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
+  data?: any,
+  baseId?: string
+): Promise<any> {
+  const apiBaseId = baseId || process.env.AIRTABLE_BASE_ID || 'appUPDttFgRrz9YiC';
+  const url = `https://api.airtable.com/v0/${apiBaseId}/${endpoint}`;
+  
+  try {
+    const response = await axios({
+      method,
+      url,
+      data,
+      headers: {
+        'Authorization': `Bearer ${process.env.AIRTABLE_PAT}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error(`Airtable API error (${method} ${url}):`, error.response?.data || error.message);
+    throw new Error(`Failed to call Airtable API: ${error.message}`);
+  }
 }
 
 /**
  * List tables in an Airtable base
  */
-export async function listTables(baseId?: string): Promise<string[]> {
+export async function listAirtableTables(baseId?: string): Promise<string[]> {
   try {
-    const base = getBase(baseId);
-    
-    // Use Airtable's metadata API to list all tables in the base
-    const tables = await base.tables();
-    return tables.map(table => table.name);
+    // Using direct API call to get metadata
+    const response = await callAirtableApi('', 'GET', null, baseId);
+    return Object.keys(response.tables || {});
   } catch (error) {
     console.error('Error listing Airtable tables:', error);
     throw new Error(`Failed to list Airtable tables: ${error.message}`);
@@ -39,12 +69,10 @@ export async function listTables(baseId?: string): Promise<string[]> {
 /**
  * Get records from an Airtable table
  */
-export async function getRecords(tableName: string, baseId?: string): Promise<any[]> {
+export async function getAirtableRecords(tableName: string, baseId?: string): Promise<any[]> {
   try {
-    const base = getBase(baseId);
-    const records = await base(tableName).select().all();
-    
-    return records.map(record => ({
+    const response = await callAirtableApi(`${tableName}?maxRecords=100`, 'GET', null, baseId);
+    return response.records.map(record => ({
       id: record.id,
       ...record.fields
     }));
@@ -55,76 +83,25 @@ export async function getRecords(tableName: string, baseId?: string): Promise<an
 }
 
 /**
- * Create a record in an Airtable table
- */
-export async function createRecord(tableName: string, data: Record<string, any>, baseId?: string): Promise<any> {
-  try {
-    const base = getBase(baseId);
-    const createdRecord = await base(tableName).create([{ fields: data }]);
-    
-    if (createdRecord && createdRecord.length > 0) {
-      return {
-        id: createdRecord[0].id,
-        ...createdRecord[0].fields
-      };
-    }
-    
-    throw new Error('Failed to create record');
-  } catch (error) {
-    console.error(`Error creating record in ${tableName}:`, error);
-    throw new Error(`Failed to create record in Airtable table ${tableName}: ${error.message}`);
-  }
-}
-
-/**
- * Update a record in an Airtable table
- */
-export async function updateRecord(tableName: string, recordId: string, data: Record<string, any>, baseId?: string): Promise<any> {
-  try {
-    const base = getBase(baseId);
-    const updatedRecord = await base(tableName).update([{ id: recordId, fields: data }]);
-    
-    if (updatedRecord && updatedRecord.length > 0) {
-      return {
-        id: updatedRecord[0].id,
-        ...updatedRecord[0].fields
-      };
-    }
-    
-    throw new Error('Failed to update record');
-  } catch (error) {
-    console.error(`Error updating record in ${tableName}:`, error);
-    throw new Error(`Failed to update record in Airtable table ${tableName}: ${error.message}`);
-  }
-}
-
-/**
- * Delete a record from an Airtable table
- */
-export async function deleteRecord(tableName: string, recordId: string, baseId?: string): Promise<boolean> {
-  try {
-    const base = getBase(baseId);
-    await base(tableName).destroy([recordId]);
-    return true;
-  } catch (error) {
-    console.error(`Error deleting record from ${tableName}:`, error);
-    throw new Error(`Failed to delete record from Airtable table ${tableName}: ${error.message}`);
-  }
-}
-
-/**
  * Sync leads from PostgreSQL to Airtable
+ * Creates a "Leads" table if it doesn't exist, or updates existing records
  */
 export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Leads', baseId?: string): Promise<any[]> {
   try {
-    // First, fetch existing Airtable records to determine which to create/update
-    const base = getBase(baseId);
-    const existingRecords = await base(tableName).select().all();
+    // First, check if the table exists and get existing records
+    let existingRecords = [];
+    try {
+      const response = await callAirtableApi(`${tableName}?maxRecords=100`, 'GET', null, baseId);
+      existingRecords = response.records || [];
+    } catch (error) {
+      // If the table doesn't exist, we'll create it when we add the first record
+      console.log(`Table ${tableName} not found, will create when adding first record`);
+    }
     
     // Map existing records by email for easy lookup
     const existingRecordsByEmail = new Map();
     existingRecords.forEach(record => {
-      const email = record.fields.email as string;
+      const email = record.fields.email;
       if (email) {
         existingRecordsByEmail.set(email.toLowerCase(), record);
       }
@@ -135,19 +112,21 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
     // Process each lead
     for (const lead of leads) {
       const leadData = {
-        firstName: lead.firstName,
-        lastName: lead.lastName,
-        email: lead.email,
-        company: lead.company || '',
-        title: lead.title || '',
-        phone: lead.phone || '',
-        status: lead.status || '',
-        source: lead.source || '',
-        lastContact: lead.lastContact ? new Date(lead.lastContact).toISOString() : null,
-        notes: lead.notes || '',
-        priority: lead.priority || '',
-        tags: lead.tags || '',
-        PostgreSQL_ID: lead.id.toString(),
+        fields: {
+          firstName: lead.firstName,
+          lastName: lead.lastName,
+          email: lead.email,
+          company: lead.company || '',
+          title: lead.title || '',
+          phone: lead.phone || '',
+          status: lead.status || '',
+          source: lead.source || '',
+          lastContact: lead.lastContact ? new Date(lead.lastContact).toISOString() : null,
+          notes: lead.notes || '',
+          priority: lead.priority || '',
+          tags: lead.tags || '',
+          PostgreSQL_ID: lead.id.toString(),
+        }
       };
       
       // Check if this lead already exists in Airtable
@@ -155,23 +134,26 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
       
       if (existingRecord) {
         // Update existing record
-        const updatedRecord = await base(tableName).update([
-          { id: existingRecord.id, fields: leadData }
-        ]);
-        results.push(updatedRecord[0]);
+        const updatedRecord = await callAirtableApi(
+          `${tableName}/${existingRecord.id}`,
+          'PATCH',
+          leadData,
+          baseId
+        );
+        results.push(updatedRecord);
       } else {
         // Create new record
-        const newRecord = await base(tableName).create([
-          { fields: leadData }
-        ]);
-        results.push(newRecord[0]);
+        const newRecord = await callAirtableApi(
+          `${tableName}`,
+          'POST',
+          { records: [leadData] },
+          baseId
+        );
+        results.push(newRecord.records[0]);
       }
     }
     
-    return results.map(record => ({
-      id: record.id,
-      ...record.fields
-    }));
+    return results;
   } catch (error) {
     console.error('Error syncing leads to Airtable:', error);
     throw new Error(`Failed to sync leads to Airtable: ${error.message}`);
@@ -183,154 +165,35 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
  */
 export async function syncLeadsFromAirtable(tableName: string = 'Leads', baseId?: string): Promise<Lead[]> {
   try {
-    const base = getBase(baseId);
-    const records = await base(tableName).select().all();
+    const records = await getAirtableRecords(tableName, baseId);
     
     return records.map(record => {
-      const fields = record.fields;
+      const fields = record;
       
       // Convert Airtable record to Lead format
       return {
-        id: fields.PostgreSQL_ID ? parseInt(fields.PostgreSQL_ID as string, 10) : null,
-        firstName: fields.firstName as string || '',
-        lastName: fields.lastName as string || '',
-        email: fields.email as string || '',
-        company: fields.company as string || '',
-        title: fields.title as string || '',
-        phone: fields.phone as string || '',
-        website: fields.website as string || '',
-        status: fields.status as string || 'new',
-        source: fields.source as string || 'airtable',
-        lastContact: fields.lastContact ? new Date(fields.lastContact as string) : null,
-        createdAt: fields.createdAt ? new Date(fields.createdAt as string) : new Date(),
-        updatedAt: fields.updatedAt ? new Date(fields.updatedAt as string) : new Date(),
-        notes: fields.notes as string || '',
-        priority: fields.priority as string || 'medium',
-        tags: fields.tags as string || '',
+        id: fields.PostgreSQL_ID ? parseInt(fields.PostgreSQL_ID, 10) : null,
+        firstName: fields.firstName || '',
+        lastName: fields.lastName || '',
+        email: fields.email || '',
+        company: fields.company || '',
+        title: fields.title || '',
+        phone: fields.phone || '',
+        website: fields.website || '',
+        status: fields.status || 'new',
+        source: fields.source || 'airtable',
+        lastContact: fields.lastContact ? new Date(fields.lastContact) : null,
+        createdAt: fields.createdAt ? new Date(fields.createdAt) : new Date(),
+        updatedAt: fields.updatedAt ? new Date(fields.updatedAt) : new Date(),
+        notes: fields.notes || '',
+        priority: fields.priority || 'medium',
+        tags: fields.tags || '',
         airtableId: record.id // Store the Airtable record ID for future syncing
       };
     });
   } catch (error) {
     console.error('Error syncing leads from Airtable:', error);
     throw new Error(`Failed to sync leads from Airtable: ${error.message}`);
-  }
-}
-
-/**
- * Sync lead enrichment data to Airtable
- */
-export async function syncLeadEnrichmentToAirtable(
-  leadId: number, 
-  enrichment: LeadEnrichment, 
-  tableName: string = 'Lead_Enrichment',
-  baseId?: string
-): Promise<any> {
-  try {
-    const base = getBase(baseId);
-    
-    // First, check if this lead's enrichment already exists in Airtable
-    const existingRecords = await base(tableName)
-      .select({
-        filterByFormula: `{PostgreSQL_Lead_ID} = '${leadId}'`
-      })
-      .all();
-    
-    const enrichmentData = {
-      PostgreSQL_Lead_ID: leadId.toString(),
-      company_info: JSON.stringify(enrichment.companyInfo),
-      tech_stack: JSON.stringify(enrichment.techStack),
-      recent_events: JSON.stringify(enrichment.recentEvents),
-      insights: enrichment.insights ? JSON.stringify(enrichment.insights) : '',
-      personalization_hooks: enrichment.personalizationHooks ? JSON.stringify(enrichment.personalizationHooks) : '',
-      use_enhanced_scraping: enrichment.useEnhancedScraping ? 'true' : 'false'
-    };
-    
-    if (existingRecords.length > 0) {
-      // Update existing record
-      const updatedRecord = await base(tableName).update([
-        { id: existingRecords[0].id, fields: enrichmentData }
-      ]);
-      
-      return {
-        id: updatedRecord[0].id,
-        ...updatedRecord[0].fields
-      };
-    } else {
-      // Create new record
-      const newRecord = await base(tableName).create([
-        { fields: enrichmentData }
-      ]);
-      
-      return {
-        id: newRecord[0].id,
-        ...newRecord[0].fields
-      };
-    }
-  } catch (error) {
-    console.error('Error syncing lead enrichment to Airtable:', error);
-    throw new Error(`Failed to sync lead enrichment to Airtable: ${error.message}`);
-  }
-}
-
-/**
- * Sync email drafts to Airtable
- */
-export async function syncEmailDraftsToAirtable(
-  drafts: EmailDraft[], 
-  tableName: string = 'Email_Drafts',
-  baseId?: string
-): Promise<any[]> {
-  try {
-    const base = getBase(baseId);
-    const results = [];
-    
-    for (const draft of drafts) {
-      // First, check if this draft already exists in Airtable
-      const existingRecords = await base(tableName)
-        .select({
-          filterByFormula: `{PostgreSQL_Draft_ID} = '${draft.id}'`
-        })
-        .all();
-      
-      const draftData = {
-        PostgreSQL_Draft_ID: draft.id.toString(),
-        PostgreSQL_Lead_ID: draft.leadId.toString(),
-        subject: draft.subject || '',
-        body: draft.body || '',
-        campaignPurpose: draft.campaignPurpose || '',
-        serviceOffering: draft.serviceOffering || '',
-        status: draft.status || 'draft',
-        scheduledDate: draft.scheduledDate ? new Date(draft.scheduledDate).toISOString() : null,
-        sentDate: draft.sentDate ? new Date(draft.sentDate).toISOString() : null
-      };
-      
-      if (existingRecords.length > 0) {
-        // Update existing record
-        const updatedRecord = await base(tableName).update([
-          { id: existingRecords[0].id, fields: draftData }
-        ]);
-        
-        results.push({
-          id: updatedRecord[0].id,
-          ...updatedRecord[0].fields
-        });
-      } else {
-        // Create new record
-        const newRecord = await base(tableName).create([
-          { fields: draftData }
-        ]);
-        
-        results.push({
-          id: newRecord[0].id,
-          ...newRecord[0].fields
-        });
-      }
-    }
-    
-    return results;
-  } catch (error) {
-    console.error('Error syncing email drafts to Airtable:', error);
-    throw new Error(`Failed to sync email drafts to Airtable: ${error.message}`);
   }
 }
 
@@ -343,51 +206,66 @@ export async function syncCampaignsToAirtable(
   baseId?: string
 ): Promise<any[]> {
   try {
-    const base = getBase(baseId);
+    // First, check if the table exists and get existing records
+    let existingRecords = [];
+    try {
+      const response = await callAirtableApi(`${tableName}?maxRecords=100`, 'GET', null, baseId);
+      existingRecords = response.records || [];
+    } catch (error) {
+      // If the table doesn't exist, we'll create it when we add the first record
+      console.log(`Table ${tableName} not found, will create when adding first record`);
+    }
+    
+    // Map existing records by PostgreSQL ID for easy lookup
+    const existingRecordsById = new Map();
+    existingRecords.forEach(record => {
+      const postgresId = record.fields.PostgreSQL_Campaign_ID;
+      if (postgresId) {
+        existingRecordsById.set(postgresId, record);
+      }
+    });
+    
     const results = [];
     
+    // Process each campaign
     for (const campaign of campaigns) {
-      // First, check if this campaign already exists in Airtable
-      const existingRecords = await base(tableName)
-        .select({
-          filterByFormula: `{PostgreSQL_Campaign_ID} = '${campaign.id}'`
-        })
-        .all();
-      
       const campaignData = {
-        PostgreSQL_Campaign_ID: campaign.id.toString(),
-        name: campaign.name || '',
-        description: campaign.description || '',
-        type: campaign.type || '',
-        status: campaign.status || '',
-        startDate: campaign.startDate ? new Date(campaign.startDate).toISOString() : null,
-        endDate: campaign.endDate ? new Date(campaign.endDate).toISOString() : null,
-        goal: campaign.goal || '',
-        budget: campaign.budget ? campaign.budget.toString() : '',
-        results: campaign.results || '',
-        tags: campaign.tags || ''
+        fields: {
+          PostgreSQL_Campaign_ID: campaign.id.toString(),
+          name: campaign.name || '',
+          description: campaign.description || '',
+          type: campaign.type || '',
+          status: campaign.status || '',
+          startDate: campaign.startDate ? new Date(campaign.startDate).toISOString() : null,
+          endDate: campaign.endDate ? new Date(campaign.endDate).toISOString() : null,
+          goal: campaign.goal || '',
+          budget: campaign.budget ? campaign.budget.toString() : '',
+          results: campaign.results || '',
+          tags: campaign.tags || ''
+        }
       };
       
-      if (existingRecords.length > 0) {
+      // Check if this campaign already exists in Airtable
+      const existingRecord = existingRecordsById.get(campaign.id.toString());
+      
+      if (existingRecord) {
         // Update existing record
-        const updatedRecord = await base(tableName).update([
-          { id: existingRecords[0].id, fields: campaignData }
-        ]);
-        
-        results.push({
-          id: updatedRecord[0].id,
-          ...updatedRecord[0].fields
-        });
+        const updatedRecord = await callAirtableApi(
+          `${tableName}/${existingRecord.id}`,
+          'PATCH',
+          campaignData,
+          baseId
+        );
+        results.push(updatedRecord);
       } else {
         // Create new record
-        const newRecord = await base(tableName).create([
-          { fields: campaignData }
-        ]);
-        
-        results.push({
-          id: newRecord[0].id,
-          ...newRecord[0].fields
-        });
+        const newRecord = await callAirtableApi(
+          `${tableName}`,
+          'POST',
+          { records: [campaignData] },
+          baseId
+        );
+        results.push(newRecord.records[0]);
       }
     }
     
@@ -398,5 +276,4 @@ export async function syncCampaignsToAirtable(
   }
 }
 
-// Export the Airtable client and base for direct access if needed
 export { airtableClient, getBase };
