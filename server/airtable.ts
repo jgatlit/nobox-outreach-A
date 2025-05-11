@@ -16,28 +16,28 @@ config();
 const AIRTABLE_API_URL = 'https://api.airtable.com/v0';
 const MCP_SERVER_URL = 'https://airtable-mcp-proxy.deno.dev';
 
-// Validate required environment variables
-const validateEnvVars = (): { pat: string; baseId: string } => {
+// Check for required environment variables
+const validateEnvVars = (): { pat: string | null; baseId: string | null; missingVars: string[] } => {
   const missing = [];
   if (!process.env.AIRTABLE_PAT) missing.push('AIRTABLE_PAT');
   if (!process.env.AIRTABLE_BASE_ID) missing.push('AIRTABLE_BASE_ID');
   
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-  }
+  // Return the values that are available, along with missing vars list
+  const pat = process.env.AIRTABLE_PAT || null;
+  const baseId = process.env.AIRTABLE_BASE_ID || null;
   
-  // We can assert these are not undefined because we checked above
-  const pat = process.env.AIRTABLE_PAT as string;
-  const baseId = process.env.AIRTABLE_BASE_ID as string;
-  
-  return { pat, baseId };
+  return { pat, baseId, missingVars: missing };
 };
 
 // Get auth headers for API requests
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   const { pat } = validateEnvVars();
   if (!pat) {
-    throw new Error('PAT not found in environment variables');
+    console.warn('PAT not found in environment variables');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'NOT_CONFIGURED'
+    };
   }
   return {
     'Authorization': `Bearer ${pat}`,
@@ -49,14 +49,20 @@ const getAuthHeaders = () => {
  * Core Airtable API client with error handling and retries
  */
 class AirtableClient {
-  private baseId: string;
+  private baseId: string | null;
   private headers: Record<string, string>;
   private maxRetries: number = 3;
+  private isConfigured: boolean = false;
   
   constructor() {
-    const { baseId } = validateEnvVars();
+    const { baseId, missingVars } = validateEnvVars();
     this.baseId = baseId;
     this.headers = getAuthHeaders();
+    this.isConfigured = missingVars.length === 0;
+    
+    if (!this.isConfigured) {
+      console.warn(`Airtable client not fully configured. Missing: ${missingVars.join(', ')}`);
+    }
   }
   
   /**
@@ -68,6 +74,10 @@ class AirtableClient {
     data?: any,
     retryCount: number = 0
   ): Promise<any> {
+    if (!this.baseId || !this.isConfigured) {
+      throw new Error('Airtable client is not properly configured');
+    }
+    
     const url = `${AIRTABLE_API_URL}/${this.baseId}${endpoint}`;
     
     try {
@@ -156,13 +166,19 @@ class AirtableClient {
  * MCP Server client for optimized bulk operations
  */
 class MCPClient {
-  private baseId: string;
+  private baseId: string | null;
   private headers: Record<string, string>;
+  private isConfigured: boolean = false;
   
   constructor() {
-    const { baseId } = validateEnvVars();
+    const { baseId, missingVars } = validateEnvVars();
     this.baseId = baseId;
     this.headers = getAuthHeaders();
+    this.isConfigured = missingVars.length === 0;
+    
+    if (!this.isConfigured) {
+      console.warn(`MCP client not fully configured. Missing: ${missingVars.join(', ')}`);
+    }
   }
   
   /**

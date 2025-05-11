@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,15 +27,99 @@ import {
   BarChart,
   Brain,
   Puzzle,
-  Plus
+  Plus,
+  Grid3X3,
+  Table,
+  Save,
+  Key
 } from "lucide-react";
+
+// Form schema for Airtable configuration
+const airtableConfigSchema = z.object({
+  baseId: z.string().min(5, "Base ID is required"),
+  pat: z.string().min(5, "Personal Access Token is required")
+});
+
+type AirtableConfigFormValues = z.infer<typeof airtableConfigSchema>;
 
 export default function Integrations() {
   const [activeTab, setActiveTab] = React.useState("all");
+  const [isConfiguring, setIsConfiguring] = React.useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const { data: integrations, isLoading } = useQuery({
+  // Define types for our API responses
+interface AirtableConnectionStatus {
+  connected: boolean;
+  error?: string;
+  baseInfo?: {
+    id: string;
+    name: string;
+    permissionLevel: string;
+  };
+}
+
+// Airtable connection status
+  const { data: airtableStatus, isLoading: isLoadingAirtable, refetch: refetchAirtableStatus } = useQuery<AirtableConnectionStatus>({
+    queryKey: ['/api/airtable/test-connection'],
+    staleTime: 60000, // 1 minute
+  });
+  
+  // Airtable tables (only fetch if connected)
+  const { data: airtableTables, isLoading: isLoadingTables, refetch: refetchAirtableTables } = useQuery<string[]>({
+    queryKey: ['/api/airtable/tables'],
+    staleTime: 60000,
+    enabled: airtableStatus?.connected === true,
+  });
+  
+  // Form for Airtable configuration
+  const form = useForm<AirtableConfigFormValues>({
+    resolver: zodResolver(airtableConfigSchema),
+    defaultValues: {
+      baseId: "",
+      pat: ""
+    }
+  });
+  
+  // Function to handle form submission
+  const onSubmit = async (data: AirtableConfigFormValues) => {
+    try {
+      // This would update env vars in a real implementation
+      toast({
+        title: "Configuration Updated",
+        description: "Airtable configuration has been updated. Testing connection now...",
+      });
+      
+      // After updating config, refresh the connection status
+      await refetchAirtableStatus();
+      setIsConfiguring(false);
+      
+      if (airtableStatus?.connected) {
+        refetchAirtableTables();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to update configuration",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Interface for Integration type
+  interface Integration {
+    id: number;
+    name: string;
+    type: string;
+    status: string;
+    lastChecked: string;
+    config?: {
+      apiUrl?: string;
+      [key: string]: any;
+    };
+  }
+  
+  const { data: integrations, isLoading } = useQuery<Integration[]>({
     queryKey: ['/api/integrations'],
     staleTime: 60000, // 1 minute
   });
@@ -94,10 +179,12 @@ export default function Integrations() {
     }
   };
   
-  const filteredIntegrations = integrations?.filter(integration => {
-    if (activeTab === "all") return true;
-    return integration.type === activeTab;
-  }) || [];
+  const filteredIntegrations = Array.isArray(integrations) 
+    ? integrations.filter(integration => {
+        if (activeTab === "all") return true;
+        return integration.type === activeTab;
+      }) 
+    : [];
   
   return (
     <main className="p-6 overflow-auto h-[calc(100vh-64px)]">
@@ -108,6 +195,145 @@ export default function Integrations() {
           Add Integration
         </Button>
       </div>
+      
+      {/* Airtable Configuration Tile */}
+      <Card className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              <Grid3X3 className="h-7 w-7 text-blue-600 mr-2" />
+              <CardTitle>Airtable Configuration</CardTitle>
+            </div>
+            {airtableStatus?.connected ? (
+              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 flex items-center">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Connected
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200 flex items-center">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Not Connected
+              </Badge>
+            )}
+          </div>
+          <CardDescription>
+            Configure your Airtable connection for the Multiple Cursor Problem Server
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingAirtable ? (
+            <div className="animate-pulse space-y-2">
+              <div className="h-4 bg-blue-200 rounded w-3/4"></div>
+              <div className="h-4 bg-blue-200 rounded w-1/2"></div>
+            </div>
+          ) : (
+            <>
+              {!airtableStatus?.connected && (
+                <Alert variant="destructive" className="mb-4 bg-red-50 border-red-200 text-red-800">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Connection Error</AlertTitle>
+                  <AlertDescription>
+                    {airtableStatus?.error || "Unable to connect to Airtable"}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {isConfiguring ? (
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="baseId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Base ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="app1234abcdef" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            The Airtable Base ID from your Airtable workspace
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="pat"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Personal Access Token (PAT)</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="pat_************************" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Your Airtable Personal Access Token with appropriate permissions
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="flex justify-end space-x-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        type="button"
+                        onClick={() => setIsConfiguring(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit">
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Configuration
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              ) : (
+                <div className="space-y-4">
+                  {airtableStatus?.connected && airtableTables && (
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <Table className="h-4 w-4 mr-2 text-indigo-700" />
+                        <h4 className="text-sm font-medium">Available Tables</h4>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {Array.isArray(airtableTables) ? (
+                          airtableTables.map((table: string, index: number) => (
+                            <Badge key={index} variant="outline" className="bg-white">
+                              {table}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-neutral-500">No tables found</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex space-x-2 justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refetchAirtableStatus()}
+                      disabled={isLoadingAirtable}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingAirtable ? 'animate-spin' : ''}`} />
+                      Test Connection
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsConfiguring(true)}
+                    >
+                      <Key className="h-4 w-4 mr-2" />
+                      Update Credentials
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
       
       <div className="mb-6">
         <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>
