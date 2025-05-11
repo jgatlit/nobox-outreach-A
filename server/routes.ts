@@ -2,14 +2,16 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
+import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema, campaigns } from "@shared/schema";
 import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions, generatePersonalizationHooks, enhanceWebsiteDataWithAI, summarizeScrapingResultsWithAI } from "./openai";
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
-import { syncLeadsToAirtable, syncLeadsFromAirtable, syncCampaignsToAirtable, listAirtableTables, getAirtableRecords } from "./airtable";
+import { syncLeadsToAirtable, syncLeadsFromAirtable, syncCampaignsToAirtable, syncCampaignsFromAirtable, listAirtableTables, getAirtableRecords } from "./airtable";
 import path from "path";
 import fs from "fs";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve CSV templates
@@ -1445,11 +1447,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==========================================================================
   // Airtable Integration Routes
   // ==========================================================================
-  
-  // Get all tables in an Airtable base
+  // Field mapping configuration
+  const fieldMappings = {
+    airtableToDb: {
+      "Email": "email",
+      "Company Name": "company",
+      "First Name": "firstName",
+      "Last Name": "lastName",
+      "Website": "website"
+    },
+    dbToAirtable: {
+      "email": "Email",
+      "company": "Company Name",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "website": "Website"
+    }
+  };
+
+  // Improved Airtable API routes
   app.get("/api/airtable/tables", async (req, res) => {
     try {
       const baseId = req.query.baseId as string;
+
+      // Add baseId validation
+      if (!/^app[A-Za-z0-9]{14}$/.test(baseId)) {
+        return res.status(400).json({ error: "Invalid Airtable base ID format" });
+      }
+
       const tables = await listAirtableTables(baseId);
       return res.json({ tables });
     } catch (error) {
@@ -1457,36 +1482,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to fetch Airtable tables" });
     }
   });
-  
-  // Get records from an Airtable table
+
   app.get("/api/airtable/:tableName/records", async (req, res) => {
     try {
       const { tableName } = req.params;
       const baseId = req.query.baseId as string;
-      
-      const records = await getAirtableRecords(tableName, baseId);
-      return res.json({ records });
+      // Add pagination parameters
+      const pageSize = parseInt(req.query.pageSize as string) || 100;
+      const offset = req.query.offset as string || '';
+
+      const records = await getAirtableRecords(tableName, baseId, pageSize, offset);
+      return res.json({ 
+        records,
+        pagination: {
+          pageSize,
+          offset: records.length >= pageSize ? records[records.length-1].id : null
+        }
+      });
     } catch (error) {
       console.error(`Error fetching records from Airtable table ${req.params.tableName}:`, error);
       return res.status(500).json({ error: "Failed to fetch Airtable records" });
     }
   });
-  
-  // Sync all leads to Airtable
+
   app.post("/api/airtable/sync/leads-to-airtable", async (req, res) => {
     try {
       const { tableName, baseId } = req.body;
-      
+
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
-      
-      // Get all leads from the database
+
       const leads = await storage.getAllLeads();
-      
-      // Sync leads to Airtable
-      const syncResults = await syncLeadsToAirtable(leads, tableName, baseId);
-      
+
+      // Add batch processing
+      const BATCH_SIZE = 10;
+      const syncResults = [];
+
+      for (let i = 0; i < leads.length; i += BATCH_SIZE) {
+        const batch = leads.slice(i, i + BATCH_SIZE);
+        const mappedBatch = batch.map(lead => ({
+          fields: mapFields(lead, fieldMappings.dbToAirtable)
+        }));
+
+        const batchResult = await processAirtableBatch(tableName, baseId, mappedBatch);
+        syncResults.push(...batchResult);
+        await delay(250); // Rate limit protection
+      }
+
       return res.status(200).json({
         message: `Successfully synced ${syncResults.length} leads to Airtable`,
         syncedLeadsCount: syncResults.length
@@ -1496,70 +1539,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to sync leads to Airtable" });
     }
   });
-  
-  // Sync leads from Airtable to PostgreSQL
+
   app.post("/api/airtable/sync/leads-from-airtable", async (req, res) => {
     try {
       const { tableName, baseId } = req.body;
-      
+
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
-      
-      // Sync leads from Airtable
+
       const leadsFromAirtable = await syncLeadsFromAirtable(tableName, baseId);
-      
-      // Keep track of created and updated leads
       const createdLeads = [];
       const updatedLeads = [];
       const skippedLeads = [];
-      
-      // Process each lead from Airtable
-      for (const lead of leadsFromAirtable) {
+
+      for (const airtableLead of leadsFromAirtable) {
         try {
-          // Check if this lead already exists in our database
+          // Add schema validation
+          const validationError = validateAirtableSchema(airtableLead);
+          if (validationError) {
+            throw new Error(validationError);
+          }
+
+          const lead = mapFields(airtableLead.fields, fieldMappings.airtableToDb);
           const existingLeads = await storage.findDuplicateLeads(lead.email);
-          
+
           if (existingLeads.length > 0) {
-            // Update the existing lead
-            const updatedLead = await storage.updateLead(existingLeads[0].id, {
-              firstName: lead.firstName,
-              lastName: lead.lastName,
-              company: lead.company,
-              title: lead.title,
-              website: lead.website,
-              status: lead.status,
-              source: lead.source,
-              notes: lead.notes,
-              priority: lead.priority,
-              tags: lead.tags
-            });
-            
+            const updatedLead = await storage.updateLead(existingLeads[0].id, lead);
             updatedLeads.push(updatedLead);
           } else {
-            // Create a new lead
             const newLead = await storage.addLead({
-              firstName: lead.firstName,
-              lastName: lead.lastName,
-              email: lead.email,
-              company: lead.company || "",
-              title: lead.title || null,
-              website: lead.website || "",
-              status: lead.status as any || "new",
-              source: lead.source as any || "airtable",
-              notes: lead.notes || "",
-              priority: lead.priority as any || "medium",
-              tags: lead.tags || ""
+              ...lead,
+              status: lead.status || "new",
+              source: lead.source || "airtable",
+              priority: lead.priority || "medium"
             });
-            
             createdLeads.push(newLead);
           }
         } catch (error) {
-          console.error(`Error processing lead ${lead.email} from Airtable:`, error);
-          skippedLeads.push({ email: lead.email, error: error.message });
+          console.error(`Error processing lead ${airtableLead.id}:`, error);
+          skippedLeads.push({ 
+            recordId: airtableLead.id, 
+            error: error.message 
+          });
         }
       }
-      
+
       return res.status(200).json({
         message: `Successfully synced leads from Airtable`,
         created: createdLeads.length,
@@ -1572,6 +1597,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to sync leads from Airtable" });
     }
   });
+
+  // Helper functions
+  const mapFields = (data: any, mapping: Record<string, string>) => {
+    return Object.keys(mapping).reduce((acc, key) => {
+      acc[mapping[key]] = data[key];
+      return acc;
+    }, {} as Record<string, any>);
+  };
+
+  const validateAirtableSchema = (record: any) => {
+    if (!record.fields.Email) return "Missing email field";
+    if (typeof record.fields.Email !== "string") return "Invalid email format";
+    return null;
+  };
+
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
   // Sync all campaigns to Airtable
   app.post("/api/airtable/sync/campaigns-to-airtable", async (req, res) => {
