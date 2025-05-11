@@ -1456,6 +1456,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to connect to Airtable" });
     }
   });
+  
+  // Endpoint to update Airtable credentials
+  app.post("/api/airtable/config", async (req, res) => {
+    try {
+      const { baseId, pat } = req.body;
+      
+      if (!baseId || !pat) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Both Base ID and Personal Access Token are required" 
+        });
+      }
+      
+      // In a real application, this would set environment variables
+      // For this demo, we'll update the service directly
+      const result = await airtableService.updateCredentials(baseId, pat);
+      
+      if (result.success) {
+        res.json(result);
+      } else {
+        res.status(400).json(result);
+      }
+    } catch (error) {
+      console.error("Error updating Airtable credentials:", error);
+      res.status(500).json({ success: false, error: "Failed to update Airtable credentials" });
+    }
+  });
 
   // Get Airtable tables
   app.get("/api/airtable/tables", async (req, res) => {

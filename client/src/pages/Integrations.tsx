@@ -81,29 +81,43 @@ interface AirtableConnectionStatus {
     }
   });
   
-  // Function to handle form submission
-  const onSubmit = async (data: AirtableConfigFormValues) => {
-    try {
-      // This would update env vars in a real implementation
+  // Update Airtable credentials mutation
+  const updateCredentialsMutation = useMutation({
+    mutationFn: async (credentials: AirtableConfigFormValues) => {
+      const response = await apiRequest(
+        "POST",
+        "/api/airtable/config",
+        credentials
+      );
+      return response.json();
+    },
+    onSuccess: (data) => {
       toast({
         title: "Configuration Updated",
-        description: "Airtable configuration has been updated. Testing connection now...",
+        description: data.message || "Airtable configuration has been updated successfully.",
       });
       
       // After updating config, refresh the connection status
-      await refetchAirtableStatus();
+      refetchAirtableStatus();
       setIsConfiguring(false);
       
-      if (airtableStatus?.connected) {
-        refetchAirtableTables();
+      if (data.success) {
+        // If successful, also refresh tables
+        setTimeout(() => refetchAirtableTables(), 1000);
       }
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       toast({
         title: "Failed to update configuration",
-        description: error.message || "An error occurred",
+        description: error.message || "An error occurred while updating Airtable credentials.",
         variant: "destructive",
       });
-    }
+    },
+  });
+
+  // Function to handle form submission
+  const onSubmit = (data: AirtableConfigFormValues) => {
+    updateCredentialsMutation.mutate(data);
   };
   
   // Interface for Integration type
@@ -278,12 +292,25 @@ interface AirtableConnectionStatus {
                         variant="outline" 
                         type="button"
                         onClick={() => setIsConfiguring(false)}
+                        disabled={updateCredentialsMutation.isPending}
                       >
                         Cancel
                       </Button>
-                      <Button type="submit">
-                        <Save className="mr-2 h-4 w-4" />
-                        Save Configuration
+                      <Button 
+                        type="submit" 
+                        disabled={updateCredentialsMutation.isPending}
+                      >
+                        {updateCredentialsMutation.isPending ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Save Configuration
+                          </>
+                        )}
                       </Button>
                     </div>
                   </form>

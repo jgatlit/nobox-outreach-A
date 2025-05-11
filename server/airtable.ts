@@ -371,6 +371,49 @@ export class AirtableService {
   async deleteRecords(tableName: string, recordIds: string[]) {
     return this.mcpClient.deleteRecords(tableName, recordIds);
   }
+  
+  /**
+   * Update the Airtable API credentials
+   * In a real application, this would update environment variables or a configuration store
+   * For demo purposes, we're setting up a mechanism to update the credentials at runtime
+   * 
+   * @param baseId The Airtable Base ID
+   * @param pat The Personal Access Token
+   * @returns Success status and message
+   */
+  async updateCredentials(baseId: string, pat: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      // In a real application, this would store the credentials securely
+      // For demo purposes, we're setting the values in process.env
+      process.env.AIRTABLE_BASE_ID = baseId;
+      process.env.AIRTABLE_PAT = pat;
+      
+      // Recreate the clients with the new credentials
+      this.airtableClient = new AirtableClient();
+      this.mcpClient = new MCPClient();
+      
+      // Test the connection with the new credentials
+      const testResult = await this.testConnection();
+      
+      if (testResult.connected) {
+        return {
+          success: true,
+          message: "Airtable credentials updated successfully"
+        };
+      } else {
+        return {
+          success: false,
+          error: testResult.error || "Failed to connect with the new credentials"
+        };
+      }
+    } catch (error) {
+      console.error('Error updating Airtable credentials:', error);
+      return {
+        success: false,
+        error: error.message || "An unexpected error occurred"
+      };
+    }
+  }
 }
 
 // Export a singleton instance
