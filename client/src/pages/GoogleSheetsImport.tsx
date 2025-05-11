@@ -73,9 +73,20 @@ export default function GoogleSheetsImport() {
       setImportStep(2);
     },
     onError: (error: Error) => {
+      const errorMessage = error.message || 'Unknown error';
+      let description = 'Failed to validate Google Sheet URL';
+      
+      if (errorMessage.includes('permission')) {
+        description = 'Permission denied: Make sure the Google Sheet is shared publicly (Anyone with the link can view) or check your API key permissions.';
+      } else if (errorMessage.includes('not found')) {
+        description = 'Google Sheet not found: Please check if the URL is correct.';
+      } else {
+        description = `Error: ${errorMessage}`;
+      }
+      
       toast({
         title: 'Validation Error',
-        description: error.message || 'Failed to validate Google Sheet URL',
+        description,
         variant: 'destructive',
       });
     },

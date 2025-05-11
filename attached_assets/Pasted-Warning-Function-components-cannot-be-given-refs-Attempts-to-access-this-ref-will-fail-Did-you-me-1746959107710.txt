@@ -1,0 +1,45 @@
+Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+
+Check the render method of `Primitive.button.SlotClone`.
+    at Badge (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/ui/badge.tsx:35:18)
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LXTJ4TFU.js?v=6a3e98fc:79:13
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LXTJ4TFU.js?v=6a3e98fc:56:13
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-PALV7G7K.js?v=6a3e98fc:42:13
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LXTJ4TFU.js?v=6a3e98fc:79:13
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-LXTJ4TFU.js?v=6a3e98fc:56:13
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-PALV7G7K.js?v=6a3e98fc:42:13
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-U37FTRA4.js?v=6a3e98fc:1929:13
+    at https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=6a3e98fc:196:13
+    at Provider (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-PLT6GTVM.js?v=6a3e98fc:38:15)
+    at Provider (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-PLT6GTVM.js?v=6a3e98fc:38:15)
+    at Popper (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-U37FTRA4.js?v=6a3e98fc:1921:11)
+    at Tooltip (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=6a3e98fc:105:5)
+    at Provider (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-PLT6GTVM.js?v=6a3e98fc:38:15)
+    at TooltipProvider (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=6a3e98fc:61:5)
+    at div
+    at td
+    at _c13 (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/ui/table.tsx:152:13)
+    at tr
+    at _c9 (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/ui/table.tsx:102:12)
+    at tbody
+    at _c5 (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/ui/table.tsx:55:12)
+    at table
+    at div
+    at _c (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/ui/table.tsx:20:11)
+    at div
+    at div
+    at DataTable (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/ui/data-table.tsx:33:3)
+    at div
+    at LeadTable (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/LeadManagement/LeadTable.tsx:50:39)
+    at div
+    at main
+    at Dashboard (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/pages/Dashboard.tsx:26:54)
+    at Route (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=6a3e98fc:280:16)
+    at Switch (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=6a3e98fc:336:17)
+    at Suspense
+    at div
+    at div
+    at Layout (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/src/components/Layout.tsx:21:26)
+    at Router
+    at QueryClientProvider (https://ffa862b5-5f7b-4ea7-8a17-52a3ffb76755-00-2oajzx63a7nnu.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=6a3e98fc:2879:3)
+    at App

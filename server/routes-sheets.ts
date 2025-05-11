@@ -36,10 +36,25 @@ export function registerGoogleSheetsRoutes(app: Express): void {
         workbookInfo
       });
     } catch (error) {
-      log(`Error validating Google Sheet: ${error instanceof Error ? error.message : String(error)}`, 'sheets-routes');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log(`Error validating Google Sheet: ${errorMessage}`, 'sheets-routes');
+      
+      // Provide more specific error messages to the frontend based on the error type
+      let clientMessage = 'Failed to validate Google Sheet';
+      
+      if (errorMessage.includes('permission')) {
+        clientMessage = 'The caller does not have permission. Make sure the spreadsheet is shared with "Anyone with the link" or check your API key.';
+      } else if (errorMessage.includes('not found')) {
+        clientMessage = 'The specified spreadsheet could not be found. Check if the URL is correct.';
+      } else if (errorMessage.includes('API key')) {
+        clientMessage = 'Invalid or missing API key. Please check your Google Sheets API credentials.';
+      } else {
+        clientMessage = errorMessage;
+      }
+      
       return res.status(500).json({
         success: false,
-        message: `Failed to validate Google Sheet: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: clientMessage
       });
     }
   });
