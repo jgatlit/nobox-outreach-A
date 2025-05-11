@@ -1760,42 +1760,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!apiKey) {
         return res.status(400).json({ 
+          success: false,
           error: "No API key provided" 
         });
       }
       
+      // Import the new auth functions
+      const { processAuth, testAuth, setApiKey } = await import('./airtable/auth');
+      const { initializeAirtableClient } = await import('./airtable/client');
+      
       const baseId = process.env.AIRTABLE_BASE_ID;
       if (!baseId) {
         return res.status(400).json({ 
+          success: false,
           error: "No Airtable Base ID configured. Please add AIRTABLE_BASE_ID environment variable." 
         });
       }
       
-      // Validate the key first
-      const validation = await validateApiKey(apiKey, baseId);
+      // Process and validate the authentication token
+      const auth = processAuth(apiKey);
       
-      if (!validation.valid) {
-        return res.status(400).json({
-          error: "Invalid API key",
-          details: validation.message
+      // Test the authentication against the base
+      try {
+        const testedAuth = await testAuth(baseId, auth);
+        
+        if (testedAuth.status !== 'valid') {
+          return res.status(401).json({ 
+            success: false, 
+            error: 'Invalid API key - unable to authenticate with Airtable',
+            details: {
+              type: testedAuth.type,
+              status: testedAuth.status,
+              hasPrefix: testedAuth.hasPrefix
+            }
+          });
+        }
+        
+        // Save the API key to environment
+        setApiKey(apiKey);
+        
+        // Restart the Airtable client to pick up the new key
+        await initializeAirtableClient();
+        
+        return res.json({ 
+          success: true,
+          message: `API key updated successfully (${testedAuth.type})`,
+          details: {
+            type: testedAuth.type,
+            status: testedAuth.status,
+            hasPrefix: testedAuth.hasPrefix
+          }
+        });
+      } catch (error) {
+        return res.status(500).json({ 
+          success: false,
+          error: "Failed to validate API key", 
+          details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
-      
-      // Format the key properly
-      const formattedKey = formatApiKey(apiKey);
-      
-      // Update the process environment variable
-      process.env.AIRTABLE_API_KEY = formattedKey;
-      
-      // Return success
-      return res.json({
-        success: true,
-        message: `API key updated successfully (${validation.type})`,
-        details: validation
-      });
     } catch (error) {
       console.error("Error updating API key:", error);
       return res.status(500).json({ 
+        success: false,
         error: "Failed to update API key",
         details: error instanceof Error ? error.message : String(error)
       });

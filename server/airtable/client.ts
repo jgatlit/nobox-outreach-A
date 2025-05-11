@@ -35,7 +35,7 @@ let authInfo: AirtableAuth = getAuth();
 /**
  * Initialize the Airtable client with proper authentication
  */
-async function initializeAirtableClient() {
+export async function initializeAirtableClient() {
   try {
     log('Initializing Airtable client...', 'airtable');
     
