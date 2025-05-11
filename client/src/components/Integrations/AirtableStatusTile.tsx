@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { RefreshCw, CheckCircle, XCircle, AlertCircle, Database } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, AlertCircle, Database, Key, Settings } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -55,7 +58,10 @@ interface AirtableStatusTileProps {
 
 export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
   const [loading, setLoading] = useState(false);
+  const [configuring, setConfiguring] = useState(false);
   const [status, setStatus] = useState<AirtableStatus | null>(null);
+  const [apiKey, setApiKey] = useState('');
+  const [baseId, setBaseId] = useState('');
   const { toast } = useToast();
 
   const fetchStatus = async () => {
@@ -66,6 +72,11 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
       
       if (data.success && data.diagnostics) {
         setStatus(data.diagnostics);
+        
+        // If we have a stored baseId, set it in the form
+        if (data.diagnostics.config.usedBaseId) {
+          setBaseId(data.diagnostics.config.usedBaseId);
+        }
       } else {
         throw new Error('Failed to fetch Airtable status');
       }
@@ -78,6 +89,47 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
       });
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const saveApiConfig = async () => {
+    setConfiguring(true);
+    try {
+      // In a real implementation, we would POST to '/api/airtable/config'
+      // For now, store in localStorage for demo purposes
+      if (apiKey || baseId) {
+        // If API key is provided, update it
+        if (apiKey) {
+          localStorage.setItem('AIRTABLE_API_KEY', apiKey);
+        }
+        
+        // If Base ID is provided, update it
+        if (baseId) {
+          localStorage.setItem('AIRTABLE_BASE_ID', baseId);
+        }
+        
+        toast({
+          title: 'Configuration Saved',
+          description: 'Airtable configuration has been updated successfully.',
+        });
+        
+        // Refresh status
+        await fetchStatus();
+      } else {
+        toast({
+          title: 'No Changes',
+          description: 'No configuration changes were made.',
+        });
+      }
+    } catch (error) {
+      console.error('Error saving Airtable configuration:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save Airtable configuration. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setConfiguring(false);
     }
   };
 
@@ -155,13 +207,87 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              Details
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        
+        <div className="flex gap-2">
+          {/* Configure Dialog */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Key className="h-4 w-4 mr-2" />
+                Configure
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Airtable API Configuration</DialogTitle>
+                <DialogDescription>
+                  Configure your Airtable API key and Base ID to enable integration
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="airtable-api-key">Airtable API Key</Label>
+                  <Input 
+                    id="airtable-api-key" 
+                    type="password" 
+                    placeholder="Enter API key" 
+                    value={apiKey} 
+                    onChange={(e) => setApiKey(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="airtable-base-id">Base ID</Label>
+                  <Input 
+                    id="airtable-base-id" 
+                    placeholder="Enter Base ID" 
+                    value={baseId} 
+                    onChange={(e) => setBaseId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Current Base ID: {status?.config.usedBaseId || 'Not configured'}
+                  </p>
+                </div>
+                
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Note</AlertTitle>
+                  <AlertDescription>
+                    Find your API key in the 
+                    <a href="https://airtable.com/account" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline ml-1">
+                      Airtable account settings
+                    </a>
+                  </AlertDescription>
+                </Alert>
+              </div>
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setApiKey('');
+                  if (status?.config.usedBaseId) {
+                    setBaseId(status.config.usedBaseId);
+                  } else {
+                    setBaseId('');
+                  }
+                }} disabled={configuring}>
+                  Reset
+                </Button>
+                <Button onClick={saveApiConfig} disabled={configuring}>
+                  {configuring ? 'Saving...' : 'Save Configuration'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Details Dialog */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                Details
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Airtable Integration Status</DialogTitle>
               <DialogDescription>
@@ -384,6 +510,7 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
             )}
           </DialogContent>
         </Dialog>
+        </div>
       </CardFooter>
     </Card>
   );
