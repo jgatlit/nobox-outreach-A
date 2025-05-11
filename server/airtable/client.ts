@@ -155,6 +155,9 @@ async function ensureAirtableClient(): Promise<boolean> {
 // Create a compatible interface adapter with error handling and MCP server support
 airtableClient = {
   query: async (baseId: string, tableName: string, options = {}) => {
+    // Refresh auth info on each call to pick up environment variable changes
+    authInfo = getAuth();
+    
     // Verify we have authentication info
     if (!authInfo.rawValue) {
       log('Airtable API key not configured. Check your environment variables.', 'airtable');
@@ -192,6 +195,9 @@ airtableClient = {
   },
   
   create: async (baseId: string, tableName: string, fields: Record<string, any>) => {
+    // Refresh auth info on each call to pick up environment variable changes
+    authInfo = getAuth();
+    
     // Verify we have authentication info
     if (!authInfo.rawValue) {
       log('Airtable API key not configured. Check your environment variables.', 'airtable');
@@ -228,6 +234,9 @@ airtableClient = {
   },
   
   update: async (baseId: string, tableName: string, recordId: string, fields: Record<string, any>) => {
+    // Refresh auth info on each call to pick up environment variable changes
+    authInfo = getAuth();
+    
     // Verify we have authentication info
     if (!authInfo.rawValue) {
       log('Airtable API key not configured. Check your environment variables.', 'airtable');
