@@ -514,40 +514,62 @@ export async function syncCampaignsToAirtable(
         })
         .all();
       
+      // Map our schema fields to Airtable fields with proper null handling
+      // Using snake case for Airtable field names to match convention
       const campaignData = {
         PostgreSQL_Campaign_ID: campaign.id.toString(),
         name: campaign.name || '',
         description: campaign.description || '',
-        type: campaign.type || '',
-        status: campaign.status || '',
-        startDate: campaign.startDate ? new Date(campaign.startDate).toISOString() : null,
-        endDate: campaign.endDate ? new Date(campaign.endDate).toISOString() : null,
-        goal: campaign.goal || '',
-        budget: campaign.budget ? campaign.budget.toString() : '',
-        results: campaign.results || '',
-        tags: campaign.tags || ''
+        is_active: campaign.isActive ? 'true' : 'false',
+        // Using empty strings instead of null for Airtable compatibility
+        created_at: campaign.createdAt ? new Date(campaign.createdAt).toISOString() : new Date().toISOString(),
+        updated_at: campaign.updatedAt ? new Date(campaign.updatedAt).toISOString() : new Date().toISOString(),
+        // Handle potential custom fields that might not be in our base schema
+        segment_filters: campaign.segmentFilters ? JSON.stringify(campaign.segmentFilters) : '{}'
       };
       
       if (existingRecords.length > 0) {
-        // Update existing record
-        const updatedRecord = await base(tableName).update([
-          { id: existingRecords[0].id, fields: campaignData }
-        ]);
-        
-        results.push({
-          id: updatedRecord[0].id,
-          ...updatedRecord[0].fields
-        });
+        // Update existing record - use try/catch for robust error handling
+        try {
+          const updatedRecord = await base(tableName).update([
+            { id: existingRecords[0].id, fields: campaignData }
+          ]);
+          
+          // Make sure we have a valid response
+          if (updatedRecord && updatedRecord.length > 0) {
+            results.push({
+              id: updatedRecord[0].id,
+              ...updatedRecord[0].fields
+            });
+          } else {
+            console.error(`Error updating campaign ID ${campaign.id} - Update operation returned no records`);
+          }
+        } catch (updateError: any) {
+          console.error(`Error updating campaign ID ${campaign.id} in Airtable:`, updateError);
+          // Continue with next campaign instead of failing the entire batch
+          continue;
+        }
       } else {
-        // Create new record
-        const newRecord = await base(tableName).create([
-          { fields: campaignData }
-        ]);
-        
-        results.push({
-          id: newRecord[0].id,
-          ...newRecord[0].fields
-        });
+        // Create new record - use try/catch for robust error handling
+        try {
+          const newRecord = await base(tableName).create([
+            { fields: campaignData }
+          ]);
+          
+          // Make sure we have a valid response
+          if (newRecord && newRecord.length > 0) {
+            results.push({
+              id: newRecord[0].id,
+              ...newRecord[0].fields
+            });
+          } else {
+            console.error(`Error creating campaign ${campaign.name} - Create operation returned no records`);
+          }
+        } catch (createError: any) {
+          console.error(`Error creating campaign ${campaign.name} in Airtable:`, createError);
+          // Continue with next campaign instead of failing the entire batch
+          continue;
+        }
       }
     }
     
