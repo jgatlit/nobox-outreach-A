@@ -1,8 +1,8 @@
 /**
  * Airtable Authentication Module
  * 
- * This module handles all aspects of Airtable authentication, supporting both
- * Personal Access Tokens (PAT) and classic API keys with proper formatting.
+ * This module handles all aspects of Airtable authentication using
+ * Personal Access Tokens (PAT) with proper formatting.
  */
 
 import { log } from '../vite';
@@ -16,7 +16,7 @@ interface AirtableBase {
 
 // Define auth type interface
 export interface AirtableAuth {
-  type: 'pat' | 'classic_key' | 'unknown';
+  type: 'pat' | 'unknown';
   value: string;
   hasPrefix: boolean;
   bearerToken?: string;
@@ -28,35 +28,39 @@ export interface AirtableAuth {
 
 /**
  * Process an authentication token to determine its type and format
- * @param authToken API key or PAT to process
+ * @param authToken PAT to process
  * @returns Processed auth object
  */
 export function processAuth(authToken: string): AirtableAuth {
-  let type: 'pat' | 'classic_key' | 'unknown' = 'unknown';
+  if (!authToken || typeof authToken !== 'string') {
+    return {
+      type: 'unknown',
+      value: '',
+      hasPrefix: false,
+      status: 'invalid'
+    };
+  }
+
+  let type: 'pat' | 'unknown' = 'unknown';
   let hasPrefix = false;
-  let value = authToken;
+  let value = authToken.trim();
   let bearerToken: string | undefined;
 
   // Check if it's a PAT (starts with "pat" or has "Bearer pat" prefix)
-  if (authToken.startsWith('pat') || /^pat\w+$/.test(authToken)) {
+  if (value.startsWith('pat')) {
     type = 'pat';
-    value = authToken;
-    bearerToken = `Bearer ${authToken}`;
-  } else if (authToken.startsWith('Bearer pat')) {
+    bearerToken = `Bearer ${value}`;
+    hasPrefix = false;
+  } else if (value.startsWith('Bearer pat')) {
     type = 'pat';
     hasPrefix = true;
-    value = authToken.replace('Bearer ', '');
-    bearerToken = authToken;
-  } else if (authToken.startsWith('Bearer ') && !authToken.includes('pat')) {
-    // If it has Bearer prefix but doesn't look like a PAT
+    value = value.replace('Bearer ', '');
+    bearerToken = value;
+  } else {
+    // Not a valid PAT format
     type = 'unknown';
-    hasPrefix = true;
-    value = authToken.replace('Bearer ', '');
-    bearerToken = authToken;
-  } else if (authToken.startsWith('key')) {
-    // It's a classic API key
-    type = 'classic_key';
-    value = authToken;
+    value = value;
+    bearerToken = undefined;
   }
 
   return {
@@ -76,7 +80,7 @@ export function processAuth(authToken: string): AirtableAuth {
  */
 export async function testAuth(baseId: string, auth: AirtableAuth): Promise<AirtableAuth> {
   try {
-    // For PAT, use fetch with Authorization header
+    // Only handle PAT authentication
     if (auth.type === 'pat') {
       // Add Bearer prefix if not present
       const authHeader = auth.hasPrefix ? auth.value : `Bearer ${auth.value}`;
@@ -106,21 +110,6 @@ export async function testAuth(baseId: string, auth: AirtableAuth): Promise<Airt
       
       // If we get here, the token might be valid but there are other issues
       return { ...auth, status: 'invalid' };
-    } 
-    // For classic API key, use Airtable SDK
-    else if (auth.type === 'classic_key') {
-      const airtable = new Airtable({ apiKey: auth.value });
-      const base = airtable.base(baseId);
-      
-      // Try to list tables, which will verify the API key
-      try {
-        // Try to retrieve the first page of records from any table to validate the key
-        await base.table('Leads').select().firstPage();
-        return { ...auth, status: 'valid' };
-      } catch (error) {
-        log(`Classic API key verification failed: ${error}`, 'airtable');
-        return { ...auth, status: 'invalid' };
-      }
     }
     
     // For unknown types, assume invalid
