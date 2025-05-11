@@ -136,19 +136,24 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
     
     // Process each lead
     for (const lead of leads) {
+      // Convert all null values to empty strings or other appropriate defaults
+      // since Airtable doesn't accept null values in its API
       const leadData = {
-        firstName: lead.firstName,
-        lastName: lead.lastName,
+        firstName: lead.firstName || '',
+        lastName: lead.lastName || '',
         email: lead.email,
         company: lead.company || '',
         title: lead.title || '',
-        phone: lead.phone || '',
-        status: lead.status || '',
-        source: lead.source || '',
-        lastContact: lead.lastContact ? new Date(lead.lastContact).toISOString() : null,
+        phoneNumber: lead.phoneNumber || '',
+        status: lead.status || 'new',
+        source: lead.source || 'manual',
+        lastContactDate: lead.lastContactDate ? new Date(lead.lastContactDate).toISOString() : '',
+        website: lead.website || '',
         notes: lead.notes || '',
-        priority: lead.priority || '',
-        tags: lead.tags || '',
+        priority: lead.priority || 'medium',
+        tags: Array.isArray(lead.tags) 
+          ? lead.tags.join(',') 
+          : (typeof lead.tags === 'string' ? lead.tags : ''),
         PostgreSQL_ID: lead.id.toString(),
       };
       
@@ -157,16 +162,42 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
       
       if (existingRecord) {
         // Update existing record
-        const updatedRecord = await base(tableName).update([
-          { id: existingRecord.id, fields: leadData }
-        ]);
-        results.push(updatedRecord[0]);
+        try {
+          const updatedRecord = await base(tableName).update([
+            { id: existingRecord.id, fields: leadData }
+          ]);
+          
+          // The Airtable API returns an array of records
+          if (updatedRecord && updatedRecord.length > 0) {
+            results.push({
+              id: updatedRecord[0].id,
+              ...updatedRecord[0].fields
+            });
+          }
+        } catch (error: any) {
+          console.error(`Error updating lead ${lead.email} in Airtable:`, error);
+          // Continue with next lead instead of failing the entire batch
+          continue;
+        }
       } else {
         // Create new record
-        const newRecord = await base(tableName).create([
-          { fields: leadData }
-        ]);
-        results.push(newRecord[0]);
+        try {
+          const newRecord = await base(tableName).create([
+            { fields: leadData }
+          ]);
+          
+          // The Airtable API returns an array of records
+          if (newRecord && newRecord.length > 0) {
+            results.push({
+              id: newRecord[0].id,
+              ...newRecord[0].fields
+            });
+          }
+        } catch (error: any) {
+          console.error(`Error creating lead ${lead.email} in Airtable:`, error);
+          // Continue with next lead instead of failing the entire batch
+          continue;
+        }
       }
     }
     
@@ -183,7 +214,7 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
 /**
  * Sync leads from Airtable to PostgreSQL
  */
-export async function syncLeadsFromAirtable(tableName: string = 'Leads', baseId?: string): Promise<Lead[]> {
+export async function syncLeadsFromAirtable(tableName: string = 'Leads', baseId?: string): Promise<Partial<Lead>[]> {
   try {
     const base = getBase(baseId);
     const records = await base(tableName).select().all();
@@ -191,26 +222,90 @@ export async function syncLeadsFromAirtable(tableName: string = 'Leads', baseId?
     return records.map(record => {
       const fields = record.fields;
       
-      // Convert Airtable record to Lead format
-      return {
-        id: fields.PostgreSQL_ID ? parseInt(fields.PostgreSQL_ID as string, 10) : null,
-        firstName: fields.firstName as string || '',
-        lastName: fields.lastName as string || '',
-        email: fields.email as string || '',
-        company: fields.company as string || '',
-        title: fields.title as string || '',
-        phone: fields.phone as string || '',
-        website: fields.website as string || '',
-        status: fields.status as string || 'new',
-        source: fields.source as string || 'airtable',
-        lastContact: fields.lastContact ? new Date(fields.lastContact as string) : null,
-        createdAt: fields.createdAt ? new Date(fields.createdAt as string) : new Date(),
-        updatedAt: fields.updatedAt ? new Date(fields.updatedAt as string) : new Date(),
-        notes: fields.notes as string || '',
-        priority: fields.priority as string || 'medium',
-        tags: fields.tags as string || '',
-        airtableId: record.id // Store the Airtable record ID for future syncing
+      // Safely extract and convert fields from Airtable
+      const extractString = (fieldName: string): string | null => {
+        const value = fields[fieldName];
+        return value ? String(value) : null;
       };
+      
+      const extractDate = (fieldName: string): Date | null => {
+        const value = fields[fieldName];
+        if (!value) return null;
+        
+        try {
+          return new Date(String(value));
+        } catch {
+          return null;
+        }
+      };
+      
+      // Map Airtable record to our Lead schema format
+      // Handle any field name differences and data type conversions
+      const idStr = extractString('PostgreSQL_ID');
+      
+      // Build a properly typed Lead object
+      const lead: Partial<Lead> = {
+        // Use existing PostgreSQL ID if available, otherwise it will be a new lead
+        id: idStr ? parseInt(idStr, 10) : undefined,
+        firstName: extractString('firstName'),
+        lastName: extractString('lastName'),
+        email: extractString('email') || '',  // email is required in our schema
+        company: extractString('company'),
+        title: extractString('title'),
+        phoneNumber: extractString('phoneNumber') || extractString('phone'),
+        website: extractString('website'),
+        linkedinUrl: extractString('linkedinUrl'),
+        
+        // Map status, ensuring it fits our enum values
+        status: (() => {
+          const status = extractString('status');
+          if (status && ['active', 'inactive', 'contacted', 'responded', 'qualified', 'disqualified'].includes(status)) {
+            return status as any; // Cast to allow assignment to Lead.status
+          }
+          return 'contacted'; // Default status
+        })(),
+        
+        // Map source, ensuring it fits our enum values
+        source: (() => {
+          const source = extractString('source');
+          if (source && ['email', 'pipedrive', 'asana', 'instantly', 'cyberleads', 'linkedin', 'manual'].includes(source)) {
+            return source as any; // Cast to allow assignment to Lead.source
+          }
+          return 'manual'; // Default source
+        })(),
+        
+        // Date conversions
+        lastContactDate: extractDate('lastContactDate') || extractDate('lastContact'),
+        // Use current date if not provided
+        createdAt: extractDate('createdAt') || new Date(),
+        updatedAt: extractDate('updatedAt') || new Date(),
+        
+        // Other fields
+        notes: extractString('notes'),
+        
+        // Map priority, ensuring it fits our enum values
+        priority: (() => {
+          const priority = extractString('priority');
+          if (priority && ['high', 'medium', 'low'].includes(priority)) {
+            return priority as any; // Cast to allow assignment to Lead.priority
+          }
+          return 'medium'; // Default priority
+        })(),
+        
+        // Handle tags - could be string or array in Airtable
+        tags: (() => {
+          const tags = fields.tags;
+          if (!tags) return null;
+          if (Array.isArray(tags)) return tags.join(',');
+          return String(tags);
+        })(),
+        
+        // Store Airtable record ID for reference
+        // This isn't in our Lead schema, but we can add it in the route handler if needed
+        // airtableId: record.id
+      };
+      
+      return lead;
     });
   } catch (error: any) {
     console.error('Error syncing leads from Airtable:', error);
@@ -230,6 +325,19 @@ export async function syncLeadEnrichmentToAirtable(
   try {
     const base = getBase(baseId);
     
+    // Safely convert potential null/undefined values to appropriate defaults
+    // Airtable API doesn't accept null values
+    const safeStringify = (obj: any): string => {
+      if (!obj) return '{}';
+      return typeof obj === 'string' ? obj : JSON.stringify(obj);
+    };
+    
+    const safeArrayStringify = (arr: string[] | null): string => {
+      if (!arr) return '[]';
+      if (!Array.isArray(arr)) return '[]';
+      return JSON.stringify(arr);
+    };
+    
     // First, check if this lead's enrichment already exists in Airtable
     const existingRecords = await base(tableName)
       .select({
@@ -237,36 +345,61 @@ export async function syncLeadEnrichmentToAirtable(
       })
       .all();
     
+    // Create a properly formatted object for Airtable
     const enrichmentData = {
       PostgreSQL_Lead_ID: leadId.toString(),
-      company_info: JSON.stringify(enrichment.companyInfo),
-      tech_stack: JSON.stringify(enrichment.techStack),
-      recent_events: JSON.stringify(enrichment.recentEvents),
-      insights: enrichment.insights ? JSON.stringify(enrichment.insights) : '',
-      personalization_hooks: enrichment.personalizationHooks ? JSON.stringify(enrichment.personalizationHooks) : '',
-      use_enhanced_scraping: enrichment.useEnhancedScraping ? 'true' : 'false'
+      PostgreSQL_Enrichment_ID: enrichment.id ? enrichment.id.toString() : '',
+      company_info: safeStringify(enrichment.companyInfo),
+      tech_stack: safeStringify(enrichment.techStack),
+      recent_events: safeStringify(enrichment.recentEvents),
+      insights: safeArrayStringify(enrichment.insights),
+      personalization_hooks: safeArrayStringify(enrichment.personalizationHooks),
+      relationship_context: enrichment.relationshipContext ? safeArrayStringify(enrichment.relationshipContext) : '[]',
+      project_history: enrichment.projectHistory ? safeStringify(enrichment.projectHistory) : '{}',
+      email_history: enrichment.emailHistory ? safeStringify(enrichment.emailHistory) : '{}',
+      previous_proposals: enrichment.previousProposals ? safeStringify(enrichment.previousProposals) : '{}',
+      use_enhanced_scraping: enrichment.useEnhancedScraping ? 'true' : 'false',
+      created_at: enrichment.createdAt ? enrichment.createdAt.toISOString() : new Date().toISOString(),
+      updated_at: enrichment.updatedAt ? enrichment.updatedAt.toISOString() : new Date().toISOString()
     };
     
+    // Use try/catch for each operation to ensure robust error handling
     if (existingRecords.length > 0) {
-      // Update existing record
-      const updatedRecord = await base(tableName).update([
-        { id: existingRecords[0].id, fields: enrichmentData }
-      ]);
-      
-      return {
-        id: updatedRecord[0].id,
-        ...updatedRecord[0].fields
-      };
+      try {
+        // Update existing record
+        const updatedRecord = await base(tableName).update([
+          { id: existingRecords[0].id, fields: enrichmentData }
+        ]);
+        
+        if (updatedRecord && updatedRecord.length > 0) {
+          return {
+            id: updatedRecord[0].id,
+            ...updatedRecord[0].fields
+          };
+        }
+        throw new Error('Update operation did not return expected record');
+      } catch (updateError: any) {
+        console.error(`Error updating enrichment for lead ID ${leadId}:`, updateError);
+        throw new Error(`Failed to update lead enrichment: ${updateError.message}`);
+      }
     } else {
-      // Create new record
-      const newRecord = await base(tableName).create([
-        { fields: enrichmentData }
-      ]);
-      
-      return {
-        id: newRecord[0].id,
-        ...newRecord[0].fields
-      };
+      try {
+        // Create new record
+        const newRecord = await base(tableName).create([
+          { fields: enrichmentData }
+        ]);
+        
+        if (newRecord && newRecord.length > 0) {
+          return {
+            id: newRecord[0].id,
+            ...newRecord[0].fields
+          };
+        }
+        throw new Error('Create operation did not return expected record');
+      } catch (createError: any) {
+        console.error(`Error creating enrichment for lead ID ${leadId}:`, createError);
+        throw new Error(`Failed to create lead enrichment: ${createError.message}`);
+      }
     }
   } catch (error: any) {
     console.error('Error syncing lead enrichment to Airtable:', error);
@@ -294,38 +427,63 @@ export async function syncEmailDraftsToAirtable(
         })
         .all();
       
+      // Convert dates to strings and null/undefined values to empty strings
+      // Airtable API doesn't accept null values
       const draftData = {
         PostgreSQL_Draft_ID: draft.id.toString(),
         PostgreSQL_Lead_ID: draft.leadId.toString(),
         subject: draft.subject || '',
         body: draft.body || '',
-        campaignPurpose: draft.campaignPurpose || '',
-        serviceOffering: draft.serviceOffering || '',
+        campaign_purpose: draft.campaignPurpose || '',
+        service_offering: draft.serviceOffering || '',
         status: draft.status || 'draft',
-        scheduledDate: draft.scheduledDate ? new Date(draft.scheduledDate).toISOString() : null,
-        sentDate: draft.sentDate ? new Date(draft.sentDate).toISOString() : null
+        scheduled_date: draft.scheduledDate ? new Date(draft.scheduledDate).toISOString() : '',
+        sent_date: draft.sentDate ? new Date(draft.sentDate).toISOString() : '',
+        created_at: draft.createdAt ? new Date(draft.createdAt).toISOString() : new Date().toISOString(),
+        updated_at: draft.updatedAt ? new Date(draft.updatedAt).toISOString() : new Date().toISOString(),
+        google_doc_url: draft.googleDocUrl || ''
       };
       
       if (existingRecords.length > 0) {
-        // Update existing record
-        const updatedRecord = await base(tableName).update([
-          { id: existingRecords[0].id, fields: draftData }
-        ]);
-        
-        results.push({
-          id: updatedRecord[0].id,
-          ...updatedRecord[0].fields
-        });
+        // Update existing record - use try/catch for error handling
+        try {
+          const updatedRecord = await base(tableName).update([
+            { id: existingRecords[0].id, fields: draftData }
+          ]);
+          
+          // Make sure we have a valid response
+          if (updatedRecord && updatedRecord.length > 0) {
+            results.push({
+              id: updatedRecord[0].id,
+              ...updatedRecord[0].fields
+            });
+          } else {
+            console.error(`Error updating email draft ID ${draft.id} - Update operation returned no records`);
+          }
+        } catch (updateError: any) {
+          console.error(`Error updating email draft ID ${draft.id} in Airtable:`, updateError);
+          // Continue with next draft instead of failing the entire batch
+        }
       } else {
-        // Create new record
-        const newRecord = await base(tableName).create([
-          { fields: draftData }
-        ]);
-        
-        results.push({
-          id: newRecord[0].id,
-          ...newRecord[0].fields
-        });
+        // Create new record - use try/catch for error handling
+        try {
+          const newRecord = await base(tableName).create([
+            { fields: draftData }
+          ]);
+          
+          // Make sure we have a valid response
+          if (newRecord && newRecord.length > 0) {
+            results.push({
+              id: newRecord[0].id,
+              ...newRecord[0].fields
+            });
+          } else {
+            console.error(`Error creating email draft for lead ID ${draft.leadId} - Create operation returned no records`);
+          }
+        } catch (createError: any) {
+          console.error(`Error creating email draft for lead ID ${draft.leadId} in Airtable:`, createError);
+          // Continue with next draft instead of failing the entire batch
+        }
       }
     }
     
