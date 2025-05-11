@@ -39,24 +39,28 @@ export async function callAirtableApi(
   data?: any,
   baseId?: string
 ): Promise<any> {
-  // Default fallback base ID - replace with your actual base ID
-  const DEFAULT_BASE_ID = 'appUPDttFgRrz9YiC';
+  // Hard-coded Airtable Base ID - no fallbacks needed
+  const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
   
-  // Use provided baseId first, then env var, then fallback
-  const apiBaseId = baseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
-  
-  const url = `https://api.airtable.com/v0/${apiBaseId}/${endpoint}`;
+  const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${endpoint}`;
   
   try {
-    const response = await axios({
+    // For GET requests, don't send data to avoid 422 errors
+    const requestConfig: any = {
       method,
       url,
-      data,
       headers: {
         'Authorization': `Bearer ${process.env.AIRTABLE_PAT}`,
         'Content-Type': 'application/json'
       }
-    });
+    };
+    
+    // Only add data for non-GET requests
+    if (method !== 'GET' && data) {
+      requestConfig.data = data;
+    }
+    
+    const response = await axios(requestConfig);
     
     return response.data;
   } catch (error: any) {
@@ -70,10 +74,12 @@ export async function callAirtableApi(
  */
 export async function listAirtableTables(baseId?: string): Promise<string[]> {
   try {
-    console.log(`Attempting to list tables for Airtable base: ${baseId || process.env.AIRTABLE_BASE_ID || 'appUPDttFgRrz9YiC'}`);
+    // Hard-coded Airtable Base ID - no fallbacks needed
+    const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
+    console.log(`Attempting to list tables for Airtable base: ${AIRTABLE_BASE_ID}`);
     
-    // Using direct API call to get metadata
-    const response = await callAirtableApi('', 'GET', null, baseId);
+    // Using direct API call to get metadata - always use hard-coded base ID
+    const response = await callAirtableApi('', 'GET', null);
     
     // Log the response for debugging
     console.log('Airtable tables response:', response);
@@ -334,13 +340,10 @@ export async function syncCampaignsFromAirtable(tableName: string = 'Campaigns',
  */
 export async function validateAirtableAccess(baseId?: string): Promise<{success: boolean, message?: string}> {
   try {
-    // Default fallback base ID with the actual base ID
-    const DEFAULT_BASE_ID = 'appUPDttFgRrz9YiC';
+    // Hard-coded Airtable Base ID - no fallbacks or user input needed
+    const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
     
-    // Use provided baseId first, then env var, then fallback
-    const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
-    
-    console.log(`Validating Airtable access with Base ID: ${effectiveBaseId}`); // Add logging for testing
+    console.log(`Validating Airtable access with Base ID: ${AIRTABLE_BASE_ID}`);
 
     if (!process.env.AIRTABLE_PAT) {
       return {
@@ -349,8 +352,8 @@ export async function validateAirtableAccess(baseId?: string): Promise<{success:
       };
     }
 
-    // Test API access by listing tables
-    await listAirtableTables(effectiveBaseId);
+    // Test API access by listing tables using only the hard-coded base ID
+    await listAirtableTables();
     
     return { success: true };
   } catch (error: any) {
