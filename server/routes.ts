@@ -1982,6 +1982,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Manual sync endpoint - triggers full sync in both directions
+  app.post("/api/airtable/sync/manual", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const { triggerFullSync } = await import('./airtable/sync');
+      const result = await triggerFullSync();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error in manual sync:", error);
+      return res.status(500).json({ 
+        error: "Failed to perform manual sync",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // Full sync endpoint - alias for manual sync
+  app.post("/api/airtable/sync/full", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const { triggerFullSync } = await import('./airtable/sync');
+      const result = await triggerFullSync();
+      return res.json(result);
+    } catch (error) {
+      console.error("Error in full sync:", error);
+      return res.status(500).json({ 
+        error: "Failed to perform full sync",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // Get diagnostics for Airtable connection
   app.get("/api/airtable/diagnostics", async (req, res) => {
     try {
