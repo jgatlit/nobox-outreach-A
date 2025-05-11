@@ -75,12 +75,32 @@ export function registerAirtableRoutes(app: Express): void {
       
       try {
         // Sync leads to Airtable
-        const syncedCount = await syncLeadsToAirtable(leads);
+        const result = await syncLeadsToAirtable(leads);
+        
+        // Even if we have a count, if there's an error, we should report it
+        if (result.error) {
+          if (result.error.includes('Unknown field name')) {
+            const missingField = result.error.split('"')[1] || '';
+            return res.status(400).json({
+              success: false,
+              message: `Airtable sync failed: ${result.error}. Create a field in your Airtable Leads table with this name.`,
+              fieldError: true,
+              missingField: missingField
+            });
+          } else {
+            return res.status(200).json({
+              success: true,
+              message: `Synced ${result.count} leads to Airtable with warnings: ${result.error}`,
+              syncedCount: result.count,
+              warning: result.error
+            });
+          }
+        }
         
         return res.status(200).json({
           success: true,
-          message: `Successfully synced ${syncedCount} leads to Airtable`,
-          syncedCount
+          message: `Successfully synced ${result.count} leads to Airtable`,
+          syncedCount: result.count
         });
       } catch (error) {
         // Check if this is a field name error

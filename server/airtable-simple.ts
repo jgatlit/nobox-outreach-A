@@ -68,8 +68,9 @@ async function checkLeadsTableStructure() {
 /**
  * Syncs PostgreSQL leads to Airtable
  * Creates or updates records in Airtable based on the leads from PostgreSQL
+ * @returns The number of records created or updated, or throws an error
  */
-export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
+export async function syncLeadsToAirtable(leads: Lead[]): Promise<{ count: number, error?: string }> {
   try {
     // Check if Leads table exists
     await checkLeadsTableStructure();
@@ -79,13 +80,27 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
     
     // First, try to get existing records
     let existingRecords;
+    let fieldErrorDetected = false;
+    let fieldErrorMessage = '';
+    
     try {
       existingRecords = await table.select({
         fields: ['email', 'PostgreSQL_ID'] // Just need these fields for matching
       }).all();
     } catch (error) {
-      // If this fails because of unknown field names, we'll just assume no records exist
+      // If this fails because of unknown field names, capture the error
       console.log('Could not fetch existing records, assuming none exist:', error.message);
+      
+      if (error.message && error.message.includes('Unknown field name')) {
+        fieldErrorDetected = true;
+        fieldErrorMessage = error.message;
+        
+        // If we can't even find the PostgreSQL_ID field, we should fail explicitly
+        if (error.message.includes('PostgreSQL_ID')) {
+          throw new Error(error.message); // Rethrow to be handled by caller
+        }
+      }
+      
       existingRecords = [];
     }
     
@@ -150,6 +165,8 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
     
     let created = 0;
     let updated = 0;
+    let createError = '';
+    let updateError = '';
     
     // Process all create operations
     for (const chunk of createChunks) {
@@ -159,7 +176,15 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
           created += result.length;
         } catch (error) {
           console.error('Error creating records in Airtable:', error.message);
-          // Continue with next chunk even if this one failed
+          // Capture the first error message
+          if (!createError && error.message) {
+            createError = error.message;
+            
+            // If we hit a field not found error, propagate it
+            if (error.message.includes('Unknown field name')) {
+              throw new Error(error.message);
+            }
+          }
         }
       }
     }
@@ -172,13 +197,33 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<number> {
           updated += result.length;
         } catch (error) {
           console.error('Error updating records in Airtable:', error.message);
-          // Continue with next chunk even if this one failed
+          // Capture the first error message
+          if (!updateError && error.message) {
+            updateError = error.message;
+            
+            // If we hit a field not found error, propagate it
+            if (error.message.includes('Unknown field name')) {
+              throw new Error(error.message);
+            }
+          }
         }
       }
     }
     
     console.log(`Airtable sync completed: ${created} records created, ${updated} records updated`);
-    return created + updated;
+    
+    // If we had a field error but still completed some operations, we should warn
+    if (fieldErrorDetected && (created > 0 || updated > 0)) {
+      return { count: created + updated, error: fieldErrorMessage };
+    }
+    
+    // If no records were processed but we detected a field error, something went wrong
+    if (created === 0 && updated === 0 && (fieldErrorDetected || createError || updateError)) {
+      const errorMsg = fieldErrorMessage || createError || updateError;
+      throw new Error(errorMsg || 'Failed to sync any records but no specific error was detected');
+    }
+    
+    return { count: created + updated };
   } catch (error) {
     console.error('Error syncing leads to Airtable:', error);
     throw new Error(`Failed to sync leads to Airtable: ${error.message}`);
