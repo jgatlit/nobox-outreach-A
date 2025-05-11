@@ -86,8 +86,8 @@ export async function testAuth(baseId: string, auth: AirtableAuth): Promise<Airt
       const authHeader = auth.hasPrefix ? auth.value : `Bearer ${auth.value}`;
       log(`Added Bearer prefix to PAT for Airtable API verification`, 'airtable');
 
-      // Make a basic request to the metadata API
-      const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+      // Make a basic request to the tables API directly (not metadata)
+      const response = await fetch(`https://api.airtable.com/v0/${baseId}/Conversations?maxRecords=1`, {
         method: 'GET',
         headers: {
           'Authorization': authHeader,
