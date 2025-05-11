@@ -223,7 +223,16 @@ export async function syncLeadsToAirtable() {
       
       // Update or create records in Airtable
       if (records.length > 0) {
-        await airtableClient.table(TABLES.LEADS).update(records);
+        // Process each record individually with the client interface
+        for (const record of records) {
+          if (record.id) {
+            // Update existing record
+            await airtableClient.update(baseId, TABLES.LEADS, record.id, record.fields);
+          } else {
+            // Create new record
+            await airtableClient.create(baseId, TABLES.LEADS, record.fields);
+          }
+        }
         syncedCount += records.length;
         log(`Synced ${records.length} leads to Airtable (batch ${i/BATCH_SIZE + 1})`, "airtable-sync");
       }
@@ -373,24 +382,30 @@ export async function syncSpecificLeadToAirtable(leadId: number) {
     }
     
     // Check if record already exists in Airtable
-    const existingRecords = await airtableClient
-      .table(TABLES.LEADS)
-      .select({
+    const baseId = process.env.AIRTABLE_BASE_ID || "";
+    const existingRecords = await airtableClient.query(
+      baseId,
+      TABLES.LEADS,
+      {
         filterByFormula: `{id} = ${lead.id}`
-      })
-      .firstPage();
+      }
+    );
     
     if (existingRecords && existingRecords.length > 0) {
       // Update existing record
-      await airtableClient.table(TABLES.LEADS).update([{
-        id: existingRecords[0].id,
-        fields: mapLeadToAirtableFields(lead)
-      }]);
+      await airtableClient.update(
+        baseId,
+        TABLES.LEADS, 
+        existingRecords[0].id,
+        mapLeadToAirtableFields(lead)
+      );
     } else {
       // Create new record
-      await airtableClient.table(TABLES.LEADS).create([{
-        fields: mapLeadToAirtableFields(lead)
-      }]);
+      await airtableClient.create(
+        baseId,
+        TABLES.LEADS,
+        mapLeadToAirtableFields(lead)
+      );
     }
     
     return { success: true };
