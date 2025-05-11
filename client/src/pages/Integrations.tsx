@@ -121,55 +121,88 @@ export default function Integrations() {
     try {
       setAirtableSyncingTo(true);
       
-      const response = await syncLeadsToAirtable();
-      const result = await response.json();
-      
-      if (result.success) {
+      try {
+        const response = await syncLeadsToAirtable();
+        const result = await response.json();
+        
+        if (result.success) {
+          toast({
+            title: "Leads synced to Airtable",
+            description: `Successfully synced ${result.syncedCount || 0} leads to Airtable.`,
+          });
+          // After successful sync, refresh connection status
+          checkAirtableConnectionStatus();
+        } else {
+          // Handle specific error cases
+          if (result.fieldError && result.missingField) {
+            toast({
+              title: "Field error in Airtable",
+              description: `You need to create a field named "${result.missingField}" in your Airtable "Leads" table.`,
+              variant: "destructive",
+            });
+            
+            // We should also update the connection status to show the need for setup
+            setAirtableNeedsSetup(true);
+            setAirtableConnectionMessage(`Connected to Airtable, but you need to create a field named "${result.missingField}" in your Airtable "Leads" table.`);
+          }
+          else if (result.tableError) {
+            toast({
+              title: "Table error in Airtable",
+              description: "You need to create a 'Leads' table in your Airtable base first.",
+              variant: "destructive",
+            });
+            
+            // Update connection status to show need for table
+            setAirtableNeedsTable(true);
+            setAirtableConnectionMessage("Connected to Airtable, but 'Leads' table doesn't exist. Create a table named 'Leads' in your Airtable base first.");
+          }
+          else {
+            toast({
+              title: "Failed to sync leads",
+              description: result.message || "An error occurred while syncing leads to Airtable.",
+              variant: "destructive",
+            });
+          }
+        }
+      } catch (error: any) {
+        // Handle error response from API
+        if (error.message && error.message.includes('400')) {
+          try {
+            // Try to parse the error response
+            const errorText = error.message.split(': ')[1];
+            const errorJson = JSON.parse(errorText);
+            
+            if (errorJson.fieldError && errorJson.missingField) {
+              toast({
+                title: "Field error in Airtable",
+                description: `You need to create a field named "${errorJson.missingField}" in your Airtable "Leads" table.`,
+                variant: "destructive",
+              });
+              
+              // Update connection status
+              setAirtableNeedsSetup(true);
+              setAirtableConnectionMessage(`Connected to Airtable, but you need to create a field named "${errorJson.missingField}" in your Airtable "Leads" table.`);
+              return;
+            }
+          } catch (parseError) {
+            // Error response wasn't in JSON format, use generic error
+          }
+        }
+        
         toast({
-          title: "Leads synced to Airtable",
-          description: `Successfully synced ${result.syncedCount || 0} leads to Airtable.`,
+          title: "Sync error",
+          description: error.message ? `Failed to sync leads: ${error.message}` : "Failed to sync leads to Airtable.",
+          variant: "destructive",
         });
-        // After successful sync, refresh connection status
-        checkAirtableConnectionStatus();
-      } else {
-        // Handle specific error cases
-        if (result.fieldError && result.missingField) {
-          toast({
-            title: "Field error in Airtable",
-            description: `You need to create a field named "${result.missingField}" in your Airtable "Leads" table.`,
-            variant: "destructive",
-          });
-          
-          // We should also update the connection status to show the need for setup
-          setAirtableNeedsSetup(true);
-          setAirtableConnectionMessage(`Connected to Airtable, but you need to create a field named "${result.missingField}" in your Airtable "Leads" table.`);
-        }
-        else if (result.tableError) {
-          toast({
-            title: "Table error in Airtable",
-            description: "You need to create a 'Leads' table in your Airtable base first.",
-            variant: "destructive",
-          });
-          
-          // Update connection status to show need for table
-          setAirtableNeedsTable(true);
-          setAirtableConnectionMessage("Connected to Airtable, but 'Leads' table doesn't exist. Create a table named 'Leads' in your Airtable base first.");
-        }
-        else {
-          toast({
-            title: "Failed to sync leads",
-            description: result.message || "An error occurred while syncing leads to Airtable.",
-            variant: "destructive",
-          });
-        }
+        console.error("Sync to Airtable error:", error);
       }
     } catch (error) {
       toast({
         title: "Sync error",
-        description: "Failed to sync leads to Airtable.",
+        description: "An unexpected error occurred during sync.",
         variant: "destructive",
       });
-      console.error("Sync to Airtable error:", error);
+      console.error("Unexpected error in syncLeadsToAirtableHandler:", error);
     } finally {
       setAirtableSyncingTo(false);
     }
@@ -329,9 +362,9 @@ export default function Integrations() {
               <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mt-2">
                 {[
                   "PostgreSQL_ID", "firstName", "lastName", "email", 
-                  "company", "title", "website", "phone", 
+                  "company", "title", "website", "phoneNumber", 
                   "status", "source", "notes", "priority", 
-                  "tags", "lastContact"
+                  "tags", "lastContactDate"
                 ].map(field => (
                   <li key={field} className="flex items-center">
                     <span className="h-1.5 w-1.5 bg-amber-500 rounded-full mr-1"></span>

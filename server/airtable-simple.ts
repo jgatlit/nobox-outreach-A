@@ -31,14 +31,14 @@ const EXPECTED_FIELDS = [
   'email',
   'company',
   'title',
-  'phone',
+  'phoneNumber', // Match our schema field name
   'website',
   'status',
   'source',
   'notes',
   'priority',
   'tags',
-  'lastContact'
+  'lastContactDate' // Match our schema field name
 ];
 
 /**
@@ -131,14 +131,14 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<{ count: numbe
         email: lead.email,
         company: lead.company || '',
         title: lead.title || '',
-        phone: lead.phoneNumber || '', // Updated field name to match schema
+        phoneNumber: lead.phoneNumber || '', // Field name matches EXPECTED_FIELDS
         website: lead.website || '',
         status: lead.status || 'new',
         source: lead.source || '',
         notes: lead.notes || '',
         priority: lead.priority || 'medium',
         tags: lead.tags || '',
-        lastContact: lead.lastContactDate ? new Date(lead.lastContactDate).toISOString() : null // Updated field name
+        lastContactDate: lead.lastContactDate ? new Date(lead.lastContactDate).toISOString() : null // Field name matches EXPECTED_FIELDS
       };
       
       // Check if this lead already exists in Airtable
@@ -250,14 +250,14 @@ export async function getLeadsFromAirtable(): Promise<Partial<Lead>[]> {
         email: fields.email as string || '',
         company: fields.company as string || '',
         title: fields.title as string || '',
-        phone: fields.phone as string || '',
+        phoneNumber: fields.phoneNumber as string || '', // Use correct field name
         website: fields.website as string || '',
         status: fields.status as string || 'new',
         source: fields.source as string || 'airtable',
         notes: fields.notes as string || '',
         priority: fields.priority as string || 'medium',
         tags: fields.tags as string || '',
-        lastContact: fields.lastContact ? new Date(fields.lastContact as string) : null,
+        lastContactDate: fields.lastContactDate ? new Date(fields.lastContactDate as string) : null, // Use correct field name
         // Add this so we can track which records came from Airtable
         airtableId: record.id
       };
