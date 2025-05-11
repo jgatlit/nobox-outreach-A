@@ -151,6 +151,7 @@ function resolveConflict(pgLead: Lead, airtableLead: LeadFields): Partial<Lead> 
 export async function syncLeadsToAirtable() {
   log("Starting sync: PostgreSQL leads -> Airtable", "airtable-sync");
   const startTime = new Date();
+  const baseId = process.env.AIRTABLE_BASE_ID || "";
   let syncedCount = 0;
   
   try {
@@ -224,6 +225,7 @@ export async function syncLeadsToAirtable() {
       // Update or create records in Airtable
       if (records.length > 0) {
         // Process each record individually with the client interface
+        const baseId = process.env.AIRTABLE_BASE_ID || "";
         for (const record of records) {
           if (record.id) {
             // Update existing record
@@ -249,16 +251,16 @@ export async function syncLeadsToAirtable() {
     
     log(`Completed sync: PostgreSQL leads -> Airtable. Synced ${syncedCount} leads.`, "airtable-sync");
     return { success: true, count: syncedCount };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing leads to Airtable:', error);
     await updateSyncStatus(
       SYNC_TYPES.LEADS_TO_AIRTABLE, 
       startTime, 
       false, 
       0, 
-      `Error: ${error.message}`
+      `Error: ${error?.message || 'Unknown error'}`
     );
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message || 'Unknown error' };
   }
 }
 
@@ -354,16 +356,16 @@ export async function syncLeadsFromAirtable() {
     
     log(`Completed sync: Airtable -> PostgreSQL leads. Synced ${syncedCount} leads.`, "airtable-sync");
     return { success: true, count: syncedCount };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing leads from Airtable:', error);
     await updateSyncStatus(
       SYNC_TYPES.AIRTABLE_TO_LEADS, 
       startTime, 
       false, 
       0, 
-      `Error: ${error.message}`
+      `Error: ${error?.message || 'Unknown error'}`
     );
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message || 'Unknown error' };
   }
 }
 
@@ -409,9 +411,9 @@ export async function syncSpecificLeadToAirtable(leadId: number) {
     }
     
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error syncing lead ${leadId} to Airtable:`, error);
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message || 'Unknown error' };
   }
 }
 
@@ -454,8 +456,8 @@ export async function triggerFullSync() {
       fromAirtable: fromAirtableResult,
       totalSynced: (toAirtableResult.count || 0) + (fromAirtableResult.count || 0)
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error triggering full sync:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message || 'Unknown error' };
   }
 }
