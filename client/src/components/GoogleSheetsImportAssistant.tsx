@@ -6,6 +6,39 @@ interface GoogleSheetsImportAssistantProps {
   importStep: number;
 }
 
+interface GoogleSheetsImportProgressProps {
+  progress: number;
+}
+
+export function GoogleSheetsImportProgress({ progress }: GoogleSheetsImportProgressProps) {
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between text-xs text-neutral-500">
+        <span>Importing leads...</span>
+        <span>{Math.round(progress)}%</span>
+      </div>
+      <Progress value={progress} className="w-full h-2" />
+      
+      <div className="rounded-md bg-blue-50 p-3 mt-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <HelpCircle className="h-5 w-5 text-blue-400" />
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">Import in progress</h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>
+                We're importing your leads from Google Sheets. This may take a moment depending on the number of records.
+                Please do not close this window until the import is complete.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function GoogleSheetsImportAssistant({ importStep }: GoogleSheetsImportAssistantProps) {
   const steps = [
     { id: 1, name: 'Connect', description: 'Connect to Google Sheets' },
@@ -50,35 +83,6 @@ export function GoogleSheetsImportAssistant({ importStep }: GoogleSheetsImportAs
             </div>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-export function GoogleSheetsImportProgress({ progress }: { progress: number }) {
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-xs text-neutral-500">
-        <span>Importing leads...</span>
-        <span>{Math.round(progress)}%</span>
-      </div>
-      <Progress value={progress} className="w-full h-2" />
-      
-      <div className="rounded-md bg-blue-50 p-3 mt-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <HelpCircle className="h-5 w-5 text-blue-400" />
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">Import in progress</h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <p>
-                We're importing your leads from Google Sheets. This may take a moment depending on the number of records.
-                Please do not close this window until the import is complete.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
