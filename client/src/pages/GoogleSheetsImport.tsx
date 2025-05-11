@@ -54,11 +54,7 @@ export default function GoogleSheetsImport() {
     mutationFn: async (url: string) => {
       setIsValidating(true);
       try {
-        const response = await apiRequest('/api/sheets/validate', {
-          method: 'POST',
-          body: JSON.stringify({ url }),
-          headers: { 'Content-Type': 'application/json' },
-        });
+        const response = await apiRequest('POST', '/api/sheets/validate', { url });
         
         if (!response.success) {
           throw new Error(response.message);
@@ -89,14 +85,10 @@ export default function GoogleSheetsImport() {
     mutationFn: async () => {
       setImportProgress(10);
       try {
-        const response = await apiRequest('/api/sheets/import', {
-          method: 'POST',
-          body: JSON.stringify({
-            spreadsheetId: sheetId,
-            sheetName: selectedSheet,
-            columnMapping,
-          }),
-          headers: { 'Content-Type': 'application/json' },
+        const response = await apiRequest('POST', '/api/sheets/import', {
+          spreadsheetId: sheetId,
+          sheetName: selectedSheet,
+          columnMapping,
         });
         
         if (!response.success) {
@@ -132,10 +124,8 @@ export default function GoogleSheetsImport() {
     queryFn: async () => {
       if (!sheetId) return null;
       
-      const response = await apiRequest('/api/sheets/validate', {
-        method: 'POST',
-        body: JSON.stringify({ url: sheetId }),
-        headers: { 'Content-Type': 'application/json' },
+      const response = await apiRequest('POST', '/api/sheets/validate', { 
+        url: sheetId 
       });
       
       if (!response.success) {

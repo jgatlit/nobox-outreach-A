@@ -87,8 +87,7 @@ export default function Integrations() {
       setAirtableNeedsSetup(false);
       setAirtableNeedsTable(false);
       
-      const response = await checkAirtableConnection();
-      const result = await response.json();
+      const result = await checkAirtableConnection();
       
       if (result.success) {
         setAirtableStatus('connected');
@@ -123,8 +122,7 @@ export default function Integrations() {
       setAirtableSyncingTo(true);
       
       try {
-        const response = await syncLeadsToAirtable();
-        const result = await response.json();
+        const result = await syncLeadsToAirtable();
         
         if (result.success) {
           toast({
@@ -279,8 +277,7 @@ export default function Integrations() {
     try {
       setAirtableSyncingFrom(true);
       
-      const response = await syncLeadsFromAirtable();
-      const result = await response.json();
+      const result = await syncLeadsFromAirtable();
       
       if (result.success) {
         toast({
