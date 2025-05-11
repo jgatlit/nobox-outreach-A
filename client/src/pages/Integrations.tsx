@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatRelativeTime } from "@/lib/utils";
 import { AirtableStatusTile } from "@/components/Integrations/AirtableStatusTile";
+import { GoogleSheetsStatusTile } from "@/components/Integrations/GoogleSheetsStatusTile";
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -166,6 +167,11 @@ export default function Integrations() {
           {/* Airtable status tile - always show in "all" or "database" tabs */}
           {(activeTab === "all" || activeTab === "database") && (
             <AirtableStatusTile />
+          )}
+          
+          {/* Google Sheets status tile - always show in "all" or "database" tabs */}
+          {(activeTab === "all" || activeTab === "database") && (
+            <GoogleSheetsStatusTile />
           )}
           
           {/* Regular integrations from the backend */}
