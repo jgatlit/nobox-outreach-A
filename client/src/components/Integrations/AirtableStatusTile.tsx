@@ -137,11 +137,34 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
     fetchStatus();
   }, []);
 
-  const getStatusBadge = (success: boolean) => {
+  const getStatusBadge = (success: boolean, errorMessage?: string) => {
     if (success) {
       return <Badge className="bg-green-500 hover:bg-green-600">Connected</Badge>;
     }
-    return <Badge variant="destructive">Disconnected</Badge>;
+    if (errorMessage?.includes("Invalid authentication token")) {
+      return (
+        <Badge variant="destructive" className="cursor-help" title={errorMessage}>
+          Invalid API Key
+        </Badge>
+      );
+    } else if (errorMessage?.includes("not found") || errorMessage?.includes("could not be found")) {
+      return (
+        <Badge variant="destructive" className="cursor-help" title={errorMessage}>
+          Base Not Found
+        </Badge>
+      );
+    } else if (errorMessage?.includes("permission") || errorMessage?.includes("access")) {
+      return (
+        <Badge variant="destructive" className="cursor-help" title={errorMessage}>
+          Permission Denied
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="destructive" className="cursor-help" title={errorMessage || "Unknown error"}>
+        Disconnected
+      </Badge>
+    );
   };
 
   const getOverallStatusIcon = () => {
@@ -185,7 +208,13 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
         <div className="text-sm space-y-2">
           <div className="flex justify-between items-center">
             <span>Connection:</span>
-            {status ? getStatusBadge(status.apiConnection.tablesAccess?.success || false) : <span>Loading...</span>}
+            {status ? 
+              getStatusBadge(
+                status.apiConnection.tablesAccess?.success || false, 
+                status.apiConnection.error || status.apiConnection.tablesAccess?.tables?.Conversations?.error
+              ) 
+              : <span>Loading...</span>
+            }
           </div>
           <div className="flex justify-between items-center">
             <span>Base ID:</span>
@@ -368,7 +397,10 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
                       {status.apiConnection.tablesAccess?.success ? (
                         <Badge className="bg-green-500 hover:bg-green-600">Connected</Badge>
                       ) : (
-                        <Badge variant="destructive">Failed</Badge>
+                        getStatusBadge(
+                          false, 
+                          status.apiConnection.error || status.apiConnection.tablesAccess?.tables?.Conversations?.error
+                        )
                       )}
                     </CardTitle>
                   </CardHeader>
