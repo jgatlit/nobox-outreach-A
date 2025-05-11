@@ -2002,6 +2002,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Route to create Airtable tables
+  app.post("/api/airtable/create-tables", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Airtable not configured. Please add an Airtable Personal Access Token (PAT) as AIRTABLE_API_KEY and set your AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      // Create the Leads table in Airtable
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      const result = await createLeadsTable(baseId);
+      
+      if (result.success) {
+        // If successful, potentially trigger initial sync
+        return res.json({
+          success: true,
+          message: "Successfully created Leads table in Airtable",
+          tableId: result.tableId
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Failed to create Leads table in Airtable",
+          error: result.error
+        });
+      }
+    } catch (error) {
+      console.error("Error creating Airtable tables:", error);
+      return res.status(500).json({ 
+        success: false,
+        message: "Error creating Airtable tables",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Route to update Airtable configuration
   app.post("/api/airtable/config", async (req, res) => {
     try {
