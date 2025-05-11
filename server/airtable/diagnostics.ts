@@ -117,6 +117,8 @@ export async function runDiagnostics(baseId?: string): Promise<DiagnosticResult>
   return {
     success: true,
     diagnostics: {
+      connectionStatus,
+      tables: tablesAccess,
       config: {
         isConfigured,
         apiKeyPresent,

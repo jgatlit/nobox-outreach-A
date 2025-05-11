@@ -114,8 +114,8 @@ export async function testAuth(baseId: string, auth: AirtableAuth): Promise<Airt
       
       // Try to list tables, which will verify the API key
       try {
-        // Just try to retrieve metadata, not actual records
-        await base.tables();
+        // Try to retrieve the first page of records from any table to validate the key
+        await base.table('Leads').select().firstPage();
         return { ...auth, status: 'valid' };
       } catch (error) {
         log(`Classic API key verification failed: ${error}`, 'airtable');

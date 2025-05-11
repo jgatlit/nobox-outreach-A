@@ -10,7 +10,7 @@ import { airtableConfig } from './config';
 import { log } from '../vite';
 import { getMcpClientAdapter } from './mcp-client';
 import { getMcpServerStatus } from '.';
-import { AirtableAuth, getAuth, processAuth, testAuth } from './auth';
+import { AirtableAuth, processAuth, testAuth, getAuth, formatApiKeyForRequest } from './auth';
 
 // Define client interface since type definitions are incomplete
 interface AirtableMCPClient {
