@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { registerAirtableRoutes } from "./routes-airtable";
 import { setupVite, serveStatic, log } from "./vite";
+import { startSyncScheduler } from "./sync-manager";
 
 const app = express();
 app.use(express.json());
@@ -70,5 +71,13 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    
+    // Start the Airtable sync scheduler after the server is fully initialized
+    if (process.env.AIRTABLE_PAT && process.env.AIRTABLE_BASE_ID) {
+      log('Starting Airtable sync scheduler...');
+      startSyncScheduler();
+    } else {
+      log('Airtable sync scheduler not started: missing environment variables');
+    }
   });
 })();

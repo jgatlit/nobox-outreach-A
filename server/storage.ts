@@ -19,6 +19,7 @@ import {
   EmailDraft
 } from "@shared/schema";
 import { eq, and, or, desc, asc, sql, like, not, inArray, gt, lt, isNull } from "drizzle-orm";
+import { syncLeadToAirtable } from "./sync-manager";
 
 export const storage = {
   // Lead Management
@@ -72,6 +73,17 @@ export const storage = {
 
   async addLead(leadData: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>): Promise<Lead> {
     const [lead] = await db.insert(leads).values(leadData).returning();
+    
+    // Trigger Airtable sync for this new lead if Airtable integration is configured
+    if (process.env.AIRTABLE_PAT && process.env.AIRTABLE_BASE_ID) {
+      // Use setTimeout to avoid blocking the API response
+      setTimeout(() => {
+        syncLeadToAirtable(lead.id).catch(err => {
+          console.error(`Failed to sync new lead ${lead.id} to Airtable:`, err);
+        });
+      }, 100);
+    }
+    
     return lead;
   },
 
@@ -81,6 +93,17 @@ export const storage = {
       .set({ ...leadData, updatedAt: new Date() })
       .where(eq(leads.id, id))
       .returning();
+    
+    // Trigger Airtable sync for this updated lead if Airtable integration is configured
+    if (process.env.AIRTABLE_PAT && process.env.AIRTABLE_BASE_ID) {
+      // Use setTimeout to avoid blocking the API response
+      setTimeout(() => {
+        syncLeadToAirtable(updated.id).catch(err => {
+          console.error(`Failed to sync updated lead ${updated.id} to Airtable:`, err);
+        });
+      }, 100);
+    }
+    
     return updated;
   },
 
