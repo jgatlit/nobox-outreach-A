@@ -101,6 +101,10 @@ export async function syncLeadsToAirtable() {
   console.log('[airtable-sync] Starting sync: PostgreSQL leads -> Airtable');
   
   try {
+    if (!process.env.AIRTABLE_API_KEY) {
+      throw new Error('AIRTABLE_API_KEY environment variable is not set');
+    }
+    
     if (!process.env.AIRTABLE_BASE_ID) {
       throw new Error('AIRTABLE_BASE_ID environment variable is not set');
     }
@@ -177,6 +181,10 @@ export async function syncAirtableToLeads() {
   console.log('[airtable-sync] Starting sync: Airtable -> PostgreSQL leads');
   
   try {
+    if (!process.env.AIRTABLE_API_KEY) {
+      throw new Error('AIRTABLE_API_KEY environment variable is not set');
+    }
+    
     if (!process.env.AIRTABLE_BASE_ID) {
       throw new Error('AIRTABLE_BASE_ID environment variable is not set');
     }
@@ -294,6 +302,10 @@ export async function syncSpecificLeadToAirtable(leadId: number) {
   console.log(`[airtable-sync] Syncing specific lead: ${leadId} -> Airtable`);
   
   try {
+    if (!process.env.AIRTABLE_API_KEY) {
+      throw new Error('AIRTABLE_API_KEY environment variable is not set');
+    }
+    
     if (!process.env.AIRTABLE_BASE_ID) {
       throw new Error('AIRTABLE_BASE_ID environment variable is not set');
     }

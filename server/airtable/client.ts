@@ -273,6 +273,9 @@ airtableClient = {
   },
   
   delete: async (baseId: string, tableName: string, recordId: string) => {
+    // Refresh auth info on each call to pick up environment variable changes
+    authInfo = getAuth();
+    
     // Verify we have authentication info
     if (!authInfo.rawValue) {
       log('Airtable API key not configured. Check your environment variables.', 'airtable');
