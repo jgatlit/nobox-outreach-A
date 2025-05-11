@@ -95,9 +95,12 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
   const getOverallStatusIcon = () => {
     if (!status) return <RefreshCw className="h-5 w-5 animate-spin text-neutral-500" />;
     
-    if (status.config.isConfigured && status.apiConnection.isSuccess) {
+    // Check table access which is more important than metadata API access
+    const tablesAccessible = status.apiConnection.tablesAccess?.success || false;
+    
+    if (status.config.isConfigured && tablesAccessible) {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
-    } else if (status.config.isConfigured && !status.apiConnection.isSuccess) {
+    } else if (status.config.isConfigured && !tablesAccessible) {
       return <AlertCircle className="h-5 w-5 text-amber-500" />;
     } else {
       return <XCircle className="h-5 w-5 text-red-500" />;
@@ -130,7 +133,7 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
         <div className="text-sm space-y-2">
           <div className="flex justify-between items-center">
             <span>Connection:</span>
-            {status ? getStatusBadge(status.apiConnection.isSuccess) : <span>Loading...</span>}
+            {status ? getStatusBadge(status.apiConnection.tablesAccess?.success || false) : <span>Loading...</span>}
           </div>
           <div className="flex justify-between items-center">
             <span>Base ID:</span>
@@ -236,7 +239,7 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-lg flex items-center justify-between">
                       API Connection
-                      {status.apiConnection.isSuccess ? (
+                      {status.apiConnection.tablesAccess?.success ? (
                         <Badge className="bg-green-500 hover:bg-green-600">Connected</Badge>
                       ) : (
                         <Badge variant="destructive">Failed</Badge>
@@ -247,25 +250,40 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
                     <div className="grid gap-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm font-medium">Status Code:</p>
+                          <p className="text-sm font-medium">Metadata API Status:</p>
                           <p className="text-sm mt-1">
                             {status.apiConnection.status === 200 ? (
                               <span className="text-green-600">{status.apiConnection.status}</span>
                             ) : (
-                              <span className="text-red-600">{status.apiConnection.status}</span>
+                              <span className="text-amber-600">{status.apiConnection.status}</span>
+                            )}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Data API Status:</p>
+                          <p className="text-sm mt-1">
+                            {status.apiConnection.tablesAccess?.success ? (
+                              <span className="text-green-600">200 (OK)</span>
+                            ) : (
+                              <span className="text-red-600">Failed</span>
                             )}
                           </p>
                         </div>
                       </div>
 
                       {status.apiConnection.error && (
-                        <Alert variant="destructive">
+                        <Alert variant={status.apiConnection.tablesAccess?.success ? "warning" : "destructive"}>
                           <AlertCircle className="h-4 w-4" />
-                          <AlertTitle>API Error</AlertTitle>
+                          <AlertTitle>Metadata API Error</AlertTitle>
                           <AlertDescription>
                             <div className="text-xs font-mono whitespace-pre-wrap overflow-auto max-h-40">
                               {status.apiConnection.error}
                             </div>
+                            {status.apiConnection.tablesAccess?.success && (
+                              <p className="mt-2 font-medium text-amber-600">
+                                Note: This is a permission issue with the metadata API only. Table data access is working correctly, which is what matters for application functionality.
+                              </p>
+                            )}
                           </AlertDescription>
                         </Alert>
                       )}
