@@ -121,9 +121,9 @@ export async function testAuth(baseId: string, auth: AirtableAuth): Promise<Airt
 }
 
 /**
- * Process an API key and ensure it has the correct prefix for its type
- * @param apiKey API key to format
- * @returns Properly formatted API key
+ * Process a PAT and ensure it has the correct Bearer prefix
+ * @param apiKey PAT to format
+ * @returns Properly formatted PAT with Bearer prefix
  */
 export function formatApiKeyForRequest(apiKey: string): string {
   const auth = processAuth(apiKey);
@@ -132,6 +132,7 @@ export function formatApiKeyForRequest(apiKey: string): string {
     return `Bearer ${apiKey}`;
   }
   
+  // If it already has a Bearer prefix or isn't a PAT, return as is
   return apiKey;
 }
 
@@ -153,7 +154,7 @@ export function setApiKey(apiKey: string): void {
 
 /**
  * Retrieve current auth information from environment
- * @returns Current authentication object
+ * @returns Current authentication object with PAT details
  */
 export function getAuth(): AirtableAuth {
   const apiKey = process.env.AIRTABLE_API_KEY || '';
@@ -163,20 +164,23 @@ export function getAuth(): AirtableAuth {
       type: 'unknown',
       value: '',
       hasPrefix: false,
-      rawValue: '',
-      sdkValue: ''
+      status: 'invalid'
     };
   }
   
   const auth = processAuth(apiKey);
   
-  // Add backward compatibility properties
+  // Add backward compatibility properties for transition period
   auth.rawValue = auth.value;
   
-  // For SDK usage, remove Bearer prefix if it's a PAT
-  auth.sdkValue = auth.type === 'pat' && auth.hasPrefix 
-    ? auth.value.replace('Bearer ', '') 
-    : auth.value;
+  // For SDK usage, ensure we have the raw PAT without Bearer prefix
+  if (auth.type === 'pat' && auth.hasPrefix) {
+    auth.sdkValue = auth.value.replace('Bearer ', '');
+  } else if (auth.type === 'pat') {
+    auth.sdkValue = auth.value;
+  } else {
+    auth.sdkValue = '';
+  }
     
   return auth;
 }

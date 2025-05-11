@@ -155,8 +155,8 @@ export async function runDiagnostics(baseId?: string): Promise<DiagnosticResult>
  * @param baseId Airtable base ID
  * @returns Table access results
  */
-async function testTableAccess(apiKey: string, baseId: string): Promise<Record<string, { exists: boolean, error?: string }>> {
-  const results: Record<string, { exists: boolean, error?: string }> = {};
+async function testTableAccess(apiKey: string, baseId: string): Promise<Record<string, { exists: boolean, error?: string, hasRecords?: boolean }>> {
+  const results: Record<string, { exists: boolean, error?: string, hasRecords?: boolean }> = {};
   const auth = processAuth(apiKey);
   
   // Test each expected table
@@ -165,53 +165,31 @@ async function testTableAccess(apiKey: string, baseId: string): Promise<Record<s
     try {
       log(`Testing access to ${tableId} table...`, 'airtable');
       
-      // For PAT authentication, use fetch with Authorization header
-      if (auth.type === 'pat') {
-        const authHeader = auth.hasPrefix ? auth.value : `Bearer ${auth.value}`;
-        
-        // Check if table exists
-        const response = await fetch(`https://api.airtable.com/v0/${baseId}/${table}?maxRecords=1`, {
-          method: 'GET',
-          headers: {
-            'Authorization': authHeader,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          results[table] = { 
-            exists: true,
-            hasRecords: data?.records?.length > 0 
-          };
-        } else {
-          const errorData = await response.json();
-          log(`Table '${table}' does not exist or is not accessible. ${JSON.stringify(errorData)}`, 'airtable');
-          results[table] = { 
-            exists: false, 
-            error: errorData?.error?.message || 'Unknown error' 
-          };
+      // Use fetch with Authorization header (PAT authentication)
+      const authHeader = auth.hasPrefix ? auth.value : `Bearer ${auth.value}`;
+      
+      // Check if table exists
+      const response = await fetch(`https://api.airtable.com/v0/${baseId}/${table}?maxRecords=1`, {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
         }
-      } 
-      // For classic API key authentication, use Airtable SDK
-      else {
-        const airtable = new Airtable({ apiKey });
-        const base = airtable.base(baseId);
-        
-        try {
-          // Try to select records
-          const records = await base(table).select({ maxRecords: 1 }).firstPage();
-          results[table] = { 
-            exists: true,
-            hasRecords: records.length > 0 
-          };
-        } catch (error) {
-          log(`Error accessing table '${table}': ${error}`, 'airtable');
-          results[table] = { 
-            exists: false, 
-            error: error instanceof Error ? error.message : String(error) 
-          };
-        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        results[table] = { 
+          exists: true,
+          hasRecords: data?.records?.length > 0 
+        };
+      } else {
+        const errorData = await response.json();
+        log(`Table '${table}' does not exist or is not accessible. ${JSON.stringify(errorData)}`, 'airtable');
+        results[table] = { 
+          exists: false, 
+          error: errorData?.error?.message || 'Unknown error' 
+        };
       }
     } catch (error) {
       log(`Error testing table '${table}': ${error}`, 'airtable');

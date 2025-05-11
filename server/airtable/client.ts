@@ -55,10 +55,8 @@ export async function initializeAirtableClient() {
       } else {
         log('PAT does not include Bearer prefix, it will be added for API calls', 'airtable');
       }
-    } else if (authInfo.type === 'classic_key') {
-      log('Using Classic API Key for Airtable authentication (PAT is recommended for better security)', 'airtable');
     } else {
-      log('Unknown authentication type. Please check your AIRTABLE_API_KEY format', 'airtable');
+      log('Unknown authentication type. Please check your AIRTABLE_API_KEY format - should start with "pat"', 'airtable');
     }
     
     // Initialize with Airtable package
