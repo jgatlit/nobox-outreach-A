@@ -37,11 +37,20 @@ const formatPriority = (priority: string): "low" | "medium" | "high" | "urgent" 
 
 // Generic file parser based on file extension
 export async function parseImportFile(
-  filePath: string,
-  fileType: 'csv' | 'json' | 'xml' | 'md'
+  filePathOrContent: string,
+  fileType: 'csv' | 'json' | 'xml' | 'md',
+  isContent: boolean = false
 ): Promise<Record<string, any>> {
   try {
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    let fileContent: string;
+    
+    if (isContent) {
+      // Use the provided content directly
+      fileContent = filePathOrContent;
+    } else {
+      // Read from a file
+      fileContent = fs.readFileSync(filePathOrContent, 'utf-8');
+    }
     
     switch (fileType) {
       case 'csv':
@@ -283,10 +292,11 @@ export async function importAsanaData(
 
 // Bulk lead import from CSV
 export async function importLeadsFromCSV(
-  filePath: string
+  filePathOrContent: string,
+  isContent: boolean = false
 ): Promise<{ success: boolean; message: string; imported: number; duplicates: number; errors: number; errorDetails?: string[] }> {
   try {
-    const parsedData = await parseImportFile(filePath, 'csv');
+    const parsedData = await parseImportFile(filePathOrContent, 'csv', isContent);
     const records = parsedData.data as any[];
     
     if (!records || records.length === 0) {
