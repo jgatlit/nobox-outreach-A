@@ -118,22 +118,38 @@ export default function Integrations() {
         }
       }
       
+      // Logging to help with debugging
+      console.log("Airtable sync request:", {
+        endpoint,
+        tableName: data.tableName,
+        baseId: data.baseId || 'Using environment variable',
+        syncDirection: data.syncDirection,
+        dataType: data.dataType
+      });
+      
+      // Make API request
       const response = await apiRequest("POST", endpoint, {
         tableName: data.tableName,
         baseId: data.baseId || undefined,
       });
       
+      // Parse response
       const result = await response.json();
       
+      // Handle success 
       if (response.ok) {
         let successDetails = '';
         
-        if (result.created) {
+        if (result.created !== undefined) {
           successDetails += `Created: ${result.created}. `;
         }
         
-        if (result.updated) {
+        if (result.updated !== undefined) {
           successDetails += `Updated: ${result.updated}. `;
+        }
+        
+        if (result.skipped !== undefined) {
+          successDetails += `Skipped: ${result.skipped}. `;
         }
         
         if (result.syncedLeadsCount) {
@@ -142,6 +158,18 @@ export default function Integrations() {
         
         if (result.syncedCampaignsCount) {
           successDetails += `Total campaigns: ${result.syncedCampaignsCount}. `;
+        }
+        
+        // Add details about skipped items if available
+        if (result.skippedDetails && result.skippedDetails.length > 0) {
+          console.log("Skipped details:", result.skippedDetails);
+          const skipReasons = result.skippedDetails.map((item: any) => 
+            `${item.name || 'Item'}: ${item.error || 'Unknown error'}`
+          ).join('; ');
+          
+          if (result.skipped > 0) {
+            successDetails += `\nSkipped items: ${skipReasons}`;
+          }
         }
         
         toast({
@@ -155,13 +183,16 @@ export default function Integrations() {
         // Close the dialog
         setIsAirtableDialogOpen(false);
       } else {
-        throw new Error(result.error || "Failed to sync with Airtable");
+        // Handle error from API
+        const errorMessage = result.message || result.error || "Failed to sync with Airtable";
+        console.error("Airtable sync API error:", result);
+        throw new Error(errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Airtable sync error:", error);
       toast({
         title: "Sync failed",
-        description: error.message || "Failed to sync with Airtable",
+        description: error.message || "Failed to sync with Airtable. Check console for details.",
         variant: "destructive",
       });
     } finally {
@@ -466,8 +497,14 @@ export default function Integrations() {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          // Set to export data (PostgreSQL to Airtable)
-                          airtableForm.setValue("syncDirection", "to_airtable");
+                          // Reset form to default values first
+                          airtableForm.reset({
+                            tableName: "Leads",
+                            dataType: "leads",
+                            baseId: "",
+                            syncDirection: "to_airtable"
+                          });
+                          // Then open dialog
                           setIsAirtableDialogOpen(true);
                         }}
                       >
@@ -478,8 +515,14 @@ export default function Integrations() {
                         variant="outline" 
                         size="sm" 
                         onClick={() => {
-                          // Set to import data (Airtable to PostgreSQL)
-                          airtableForm.setValue("syncDirection", "from_airtable");
+                          // Reset form to default values first
+                          airtableForm.reset({
+                            tableName: "Leads",
+                            dataType: "leads",
+                            baseId: "",
+                            syncDirection: "from_airtable"
+                          });
+                          // Then open dialog
                           setIsAirtableDialogOpen(true);
                         }}
                       >
