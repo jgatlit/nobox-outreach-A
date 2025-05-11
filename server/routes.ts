@@ -1465,6 +1465,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
+  /**
+   * Validates an Airtable record against our expected schema
+   * @param record The Airtable record to validate
+   * @returns Error message if validation fails, null if successful
+   */
+  function validateAirtableSchema(record: any): string | null {
+    try {
+      // Check if record exists
+      if (!record) {
+        return "Record is empty or undefined";
+      }
+      
+      // Check if record has fields property
+      if (!record.fields) {
+        return "Record is missing fields property";
+      }
+      
+      // Check for required email field
+      if (!record.fields.Email) {
+        return "Record is missing required Email field";
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(record.fields.Email)) {
+        return "Invalid email format";
+      }
+      
+      return null; // Validation passed
+    } catch (error) {
+      return `Validation error: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+  
+  /**
+   * Maps fields from one schema to another based on a mapping configuration
+   * @param source The source object containing fields to map
+   * @param mapping The mapping configuration (source field names to target field names)
+   * @returns A new object with fields mapped according to the configuration
+   */
+  function mapFields(source: Record<string, any>, mapping: Record<string, string>): Record<string, any> {
+    const result: Record<string, any> = {};
+    
+    // If source is empty or not an object, return empty result
+    if (!source || typeof source !== 'object') {
+      return result;
+    }
+    
+    // Loop through mapping and copy values from source to result with new field names
+    for (const [sourceField, targetField] of Object.entries(mapping)) {
+      // Only copy fields that exist in the source
+      if (sourceField in source) {
+        result[targetField] = source[sourceField];
+      }
+    }
+    
+    return result;
+  }
+
   // Improved Airtable API routes
   app.get("/api/airtable/tables", async (req, res) => {
     try {
@@ -1494,6 +1553,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add pagination parameters
       const pageSize = parseInt(req.query.pageSize as string) || 100;
       const offset = req.query.offset as string || '';
+      
+      // Validate Airtable access
+      const validation = await validateAirtableAccess(baseId);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Airtable Base ID validation failed", 
+          message: validation.message 
+        });
+      }
 
       const records = await getAirtableRecords(tableName, baseId, pageSize, offset);
       return res.json({ 
@@ -1668,19 +1736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Helper functions
-  const mapFields = (data: any, mapping: Record<string, string>) => {
-    return Object.keys(mapping).reduce((acc, key) => {
-      acc[mapping[key]] = data[key];
-      return acc;
-    }, {} as Record<string, any>);
-  };
-
-  const validateAirtableSchema = (record: any) => {
-    if (!record.fields.Email) return "Missing email field";
-    if (typeof record.fields.Email !== "string") return "Invalid email format";
-    return null;
-  };
+  // Helper function for rate limiting
 
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
