@@ -15,13 +15,16 @@ const airtableClient = new Airtable({
 /**
  * Get the configured base if a base ID is provided in environment variables,
  * otherwise it will expect the base ID to be provided as a parameter
+ * 
+ * If you want to use a specific Airtable base, replace 'appXXXXXXXXXXXXX' below
+ * with your actual Airtable Base ID.
  */
 function getBase(explicitBaseId?: string) {
-  const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID;
+  // Default fallback base ID - replace with your actual base ID
+  const DEFAULT_BASE_ID = 'appXXXXXXXXXXXXX';
   
-  if (!baseId) {
-    throw new Error("No Airtable Base ID provided. Either set AIRTABLE_BASE_ID in environment variables or provide a baseId parameter.");
-  }
+  // Use explicitBaseId first, then env var, then fallback
+  const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
   
   return airtableClient.base(baseId);
 }
@@ -36,11 +39,11 @@ export async function callAirtableApi(
   data?: any,
   baseId?: string
 ): Promise<any> {
-  const apiBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+  // Default fallback base ID - replace with your actual base ID
+  const DEFAULT_BASE_ID = 'appXXXXXXXXXXXXX';
   
-  if (!apiBaseId) {
-    throw new Error("No Airtable Base ID provided. Either set AIRTABLE_BASE_ID in environment variables or provide a baseId parameter.");
-  }
+  // Use provided baseId first, then env var, then fallback
+  const apiBaseId = baseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
   
   const url = `https://api.airtable.com/v0/${apiBaseId}/${endpoint}`;
   
@@ -56,7 +59,7 @@ export async function callAirtableApi(
     });
     
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Airtable API error (${method} ${url}):`, error.response?.data || error.message);
     throw new Error(`Failed to call Airtable API: ${error.message}`);
   }
@@ -322,14 +325,11 @@ export async function syncCampaignsFromAirtable(tableName: string = 'Campaigns',
  */
 export async function validateAirtableAccess(baseId?: string): Promise<{success: boolean, message?: string}> {
   try {
-    // If no base ID is provided or available in env, fail early with a clear message
-    const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
-    if (!effectiveBaseId) {
-      return {
-        success: false,
-        message: "No Airtable Base ID provided. Either set AIRTABLE_BASE_ID in environment variables or provide a baseId parameter."
-      };
-    }
+    // Default fallback base ID - replace with your actual base ID
+    const DEFAULT_BASE_ID = 'appXXXXXXXXXXXXX';
+    
+    // Use provided baseId first, then env var, then fallback
+    const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
 
     if (!process.env.AIRTABLE_PAT) {
       return {
