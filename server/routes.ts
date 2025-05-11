@@ -1380,7 +1380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Process the file and import the data
-      const result = await importLeadsFromCSV(file.path);
+      const result = await importLeadsFromCSV(file.path, false);
       
       // Remove the temporary file
       fs.unlinkSync(file.path);
@@ -1392,6 +1392,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint for importing leads from pasted CSV content
+  app.post("/api/leads/import/csv-paste", async (req: Request, res: Response) => {
+    try {
+      const { csvContent } = req.body;
+      
+      if (!csvContent || typeof csvContent !== 'string') {
+        return res.status(400).json({ error: "No CSV content was provided" });
+      }
+      
+      // Process the pasted content
+      const result = await importLeadsFromCSV(csvContent, true);
+      
+      return res.status(result.success ? 200 : 422).json(result);
+    } catch (error) {
+      console.error(`Error importing leads from pasted CSV:`, error);
+      return res.status(500).json({ error: "Failed to import leads from pasted CSV" });
+    }
+  });
+  
+  // Endpoint for importing leads from Google Sheets
+  app.post("/api/leads/import/google-sheet", async (req: Request, res: Response) => {
+    try {
+      const { spreadsheetId, apiKey } = req.body;
+      
+      if (!spreadsheetId) {
+        return res.status(400).json({ error: "Google Sheet ID is required" });
+      }
+      
+      if (!apiKey && !process.env.GOOGLE_SHEETS_API_KEY) {
+        return res.status(400).json({ error: "Google Sheets API key is required" });
+      }
+      
+      // Use provided API key or fall back to environment variable
+      const sheetsApiKey = apiKey || process.env.GOOGLE_SHEETS_API_KEY;
+      
+      // Format the Google Sheets API URL (we'll use the first sheet by default)
+      const apiUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Sheet1?key=${sheetsApiKey}`;
+      
+      // Fetch the sheet data
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.status(response.status).json({
+          error: `Failed to fetch Google Sheet data: ${response.statusText}`,
+          details: errorText
+        });
+      }
+      
+      const sheetData = await response.json();
+      
+      if (!sheetData.values || !Array.isArray(sheetData.values) || sheetData.values.length < 2) {
+        return res.status(400).json({ error: "Sheet contains no valid data. It should have headers and at least one row of data." });
+      }
+      
+      // Extract headers and data rows
+      const headers = sheetData.values[0];
+      const dataRows = sheetData.values.slice(1);
+      
+      // Convert to CSV format
+      const csvRows = [
+        headers.join(','), // Header row
+        ...dataRows.map(row => {
+          // Pad row if needed (ensure all rows have same number of columns as header)
+          while (row.length < headers.length) {
+            row.push('');
+          }
+          return row.map(cell => {
+            // Escape commas and quotes in cell values
+            const cellStr = String(cell || '');
+            if (cellStr.includes(',') || cellStr.includes('"')) {
+              return `"${cellStr.replace(/"/g, '""')}"`;
+            }
+            return cellStr;
+          }).join(',');
+        })
+      ];
+      
+      const csvContent = csvRows.join('\n');
+      
+      // Process the CSV content
+      const result = await importLeadsFromCSV(csvContent, true);
+      
+      return res.status(result.success ? 200 : 422).json(result);
+    } catch (error) {
+      console.error(`Error importing leads from Google Sheet:`, error);
+      return res.status(500).json({ 
+        error: "Failed to import leads from Google Sheet",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   app.post("/api/leads/:id/import/gmail", upload.single('file'), async (req: Request, res: Response) => {
     try {
       const leadId = parseInt(req.params.id, 10);

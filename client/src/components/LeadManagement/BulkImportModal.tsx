@@ -14,7 +14,19 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, ChevronDown, Database, FileQuestion, FileSpreadsheet, FileText, Mail, Upload, X } from "lucide-react";
+import { 
+  AlertCircle, 
+  ChevronDown, 
+  Database, 
+  FileQuestion, 
+  FileSpreadsheet, 
+  FileText, 
+  Mail, 
+  Upload, 
+  X,
+  Table,
+  Clipboard
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
@@ -24,12 +36,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export function BulkImportModal() {
   const [open, setOpen] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
+  const [csvContent, setCsvContent] = React.useState('');
+  const [spreadsheetId, setSpreadsheetId] = React.useState('');
+  const [sheetsApiKey, setSheetsApiKey] = React.useState('');
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [activeTab, setActiveTab] = React.useState<'file' | 'paste' | 'sheets'>('file');
   const [importResult, setImportResult] = React.useState<{
     success: boolean;
     message: string;
@@ -47,8 +66,12 @@ export function BulkImportModal() {
   React.useEffect(() => {
     if (!open) {
       setFile(null);
+      setCsvContent('');
+      setSpreadsheetId('');
+      setSheetsApiKey('');
       setImportResult(null);
       setUploadProgress(0);
+      setActiveTab('file');
     }
   }, [open]);
   
@@ -67,7 +90,8 @@ export function BulkImportModal() {
     };
   }, [isUploading, uploadProgress]);
   
-  const importMutation = useMutation({
+  // File upload mutation
+  const fileImportMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       setIsUploading(true);
       setUploadProgress(0);
@@ -107,6 +131,96 @@ export function BulkImportModal() {
       toast({
         title: "Import failed",
         description: error.message || "There was an error importing leads",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // CSV paste mutation
+  const csvPasteMutation = useMutation({
+    mutationFn: async (csvContent: string) => {
+      setIsUploading(true);
+      setUploadProgress(0);
+      try {
+        const response = await apiRequest(
+          "POST", 
+          "/api/leads/import/csv-paste", 
+          { csvContent }
+        );
+        const result = await response.json();
+        setUploadProgress(100);
+        return result;
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    onSuccess: (data) => {
+      setImportResult(data);
+      
+      if (data.success) {
+        toast({
+          title: "Import completed",
+          description: `Successfully imported ${data.imported} leads`,
+        });
+        // Invalidate leads query to refresh the list
+        queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      } else {
+        toast({
+          title: "Import partially completed",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error.message || "There was an error importing leads",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Google Sheets import mutation
+  const googleSheetsImportMutation = useMutation({
+    mutationFn: async (data: { spreadsheetId: string, apiKey: string }) => {
+      setIsUploading(true);
+      setUploadProgress(0);
+      try {
+        const response = await apiRequest(
+          "POST", 
+          "/api/leads/import/google-sheet", 
+          data
+        );
+        const result = await response.json();
+        setUploadProgress(100);
+        return result;
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    onSuccess: (data) => {
+      setImportResult(data);
+      
+      if (data.success) {
+        toast({
+          title: "Import completed",
+          description: `Successfully imported ${data.imported} leads from Google Sheet`,
+        });
+        // Invalidate leads query to refresh the list
+        queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      } else {
+        toast({
+          title: "Import partially completed",
+          description: data.message,
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Import failed",
+        description: error.message || "There was an error importing leads from Google Sheet",
         variant: "destructive",
       });
     },

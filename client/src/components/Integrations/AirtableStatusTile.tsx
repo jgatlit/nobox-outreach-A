@@ -272,7 +272,7 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
                       </div>
 
                       {status.apiConnection.error && (
-                        <Alert variant={status.apiConnection.tablesAccess?.success ? "warning" : "destructive"}>
+                        <Alert variant={status.apiConnection.tablesAccess?.success ? "default" : "destructive"}>
                           <AlertCircle className="h-4 w-4" />
                           <AlertTitle>Metadata API Error</AlertTitle>
                           <AlertDescription>
