@@ -28,7 +28,8 @@ import {
   BarChart,
   Brain,
   Puzzle,
-  Plus
+  Plus,
+  ArrowRight
 } from "lucide-react";
 
 export default function Integrations() {
@@ -604,6 +605,9 @@ export default function Integrations() {
           </Button>
         </CardFooter>
       </Card>
+      
+      {/* Google Sheets Integration Card */}
+      <GoogleSheetsCard />
       
       <div className="mb-6">
         <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab}>

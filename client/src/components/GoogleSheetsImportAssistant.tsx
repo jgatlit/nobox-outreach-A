@@ -1,156 +1,85 @@
-import * as React from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
-import { CheckCircle, FileSpreadsheet, HelpCircle, ArrowRight, Clock } from "lucide-react";
+import React from 'react';
+import { AlertCircle, CheckCircle, FileSpreadsheetIcon, HelpCircle } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 interface GoogleSheetsImportAssistantProps {
   importStep: number;
 }
 
 export function GoogleSheetsImportAssistant({ importStep }: GoogleSheetsImportAssistantProps) {
+  const steps = [
+    { id: 1, name: 'Connect', description: 'Connect to Google Sheets' },
+    { id: 2, name: 'Map Fields', description: 'Map sheet columns to lead fields' },
+    { id: 3, name: 'Import', description: 'Import leads from Google Sheets' },
+    { id: 4, name: 'Complete', description: 'Review imported leads' },
+  ];
+
   return (
-    <Card className="w-full mb-8">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5 text-green-600" />
-          <CardTitle className="text-xl">Google Sheets Import Assistant</CardTitle>
-        </div>
-        <CardDescription>
-          Follow these steps to import your leads from Google Sheets
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex gap-4 items-center">
-            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
-              {importStep > 1 ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : importStep === 1 ? (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">1</Badge>
-              ) : (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">1</Badge>
-              )}
-            </div>
-            <div className="flex-1">
-              <h3 className={`font-medium ${importStep === 1 ? 'text-primary-900' : importStep > 1 ? 'text-gray-600' : 'text-gray-400'}`}>
-                Enter Google Sheet URL
-              </h3>
-              <p className={`text-sm ${importStep === 1 ? 'text-gray-600' : importStep > 1 ? 'text-gray-500' : 'text-gray-400'}`}>
-                Provide a shared Google Sheet URL containing your leads data
-              </p>
-            </div>
-            {importStep === 1 && (
-              <div className="flex-shrink-0">
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium">Current Step</Badge>
+    <div className="relative">
+      <div className="absolute left-0 top-2 bottom-2 w-[2px] bg-neutral-200" />
+      
+      <div className="space-y-8">
+        {steps.map((step) => {
+          const isActive = importStep === step.id;
+          const isCompleted = importStep > step.id;
+          
+          return (
+            <div key={step.id} className="relative pl-8">
+              <div className={`absolute left-[-9px] top-0 h-5 w-5 rounded-full ${
+                isCompleted 
+                  ? 'bg-green-500' 
+                  : isActive 
+                    ? 'bg-primary ring-4 ring-primary/20' 
+                    : 'bg-neutral-200'
+              } flex items-center justify-center`}>
+                {isCompleted && <CheckCircle className="h-3 w-3 text-white" />}
               </div>
-            )}
-          </div>
-
-          <Separator className="my-2" />
-
-          <div className="flex gap-4 items-center">
-            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
-              {importStep > 2 ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : importStep === 2 ? (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">2</Badge>
-              ) : (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">2</Badge>
-              )}
-            </div>
-            <div className="flex-1">
-              <h3 className={`font-medium ${importStep === 2 ? 'text-primary-900' : importStep > 2 ? 'text-gray-600' : 'text-gray-400'}`}>
-                Select Sheet & Map Columns
-              </h3>
-              <p className={`text-sm ${importStep === 2 ? 'text-gray-600' : importStep > 2 ? 'text-gray-500' : 'text-gray-400'}`}>
-                Choose which sheet to import and map columns to lead fields
-              </p>
-            </div>
-            {importStep === 2 && (
-              <div className="flex-shrink-0">
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium">Current Step</Badge>
+              
+              <div>
+                <h3 className={`text-sm font-medium ${
+                  isActive ? 'text-primary' : isCompleted ? 'text-green-600' : 'text-neutral-500'
+                }`}>
+                  Step {step.id}: {step.name}
+                </h3>
+                <p className={`text-xs ${
+                  isActive ? 'text-neutral-700' : 'text-neutral-500'
+                }`}>
+                  {step.description}
+                </p>
               </div>
-            )}
-          </div>
-
-          <Separator className="my-2" />
-
-          <div className="flex gap-4 items-center">
-            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
-              {importStep > 3 ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : importStep === 3 ? (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">3</Badge>
-              ) : (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">3</Badge>
-              )}
             </div>
-            <div className="flex-1">
-              <h3 className={`font-medium ${importStep === 3 ? 'text-primary-900' : importStep > 3 ? 'text-gray-600' : 'text-gray-400'}`}>
-                Import Data
-              </h3>
-              <p className={`text-sm ${importStep === 3 ? 'text-gray-600' : importStep > 3 ? 'text-gray-500' : 'text-gray-400'}`}>
-                Review and start import process
-              </p>
-            </div>
-            {importStep === 3 && (
-              <div className="flex-shrink-0">
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium">Current Step</Badge>
-              </div>
-            )}
-          </div>
-
-          <Separator className="my-2" />
-
-          <div className="flex gap-4 items-center">
-            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
-              {importStep > 4 ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : importStep === 4 ? (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">4</Badge>
-              ) : (
-                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">4</Badge>
-              )}
-            </div>
-            <div className="flex-1">
-              <h3 className={`font-medium ${importStep === 4 ? 'text-primary-900' : importStep > 4 ? 'text-gray-600' : 'text-gray-400'}`}>
-                Complete
-              </h3>
-              <p className={`text-sm ${importStep === 4 ? 'text-gray-600' : importStep > 4 ? 'text-gray-500' : 'text-gray-400'}`}>
-                Import complete
-              </p>
-            </div>
-            {importStep === 4 && (
-              <div className="flex-shrink-0">
-                <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 font-medium">Complete</Badge>
-              </div>
-            )}
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter className="bg-gray-50 py-2 px-6 text-sm text-gray-500 flex items-center gap-2 rounded-b-lg border-t">
-        <HelpCircle className="h-4 w-4" />
-        <p>The import process will not duplicate leads with the same email</p>
-      </CardFooter>
-    </Card>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
 export function GoogleSheetsImportProgress({ progress }: { progress: number }) {
   return (
-    <div className="w-full space-y-2">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Clock className="h-4 w-4 text-blue-500" />
-          <span className="text-sm font-medium">Import in progress</span>
-        </div>
-        <span className="text-sm text-gray-500">{progress}%</span>
+    <div className="space-y-2">
+      <div className="flex justify-between text-xs text-neutral-500">
+        <span>Importing leads...</span>
+        <span>{Math.round(progress)}%</span>
       </div>
-      <Progress value={progress} className="h-2 w-full" />
-      <p className="text-xs text-gray-500">Importing and deduplicating your leads...</p>
+      <Progress value={progress} className="w-full h-2" />
+      
+      <div className="rounded-md bg-blue-50 p-3 mt-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <HelpCircle className="h-5 w-5 text-blue-400" />
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">Import in progress</h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>
+                We're importing your leads from Google Sheets. This may take a moment depending on the number of records.
+                Please do not close this window until the import is complete.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
