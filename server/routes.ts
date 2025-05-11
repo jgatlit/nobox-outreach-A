@@ -1587,54 +1587,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
-
-      const leadsFromAirtable = await syncLeadsFromAirtable(tableName, baseId);
-      const createdLeads = [];
-      const updatedLeads = [];
-      const skippedLeads = [];
-
-      for (const airtableLead of leadsFromAirtable) {
-        try {
-          // Add schema validation
-          const validationError = validateAirtableSchema(airtableLead);
-          if (validationError) {
-            throw new Error(validationError);
-          }
-
-          const lead = mapFields(airtableLead.fields, fieldMappings.airtableToDb);
-          const existingLeads = await storage.findDuplicateLeads(lead.email);
-
-          if (existingLeads.length > 0) {
-            const updatedLead = await storage.updateLead(existingLeads[0].id, lead);
-            updatedLeads.push(updatedLead);
-          } else {
-            const newLead = await storage.addLead({
-              ...lead,
-              status: lead.status || "new",
-              source: lead.source || "airtable",
-              priority: lead.priority || "medium"
-            });
-            createdLeads.push(newLead);
-          }
-        } catch (error) {
-          console.error(`Error processing lead ${airtableLead.id}:`, error);
-          skippedLeads.push({ 
-            recordId: airtableLead.id, 
-            error: error.message 
-          });
-        }
+      
+      // Check if baseId is provided or available in environment
+      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      
+      if (!effectiveBaseId) {
+        return res.status(400).json({ 
+          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+        });
       }
 
-      return res.status(200).json({
-        message: `Successfully synced leads from Airtable`,
-        created: createdLeads.length,
-        updated: updatedLeads.length,
-        skipped: skippedLeads.length,
-        skippedDetails: skippedLeads
-      });
+      try {
+        const leadsFromAirtable = await syncLeadsFromAirtable(tableName, effectiveBaseId);
+        const createdLeads = [];
+        const updatedLeads = [];
+        const skippedLeads = [];
+
+        for (const airtableLead of leadsFromAirtable) {
+          try {
+            // Add schema validation
+            const validationError = validateAirtableSchema(airtableLead);
+            if (validationError) {
+              throw new Error(validationError);
+            }
+
+            const lead = mapFields(airtableLead.fields, fieldMappings.airtableToDb);
+            const existingLeads = await storage.findDuplicateLeads(lead.email);
+
+            if (existingLeads.length > 0) {
+              const updatedLead = await storage.updateLead(existingLeads[0].id, lead);
+              updatedLeads.push(updatedLead);
+            } else {
+              const newLead = await storage.addLead({
+                ...lead,
+                status: lead.status || "new",
+                source: lead.source || "airtable",
+                priority: lead.priority || "medium"
+              });
+              createdLeads.push(newLead);
+            }
+          } catch (leadError) {
+            console.error(`Error processing lead ${airtableLead.id}:`, leadError);
+            skippedLeads.push({ 
+              recordId: airtableLead.id, 
+              error: leadError instanceof Error ? leadError.message : String(leadError)
+            });
+          }
+        }
+
+        return res.status(200).json({
+          message: `Successfully synced leads from Airtable`,
+          created: createdLeads.length,
+          updated: updatedLeads.length,
+          skipped: skippedLeads.length,
+          skippedDetails: skippedLeads
+        });
+      } catch (syncError) {
+        console.error("Error in Airtable sync operation:", syncError);
+        return res.status(500).json({ 
+          error: "Failed to sync leads from Airtable", 
+          message: syncError instanceof Error ? syncError.message : String(syncError)
+        });
+      }
     } catch (error) {
       console.error("Error syncing leads from Airtable:", error);
-      return res.status(500).json({ error: "Failed to sync leads from Airtable" });
+      return res.status(500).json({ 
+        error: "Failed to sync leads from Airtable", 
+        message: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -1746,8 +1766,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "tableName is required" });
       }
       
-      // Sync campaigns from Airtable
-      const campaignsFromAirtable = await syncCampaignsFromAirtable(tableName, baseId);
+      // Check if baseId is provided or available in environment
+      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      
+      if (!effectiveBaseId) {
+        return res.status(400).json({ 
+          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+        });
+      }
+      
+      try {
+        // Sync campaigns from Airtable
+        const campaignsFromAirtable = await syncCampaignsFromAirtable(tableName, effectiveBaseId);
       
       // Keep track of created and updated campaigns
       const createdCampaigns = [];
@@ -1812,9 +1842,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               createdCampaigns.push(newCampaign[0]);
             }
           }
-        } catch (error) {
-          console.error(`Error processing campaign ${campaign.name} from Airtable:`, error);
-          skippedCampaigns.push({ name: campaign.name, error: error.message });
+        } catch (campaignError) {
+          console.error(`Error processing campaign ${campaign.name} from Airtable:`, campaignError);
+          skippedCampaigns.push({ 
+            name: campaign.name, 
+            error: campaignError instanceof Error ? campaignError.message : String(campaignError)
+          });
         }
       }
       
@@ -1825,10 +1858,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         skipped: skippedCampaigns.length,
         skippedDetails: skippedCampaigns
       });
-    } catch (error) {
-      console.error("Error syncing campaigns from Airtable:", error);
-      return res.status(500).json({ error: "Failed to sync campaigns from Airtable" });
+    } catch (syncError) {
+      console.error("Error in Airtable sync operation:", syncError);
+      return res.status(500).json({ 
+        error: "Failed to sync campaigns from Airtable", 
+        message: syncError instanceof Error ? syncError.message : String(syncError)
+      });
     }
+  } catch (error) {
+    console.error("Error syncing campaigns from Airtable:", error);
+    return res.status(500).json({ 
+      error: "Failed to sync campaigns from Airtable", 
+      message: error instanceof Error ? error.message : String(error)
+    });
+  }
   });
 
   const httpServer = createServer(app);
