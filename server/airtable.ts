@@ -186,9 +186,9 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
 /**
  * Sync leads from Airtable to PostgreSQL
  */
-export async function syncLeadsFromAirtable(tableName: string = 'Leads', baseId?: string): Promise<Lead[]> {
+export async function syncLeadsFromAirtable(tableName: string = 'Leads'): Promise<Lead[]> {
   try {
-    const records = await getAirtableRecords(tableName, baseId);
+    const records = await getAirtableRecords(tableName);
     
     return records.map(record => {
       const fields = record;
@@ -225,8 +225,7 @@ export async function syncLeadsFromAirtable(tableName: string = 'Leads', baseId?
  */
 export async function syncCampaignsToAirtable(
   campaigns: Campaign[], 
-  tableName: string = 'Campaigns',
-  baseId?: string
+  tableName: string = 'Campaigns'
 ): Promise<any[]> {
   try {
     // First, check if the table exists and get existing records
@@ -302,7 +301,7 @@ export async function syncCampaignsToAirtable(
 /**
  * Sync campaigns from Airtable to PostgreSQL
  */
-export async function syncCampaignsFromAirtable(tableName: string = 'Campaigns', baseId?: string): Promise<Campaign[]> {
+export async function syncCampaignsFromAirtable(tableName: string = 'Campaigns'): Promise<Campaign[]> {
   try {
     const records = await getAirtableRecords(tableName, baseId);
     
