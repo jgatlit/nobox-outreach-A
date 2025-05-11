@@ -13,18 +13,16 @@ const airtableClient = new Airtable({
 });
 
 /**
- * Get the configured base if a base ID is provided in environment variables,
- * otherwise it will expect the base ID to be provided as a parameter
+ * Get the configured base using the hard-coded Airtable Base ID
  * 
- * If you want to use a specific Airtable base, replace 'appXXXXXXXXXXXXX' below
- * with your actual Airtable Base ID.
+ * Using the specific Airtable base ID 'appUPDttFgRrz9YiC' for all operations
  */
-function getBase(explicitBaseId?: string) {
-  // Default fallback base ID with the actual base ID
-  const DEFAULT_BASE_ID = 'appUPDttFgRrz9YiC';
+function getBase() {
+  // Hard-coded base ID
+  const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
   
-  // Use explicitBaseId first, then env var, then fallback
-  const baseId = explicitBaseId || process.env.AIRTABLE_BASE_ID || DEFAULT_BASE_ID;
+  // Always use the hard-coded Base ID
+  const baseId = AIRTABLE_BASE_ID;
   
   return airtableClient.base(baseId);
 }
@@ -36,10 +34,9 @@ function getBase(explicitBaseId?: string) {
 export async function callAirtableApi(
   endpoint: string,
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
-  data?: any,
-  baseId?: string
+  data?: any
 ): Promise<any> {
-  // Hard-coded Airtable Base ID - no fallbacks needed
+  // Hard-coded Airtable Base ID
   const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
   
   const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${endpoint}`;
@@ -72,7 +69,7 @@ export async function callAirtableApi(
 /**
  * List tables in an Airtable base
  */
-export async function listAirtableTables(baseId?: string): Promise<string[]> {
+export async function listAirtableTables(): Promise<string[]> {
   try {
     // Hard-coded Airtable Base ID - no fallbacks needed
     const AIRTABLE_BASE_ID = 'appUPDttFgRrz9YiC';
@@ -97,9 +94,9 @@ export async function listAirtableTables(baseId?: string): Promise<string[]> {
 /**
  * Get records from an Airtable table
  */
-export async function getAirtableRecords(tableName: string, baseId?: string): Promise<any[]> {
+export async function getAirtableRecords(tableName: string): Promise<any[]> {
   try {
-    const response = await callAirtableApi(`${tableName}?maxRecords=100`, 'GET', null, baseId);
+    const response = await callAirtableApi(`${tableName}?maxRecords=100`, 'GET', null);
     return response.records.map(record => ({
       id: record.id,
       ...record.fields
