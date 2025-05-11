@@ -172,7 +172,8 @@ export async function syncLeadsToAirtable() {
     
     // Check if Leads table exists in Airtable
     try {
-      await airtableClient.table(TABLES.LEADS).select({ maxRecords: 1 }).firstPage();
+      const baseId = process.env.AIRTABLE_BASE_ID || "";
+      await airtableClient.query(baseId, TABLES.LEADS, { maxRecords: 1 });
     } catch (error) {
       // If the table doesn't exist, create it (user needs to create it manually in Airtable)
       log("Error accessing Leads table in Airtable. Please ensure it exists.", "airtable-sync");
@@ -197,12 +198,14 @@ export async function syncLeadsToAirtable() {
       
       for (const lead of batch) {
         // Check if record already exists in Airtable
-        const existingRecords = await airtableClient
-          .table(TABLES.LEADS)
-          .select({
+        const baseId = process.env.AIRTABLE_BASE_ID || "";
+        const existingRecords = await airtableClient.query(
+          baseId, 
+          TABLES.LEADS,
+          {
             filterByFormula: `{id} = ${lead.id}`
-          })
-          .firstPage();
+          }
+        );
         
         if (existingRecords && existingRecords.length > 0) {
           // Update existing record
@@ -266,12 +269,14 @@ export async function syncLeadsFromAirtable() {
     const lastSyncFormatted = lastSync.toISOString();
     
     // Get Airtable records updated since last sync
-    const records = await airtableClient
-      .table(TABLES.LEADS)
-      .select({
+    const baseId = process.env.AIRTABLE_BASE_ID || "";
+    const records = await airtableClient.query(
+      baseId,
+      TABLES.LEADS,
+      {
         filterByFormula: `IS_AFTER({updatedAt}, '${lastSyncFormatted}')`
-      })
-      .all();
+      }
+    );
     
     if (records.length === 0) {
       log("No leads to sync from Airtable", "airtable-sync");
