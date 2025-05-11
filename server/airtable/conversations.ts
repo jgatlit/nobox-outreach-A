@@ -88,17 +88,17 @@ export async function getUserConversations(baseId: string, user: string): Promis
         JSON.parse(record.fields['Metadata']) : undefined;
       
       return {
-        id: record.fields['Id'],
-        title: record.fields['Title'],
-        user: record.fields['User'],
-        status: record.fields['Status'],
+        id: record.fields['id'],
+        title: record.fields['title'],
+        user: record.fields['user'],
+        status: record.fields['status'],
         messages,
-        tags: record.fields['Tags'] || [],
-        createdAt: record.fields['Created At'],
-        updatedAt: record.fields['Updated At'],
-        lastMessageDate: record.fields['Last Message Date'],
-        modelUsed: record.fields['Model Used'],
-        toolExecutionsCount: record.fields['Tool Executions Count'],
+        tags: record.fields['tags'] || [],
+        createdAt: record.fields['created_at'],
+        updatedAt: record.fields['updated_at'],
+        lastMessageDate: record.fields['last_message_date'],
+        modelUsed: record.fields['model_used'],
+        toolExecutionsCount: record.fields['tool_executions_count'],
         metadata
       };
     });
@@ -130,24 +130,24 @@ export async function getConversation(baseId: string, conversationId: string): P
     const record = records[0];
     
     // Convert record to our internal format
-    const messages = record.fields['Messages'] ? 
-      JSON.parse(record.fields['Messages']) : [];
+    const messages = record.fields['messages'] ? 
+      JSON.parse(record.fields['messages']) : [];
     
-    const metadata = record.fields['Metadata'] ? 
-      JSON.parse(record.fields['Metadata']) : undefined;
+    const metadata = record.fields['metadata'] ? 
+      JSON.parse(record.fields['metadata']) : undefined;
     
     return {
-      id: record.fields['Id'],
-      title: record.fields['Title'],
-      user: record.fields['User'],
-      status: record.fields['Status'],
+      id: record.fields['id'],
+      title: record.fields['title'],
+      user: record.fields['user'],
+      status: record.fields['status'],
       messages,
-      tags: record.fields['Tags'] || [],
-      createdAt: record.fields['Created At'],
-      updatedAt: record.fields['Updated At'],
-      lastMessageDate: record.fields['Last Message Date'],
-      modelUsed: record.fields['Model Used'],
-      toolExecutionsCount: record.fields['Tool Executions Count'],
+      tags: record.fields['tags'] || [],
+      createdAt: record.fields['created_at'],
+      updatedAt: record.fields['updated_at'],
+      lastMessageDate: record.fields['last_message_date'],
+      modelUsed: record.fields['model_used'],
+      toolExecutionsCount: record.fields['tool_executions_count'],
       metadata
     };
   } catch (error) {
