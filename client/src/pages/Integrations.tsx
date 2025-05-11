@@ -37,7 +37,6 @@ import {
 // Form schema for Airtable sync
 const airtableSyncSchema = z.object({
   tableName: z.string().min(1, { message: "Table name is required" }),
-  baseId: z.string().optional(),
   syncDirection: z.enum(["to_airtable", "from_airtable"]),
   dataType: z.enum(["leads", "campaigns"])
 });
@@ -122,15 +121,14 @@ export default function Integrations() {
       console.log("Airtable sync request:", {
         endpoint,
         tableName: data.tableName,
-        baseId: data.baseId || 'Using environment variable',
+        baseId: 'appUPDttFgRrz9YiC', // Hard-coded Base ID
         syncDirection: data.syncDirection,
         dataType: data.dataType
       });
       
-      // Make API request
+      // Make API request - only sending the table name as Base ID is hard-coded in the backend
       const response = await apiRequest("POST", endpoint, {
-        tableName: data.tableName,
-        baseId: data.baseId || undefined,
+        tableName: data.tableName
       });
       
       // Parse response
@@ -389,22 +387,16 @@ export default function Integrations() {
                 )}
               />
               
-              <FormField
-                control={airtableForm.control}
-                name="baseId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Base ID (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., appUPDttFgRrz9YiC" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      If not provided, the system will use the Base ID from your environment variables.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Display Base ID as read-only info (not a form field) */}
+              <div className="p-4 border rounded-md bg-muted/50">
+                <h4 className="font-medium mb-1">Airtable Base ID</h4>
+                <p className="text-sm text-muted-foreground mb-2 flex items-center">
+                  <code className="bg-background px-1 py-0.5 rounded">appUPDttFgRrz9YiC</code>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  This Base ID is hard-coded in the application for security and consistency.
+                </p>
+              </div>
               
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAirtableDialogOpen(false)}>
@@ -501,7 +493,6 @@ export default function Integrations() {
                           airtableForm.reset({
                             tableName: "Leads",
                             dataType: "leads",
-                            baseId: "",
                             syncDirection: "to_airtable"
                           });
                           // Then open dialog
@@ -519,7 +510,6 @@ export default function Integrations() {
                           airtableForm.reset({
                             tableName: "Leads",
                             dataType: "leads",
-                            baseId: "",
                             syncDirection: "from_airtable"
                           });
                           // Then open dialog
