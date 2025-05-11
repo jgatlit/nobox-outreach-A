@@ -81,11 +81,12 @@ export default function Integrations() {
       setAirtableStatus('unchecked');
       setAirtableConnectionMessage("Checking connection...");
       
-      const result = await checkAirtableConnection();
+      const response = await checkAirtableConnection();
+      const result = await response.json();
       
       if (result.success) {
         setAirtableStatus('connected');
-        setAirtableConnectionMessage(`Successfully connected to Airtable. Base: ${result.baseId || 'Not specified'}`);
+        setAirtableConnectionMessage(`Successfully connected to Airtable. Records: ${result.recordCount || 0}`);
         if (result.baseId) {
           setAirtableBaseId(result.baseId);
         }
@@ -105,12 +106,13 @@ export default function Integrations() {
     try {
       setAirtableSyncingTo(true);
       
-      const result = await syncLeadsToAirtable();
+      const response = await syncLeadsToAirtable();
+      const result = await response.json();
       
       if (result.success) {
         toast({
           title: "Leads synced to Airtable",
-          description: `Successfully synced ${result.count} leads to Airtable.`,
+          description: `Successfully synced ${result.syncedCount || 0} leads to Airtable.`,
         });
       } else {
         toast({
@@ -136,12 +138,13 @@ export default function Integrations() {
     try {
       setAirtableSyncingFrom(true);
       
-      const result = await syncLeadsFromAirtable();
+      const response = await syncLeadsFromAirtable();
+      const result = await response.json();
       
       if (result.success) {
         toast({
           title: "Leads imported from Airtable",
-          description: `Successfully imported ${result.count} leads from Airtable.`,
+          description: `Successfully imported leads from Airtable. Created: ${result.results?.created || 0}, Updated: ${result.results?.updated || 0}`,
         });
         // Refresh leads data
         queryClient.invalidateQueries({ queryKey: ['/api/leads'] });
