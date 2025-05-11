@@ -2,6 +2,7 @@ import * as React from "react";
 import { useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileSpreadsheet, Search, Plus } from "lucide-react";
+import { useLocation } from "wouter";
 
 import { LeadTable } from "@/components/LeadManagement/LeadTable";
 import { BulkImportModal } from "@/components/LeadManagement/BulkImportModal";
@@ -431,6 +432,14 @@ export default function LeadManagement() {
           
           {/* Bulk Import CSV Modal */}
           <BulkImportModal />
+          
+          {/* Google Sheets Import Button */}
+          <RouteLink href="/google-sheets-import">
+            <Button className="bg-white text-black border border-gray-200 hover:bg-gray-50">
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Import Google Sheets
+            </Button>
+          </RouteLink>
         </div>
       </div>
 
