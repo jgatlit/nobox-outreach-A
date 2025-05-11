@@ -11,7 +11,6 @@ import Campaigns from "@/pages/Campaigns";
 import AdGenerator from "@/pages/AdGenerator";
 import Workflows from "@/pages/Workflows";
 import Integrations from "@/pages/Integrations";
-import AirtableStatus from "@/pages/AirtableStatus";
 import { Layout } from "@/components/Layout";
 
 // Lazy load the lead detail page
@@ -29,7 +28,6 @@ function Router() {
           <Route path="/ad-generator" component={AdGenerator} />
           <Route path="/workflows" component={Workflows} />
           <Route path="/integrations" component={Integrations} />
-          <Route path="/airtable-status" component={AirtableStatus} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

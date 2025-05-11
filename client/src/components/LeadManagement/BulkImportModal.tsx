@@ -14,19 +14,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { 
-  AlertCircle, 
-  ChevronDown, 
-  Database, 
-  FileQuestion, 
-  FileSpreadsheet, 
-  FileText, 
-  Mail, 
-  Upload, 
-  X,
-  Table,
-  Clipboard
-} from "lucide-react";
+import { AlertCircle, ChevronDown, Database, FileQuestion, FileSpreadsheet, FileText, Mail, Upload, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
@@ -36,19 +24,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 
 export function BulkImportModal() {
   const [open, setOpen] = React.useState(false);
   const [file, setFile] = React.useState<File | null>(null);
-  const [csvContent, setCsvContent] = React.useState('');
-  const [spreadsheetId, setSpreadsheetId] = React.useState('');
-  const [sheetsApiKey, setSheetsApiKey] = React.useState('');
   const [isUploading, setIsUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
-  const [activeTab, setActiveTab] = React.useState<'file' | 'paste' | 'sheets'>('file');
   const [importResult, setImportResult] = React.useState<{
     success: boolean;
     message: string;
@@ -66,12 +47,8 @@ export function BulkImportModal() {
   React.useEffect(() => {
     if (!open) {
       setFile(null);
-      setCsvContent('');
-      setSpreadsheetId('');
-      setSheetsApiKey('');
       setImportResult(null);
       setUploadProgress(0);
-      setActiveTab('file');
     }
   }, [open]);
   
@@ -90,8 +67,7 @@ export function BulkImportModal() {
     };
   }, [isUploading, uploadProgress]);
   
-  // File upload mutation
-  const fileImportMutation = useMutation({
+  const importMutation = useMutation({
     mutationFn: async (formData: FormData) => {
       setIsUploading(true);
       setUploadProgress(0);
@@ -136,96 +112,6 @@ export function BulkImportModal() {
     },
   });
   
-  // CSV paste mutation
-  const csvPasteMutation = useMutation({
-    mutationFn: async (csvContent: string) => {
-      setIsUploading(true);
-      setUploadProgress(0);
-      try {
-        const response = await apiRequest(
-          "POST", 
-          "/api/leads/import/csv-paste", 
-          { csvContent }
-        );
-        const result = await response.json();
-        setUploadProgress(100);
-        return result;
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    onSuccess: (data) => {
-      setImportResult(data);
-      
-      if (data.success) {
-        toast({
-          title: "Import completed",
-          description: `Successfully imported ${data.imported} leads`,
-        });
-        // Invalidate leads query to refresh the list
-        queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      } else {
-        toast({
-          title: "Import partially completed",
-          description: data.message,
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Import failed",
-        description: error.message || "There was an error importing leads",
-        variant: "destructive",
-      });
-    },
-  });
-  
-  // Google Sheets import mutation
-  const googleSheetsImportMutation = useMutation({
-    mutationFn: async (data: { spreadsheetId: string, apiKey: string }) => {
-      setIsUploading(true);
-      setUploadProgress(0);
-      try {
-        const response = await apiRequest(
-          "POST", 
-          "/api/leads/import/google-sheet", 
-          data
-        );
-        const result = await response.json();
-        setUploadProgress(100);
-        return result;
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    onSuccess: (data) => {
-      setImportResult(data);
-      
-      if (data.success) {
-        toast({
-          title: "Import completed",
-          description: `Successfully imported ${data.imported} leads from Google Sheet`,
-        });
-        // Invalidate leads query to refresh the list
-        queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      } else {
-        toast({
-          title: "Import partially completed",
-          description: data.message,
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Import failed",
-        description: error.message || "There was an error importing leads from Google Sheet",
-        variant: "destructive",
-      });
-    },
-  });
-  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selectedFile = e.target.files[0];
@@ -243,7 +129,7 @@ export function BulkImportModal() {
     }
   };
   
-  const handleFileImport = async () => {
+  const handleImport = async () => {
     if (!file) {
       toast({
         title: "No file selected",
@@ -256,50 +142,7 @@ export function BulkImportModal() {
     const formData = new FormData();
     formData.append("file", file);
     
-    fileImportMutation.mutate(formData);
-  };
-  
-  const handleCsvPasteImport = async () => {
-    if (!csvContent.trim()) {
-      toast({
-        title: "No content provided",
-        description: "Please paste CSV content to import",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    csvPasteMutation.mutate(csvContent);
-  };
-  
-  const handleGoogleSheetsImport = async () => {
-    if (!spreadsheetId.trim()) {
-      toast({
-        title: "Missing spreadsheet ID",
-        description: "Please enter a Google Sheets spreadsheet ID",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    googleSheetsImportMutation.mutate({
-      spreadsheetId,
-      apiKey: sheetsApiKey
-    });
-  };
-  
-  const handleImport = () => {
-    switch (activeTab) {
-      case 'file':
-        handleFileImport();
-        break;
-      case 'paste':
-        handleCsvPasteImport();
-        break;
-      case 'sheets':
-        handleGoogleSheetsImport();
-        break;
-    }
+    importMutation.mutate(formData);
   };
   
   const handleRemoveFile = () => {
@@ -336,14 +179,14 @@ export function BulkImportModal() {
       <DialogTrigger asChild>
         <Button className="bg-white text-black border border-gray-200 hover:bg-gray-50">
           <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Import Leads
+          Import CSV
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Bulk Import Leads</DialogTitle>
+          <DialogTitle>Bulk Import Leads from CSV</DialogTitle>
           <DialogDescription>
-            Import multiple leads at once using CSV file upload, direct paste, or Google Sheets.
+            Upload a CSV file containing multiple leads to import them in bulk.
           </DialogDescription>
         </DialogHeader>
         
@@ -402,133 +245,50 @@ export function BulkImportModal() {
                 </p>
               </div>
               
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'file' | 'paste' | 'sheets')}>
-                <TabsList className="grid grid-cols-3 mb-4">
-                  <TabsTrigger value="file" className="flex items-center gap-2">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    <span>Upload CSV</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="paste" className="flex items-center gap-2">
-                    <Clipboard className="h-4 w-4" />
-                    <span>Paste CSV</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="sheets" className="flex items-center gap-2">
-                    <Table className="h-4 w-4" />
-                    <span>Google Sheets</span>
-                  </TabsTrigger>
-                </TabsList>
-              
-                <TabsContent value="file" className="space-y-4">
-                  <div className="grid w-full items-center gap-2">
-                    {file ? (
-                      <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-                        <div className="flex items-center gap-2">
-                          <FileSpreadsheet className="h-6 w-6 text-primary-500" />
-                          <div className="text-sm">
-                            <p className="font-medium">{file.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(file.size / 1024).toFixed(2)} KB
-                            </p>
-                          </div>
-                        </div>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={handleRemoveFile}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+              <div className="grid w-full items-center gap-2">
+                {file ? (
+                  <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-6 w-6 text-primary-500" />
+                      <div className="text-sm">
+                        <p className="font-medium">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size / 1024).toFixed(2)} KB
+                        </p>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md border-gray-300 dark:border-gray-700">
-                        <Input
-                          type="file"
-                          ref={fileInputRef}
-                          accept=".csv"
-                          onChange={handleFileChange}
-                          className="hidden"
-                          id="csv-file-input"
-                        />
-                        <label 
-                          htmlFor="csv-file-input"
-                          className="flex flex-col items-center justify-center cursor-pointer"
-                        >
-                          <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                          <p className="text-sm font-medium">Click to upload CSV file</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            or drag and drop
-                          </p>
-                        </label>
-                      </div>
-                    )}
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={handleRemoveFile}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                </TabsContent>
-                
-                <TabsContent value="paste" className="space-y-4">
-                  <div className="grid w-full items-center gap-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="csv-content">Paste CSV Content</Label>
-                      <Textarea
-                        id="csv-content"
-                        placeholder="Paste your CSV content here (including headers)..."
-                        value={csvContent}
-                        onChange={(e) => setCsvContent(e.target.value)}
-                        className="min-h-[200px] font-mono text-xs"
-                      />
-                    </div>
-                    
-                    <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md p-3 text-sm text-amber-700 dark:text-amber-400">
-                      <p>Paste CSV content including headers. The first row should contain column names.</p>
-                      <p className="mt-1">Example:<br />
-                        <code>email,firstName,lastName,company,title,source<br />
-                        john@example.com,John,Doe,Example Inc,CEO,manual</code>
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-md border-gray-300 dark:border-gray-700">
+                    <Input
+                      type="file"
+                      ref={fileInputRef}
+                      accept=".csv"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="csv-file-input"
+                    />
+                    <label 
+                      htmlFor="csv-file-input"
+                      className="flex flex-col items-center justify-center cursor-pointer"
+                    >
+                      <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                      <p className="text-sm font-medium">Click to upload CSV file</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        or drag and drop
                       </p>
-                    </div>
+                    </label>
                   </div>
-                </TabsContent>
-                
-                <TabsContent value="sheets" className="space-y-4">
-                  <div className="grid w-full items-center gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="spreadsheet-id">Google Spreadsheet ID</Label>
-                      <Input
-                        id="spreadsheet-id"
-                        placeholder="Enter spreadsheet ID from URL (e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms)"
-                        value={spreadsheetId}
-                        onChange={(e) => setSpreadsheetId(e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        The ID can be found in the Google Sheets URL: https://docs.google.com/spreadsheets/d/<strong className="font-medium">spreadsheetId</strong>/edit
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="sheets-api-key">Google Sheets API Key (optional)</Label>
-                      <Input
-                        id="sheets-api-key"
-                        type="password"
-                        placeholder="Enter your Google Sheets API key"
-                        value={sheetsApiKey}
-                        onChange={(e) => setSheetsApiKey(e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        If not provided, the system will use the default API key (if configured)
-                      </p>
-                    </div>
-                    
-                    <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md p-3 text-sm text-amber-700 dark:text-amber-400">
-                      <p>Make sure your Google Sheet:</p>
-                      <ul className="list-disc pl-5 text-xs space-y-1 mt-1">
-                        <li>Has the first row as column headers</li>
-                        <li>Includes an 'email' column (required)</li>
-                        <li>Is shared publicly or with anyone with the link</li>
-                        <li>The first sheet will be used (Sheet1)</li>
-                      </ul>
-                    </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
+                )}
+              </div>
               
               {isUploading && (
                 <div className="space-y-2">
@@ -626,15 +386,7 @@ export function BulkImportModal() {
             <Button 
               type="button" 
               onClick={handleImport}
-              disabled={
-                isUploading || 
-                (activeTab === 'file' && !file) || 
-                (activeTab === 'paste' && !csvContent.trim()) ||
-                (activeTab === 'sheets' && !spreadsheetId.trim()) ||
-                fileImportMutation.isPending || 
-                csvPasteMutation.isPending || 
-                googleSheetsImportMutation.isPending
-              }
+              disabled={!file || isUploading || importMutation.isPending}
             >
               {isUploading ? "Importing..." : "Import"}
             </Button>

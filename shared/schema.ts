@@ -81,8 +81,6 @@ export const leads = pgTable("leads", {
   priorityScore: integer("priority_score"),
   priorityReason: text("priority_reason"),
   priorityUpdatedAt: timestamp("priority_updated_at"),
-  // Sync with Airtable
-  lastSyncedAt: timestamp("last_synced_at"),
 });
 
 export const leadEnrichment = pgTable("lead_enrichment", {
@@ -257,19 +255,3 @@ export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
 
 export type Integration = typeof integrations.$inferSelect;
 export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
-
-// Sync Status table for tracking synchronization between PostgreSQL and Airtable
-export const syncStatus = pgTable("sync_status", {
-  id: serial("id").primaryKey(),
-  type: text("type").notNull().unique(),
-  lastSyncTime: timestamp("last_sync_time").defaultNow().notNull(),
-  lastSyncSuccess: boolean("last_sync_success").default(true).notNull(),
-  totalSynced: integer("total_synced").default(0).notNull(),
-  details: text("details"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const insertSyncStatusSchema = createInsertSchema(syncStatus);
-export type SyncStatus = typeof syncStatus.$inferSelect;
-export type InsertSyncStatus = z.infer<typeof insertSyncStatusSchema>;

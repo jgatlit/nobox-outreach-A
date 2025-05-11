@@ -13,9 +13,6 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatRelativeTime } from "@/lib/utils";
-import { AirtableStatusTile } from "@/components/Integrations/AirtableStatusTile";
-import { GoogleSheetsStatusTile } from "@/components/Integrations/GoogleSheetsStatusTile";
-import { LeadsSyncStatus } from "@/components/Integrations/LeadsSyncStatus";
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -32,25 +29,12 @@ import {
   Plus
 } from "lucide-react";
 
-// Define types for our integrations
-interface Integration {
-  id: number;
-  name: string;
-  type: string;
-  status: string;
-  lastChecked: string;
-  config?: {
-    apiUrl?: string;
-    [key: string]: any;
-  };
-}
-
 export default function Integrations() {
   const [activeTab, setActiveTab] = React.useState("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const { data: integrations, isLoading } = useQuery<Integration[]>({
+  const { data: integrations, isLoading } = useQuery({
     queryKey: ['/api/integrations'],
     staleTime: 60000, // 1 minute
   });
@@ -71,7 +55,7 @@ export default function Integrations() {
       });
       queryClient.invalidateQueries({ queryKey: ['/api/integrations'] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: "Failed to update status",
         description: error.message || "An error occurred while updating the integration status.",
@@ -110,7 +94,7 @@ export default function Integrations() {
     }
   };
   
-  const filteredIntegrations = integrations?.filter((integration: Integration) => {
+  const filteredIntegrations = integrations?.filter(integration => {
     if (activeTab === "all") return true;
     return integration.type === activeTab;
   }) || [];
@@ -132,7 +116,6 @@ export default function Integrations() {
             <TabsTrigger value="workflow_automation">Automation</TabsTrigger>
             <TabsTrigger value="crm">CRM</TabsTrigger>
             <TabsTrigger value="project_management">Project Management</TabsTrigger>
-            <TabsTrigger value="database">Database</TabsTrigger>
             <TabsTrigger value="ai">AI</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -163,25 +146,9 @@ export default function Integrations() {
             </Card>
           ))}
         </div>
-      ) : filteredIntegrations.length > 0 || activeTab === "all" || activeTab === "database" ? (
+      ) : filteredIntegrations.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Airtable status tile - always show in "all" or "database" tabs */}
-          {(activeTab === "all" || activeTab === "database") && (
-            <AirtableStatusTile />
-          )}
-          
-          {/* Google Sheets status tile - always show in "all" or "database" tabs */}
-          {(activeTab === "all" || activeTab === "database") && (
-            <GoogleSheetsStatusTile />
-          )}
-          
-          {/* Leads Sync status tile - always show in "all" or "database" tabs */}
-          {(activeTab === "all" || activeTab === "database") && (
-            <LeadsSyncStatus />
-          )}
-          
-          {/* Regular integrations from the backend */}
-          {filteredIntegrations.map((integration: Integration) => (
+          {filteredIntegrations.map(integration => (
             <Card key={integration.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -190,7 +157,7 @@ export default function Integrations() {
                 </div>
                 <CardTitle className="mt-4">{integration.name}</CardTitle>
                 <CardDescription>
-                  {integration.type.replace("_", " ").replace(/^\w/, (c: string) => c.toUpperCase())}
+                  {integration.type.replace("_", " ").replace(/^\w/, c => c.toUpperCase())}
                 </CardDescription>
               </CardHeader>
               <CardContent>
