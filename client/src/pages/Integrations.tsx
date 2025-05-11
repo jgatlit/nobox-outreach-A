@@ -16,6 +16,7 @@ import { formatRelativeTime } from "@/lib/utils";
 import { AirtableStatusTile } from "@/components/Integrations/AirtableStatusTile";
 import { GoogleSheetsStatusTile } from "@/components/Integrations/GoogleSheetsStatusTile";
 import { LeadsSyncStatus } from "@/components/Integrations/LeadsSyncStatus";
+import { AirtableApiKeyForm } from "@/components/Integrations/AirtableApiKeyForm";
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -165,6 +166,11 @@ export default function Integrations() {
         </div>
       ) : filteredIntegrations.length > 0 || activeTab === "all" || activeTab === "database" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Airtable API Key Form - display first to help fix auth issues */}
+          {(activeTab === "all" || activeTab === "database") && (
+            <AirtableApiKeyForm />
+          )}
+        
           {/* Airtable status tile - always show in "all" or "database" tabs */}
           {(activeTab === "all" || activeTab === "database") && (
             <AirtableStatusTile />

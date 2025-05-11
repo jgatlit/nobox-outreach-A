@@ -24,6 +24,7 @@ import {
   syncSpecificLeadToAirtable
 } from "./airtable/sync";
 import { runDiagnostics } from "./airtable/diagnostics";
+import { validateApiKey, formatApiKey } from "./airtable/api-key-tool";
 import { startLeadSyncScheduler, stopLeadSyncScheduler } from "./scheduler";
 import path from "path";
 import fs from "fs";
@@ -1718,6 +1719,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error running Airtable diagnostics:", error);
       return res.status(500).json({ 
         error: "Failed to run Airtable diagnostics",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API endpoint to validate an Airtable API key
+  app.post("/api/airtable/validate-key", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      
+      if (!apiKey) {
+        return res.status(400).json({ 
+          error: "No API key provided" 
+        });
+      }
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      if (!baseId) {
+        return res.status(400).json({ 
+          error: "No Airtable Base ID configured. Please add AIRTABLE_BASE_ID environment variable." 
+        });
+      }
+      
+      const result = await validateApiKey(apiKey, baseId);
+      return res.json(result);
+    } catch (error) {
+      console.error("Error validating API key:", error);
+      return res.status(500).json({ 
+        error: "Failed to validate API key",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  // API endpoint to update the stored Airtable API key
+  app.post("/api/airtable/update-key", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      
+      if (!apiKey) {
+        return res.status(400).json({ 
+          error: "No API key provided" 
+        });
+      }
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      if (!baseId) {
+        return res.status(400).json({ 
+          error: "No Airtable Base ID configured. Please add AIRTABLE_BASE_ID environment variable." 
+        });
+      }
+      
+      // Validate the key first
+      const validation = await validateApiKey(apiKey, baseId);
+      
+      if (!validation.valid) {
+        return res.status(400).json({
+          error: "Invalid API key",
+          details: validation.message
+        });
+      }
+      
+      // Format the key properly
+      const formattedKey = formatApiKey(apiKey);
+      
+      // Update the process environment variable
+      process.env.AIRTABLE_API_KEY = formattedKey;
+      
+      // Return success
+      return res.json({
+        success: true,
+        message: `API key updated successfully (${validation.type})`,
+        details: validation
+      });
+    } catch (error) {
+      console.error("Error updating API key:", error);
+      return res.status(500).json({ 
+        error: "Failed to update API key",
         details: error instanceof Error ? error.message : String(error)
       });
     }

@@ -1,144 +1,193 @@
 /**
- * Airtable Authentication Manager
+ * Airtable Authentication Module
  * 
- * This module handles the authentication with Airtable, supporting both Personal Access Tokens (PATs)
- * and classic API keys. PATs are the recommended and more secure option.
+ * This module handles all aspects of Airtable authentication, supporting both
+ * Personal Access Tokens (PAT) and classic API keys with proper formatting.
  */
 
 import { log } from '../vite';
+import Airtable from 'airtable';
 
-/**
- * Authentication type definitions
- */
-export type AirtableAuthType = 'pat' | 'classic_key' | 'unknown';
-export type AirtableAuthStatus = 'valid' | 'invalid' | 'unknown';
+// Define missing interface from Airtable SDK
+interface AirtableBase {
+  table: (tableName: string) => any;
+  tables: () => Promise<any[]>;
+}
 
-/**
- * Represents Airtable authentication details
- */
+// Define auth type interface
 export interface AirtableAuth {
-  type: AirtableAuthType;
-  status: AirtableAuthStatus;
+  type: 'pat' | 'classic_key' | 'unknown';
+  value: string;
   hasPrefix: boolean;
-  // Raw key from environment variable
-  rawValue: string;
-  // Value to use with Airtable SDK
-  sdkValue: string;
-  // Value to use with fetch API calls (includes Bearer for PATs)
-  headerValue: string;
+  bearerToken?: string;
+  status?: 'valid' | 'invalid' | 'untested';
+  // For backward compatibility with existing code
+  rawValue?: string;
+  sdkValue?: string;
 }
 
 /**
- * Process and normalize the Airtable authentication token
- * @param apiKey The raw API key from env variable
- * @returns Processed authentication info
+ * Process an authentication token to determine its type and format
+ * @param authToken API key or PAT to process
+ * @returns Processed auth object
  */
-export function processAuth(apiKey?: string): AirtableAuth {
-  // Default return for no key provided
-  if (!apiKey) {
-    return {
-      type: 'unknown',
-      status: 'invalid',
-      hasPrefix: false,
-      rawValue: '',
-      sdkValue: '',
-      headerValue: ''
-    };
-  }
-
-  let type: AirtableAuthType = 'unknown';
+export function processAuth(authToken: string): AirtableAuth {
+  let type: 'pat' | 'classic_key' | 'unknown' = 'unknown';
   let hasPrefix = false;
-  let sdkValue = apiKey;
-  let headerValue = apiKey;
+  let value = authToken;
+  let bearerToken: string | undefined;
 
-  // Check if it's a PAT (starts with 'pat' or 'Bearer pat')
-  if (apiKey.startsWith('pat')) {
+  // Check if it's a PAT (starts with "pat" or has "Bearer pat" prefix)
+  if (authToken.startsWith('pat') || /^pat\w+$/.test(authToken)) {
     type = 'pat';
-    hasPrefix = false;
-    // PAT without Bearer prefix - add it for header value
-    headerValue = `Bearer ${apiKey}`;
-    // SDK requires the raw PAT without prefix
-    sdkValue = apiKey;
-  } 
-  else if (apiKey.startsWith('Bearer pat')) {
+    value = authToken;
+    bearerToken = `Bearer ${authToken}`;
+  } else if (authToken.startsWith('Bearer pat')) {
     type = 'pat';
     hasPrefix = true;
-    // PAT with Bearer prefix - keep it for header value
-    headerValue = apiKey;
-    // SDK requires the PAT without Bearer prefix
-    sdkValue = apiKey.substring(7); // Remove 'Bearer ' prefix
-  }
-  // Check if it looks like a classic API key
-  else if (apiKey.length > 16 && !apiKey.startsWith('pat') && !apiKey.startsWith('Bearer')) {
-    type = 'classic_key';
-    hasPrefix = false;
-    // Classic API key - use as is for both SDK and header
-    sdkValue = apiKey;
-    headerValue = apiKey;
-  }
-  // Handle PAT with the wrong format
-  else if (apiKey.startsWith('Bearer ') && !apiKey.includes('pat')) {
-    log('Warning: Bearer token does not appear to be a valid PAT', 'airtable');
+    value = authToken.replace('Bearer ', '');
+    bearerToken = authToken;
+  } else if (authToken.startsWith('Bearer ') && !authToken.includes('pat')) {
+    // If it has Bearer prefix but doesn't look like a PAT
     type = 'unknown';
     hasPrefix = true;
-    headerValue = apiKey;
-    sdkValue = apiKey.substring(7); // Remove 'Bearer ' prefix
+    value = authToken.replace('Bearer ', '');
+    bearerToken = authToken;
+  } else if (authToken.startsWith('key')) {
+    // It's a classic API key
+    type = 'classic_key';
+    value = authToken;
   }
 
   return {
     type,
-    status: 'unknown', // Status is determined after testing
+    value,
     hasPrefix,
-    rawValue: apiKey,
-    sdkValue,
-    headerValue
+    bearerToken: type === 'pat' ? bearerToken : undefined,
+    status: 'untested'
   };
 }
 
 /**
- * Get the authentication info from environment variables
- * @returns Processed authentication info
+ * Test authentication against Airtable API
+ * @param baseId Base ID to test against
+ * @param auth Auth object from processAuth
+ * @returns Auth object with updated status
  */
-export function getAuth(): AirtableAuth {
-  const apiKey = process.env.AIRTABLE_API_KEY;
-  return processAuth(apiKey);
+export async function testAuth(baseId: string, auth: AirtableAuth): Promise<AirtableAuth> {
+  try {
+    // For PAT, use fetch with Authorization header
+    if (auth.type === 'pat') {
+      // Add Bearer prefix if not present
+      const authHeader = auth.hasPrefix ? auth.value : `Bearer ${auth.value}`;
+      log(`Added Bearer prefix to PAT for Airtable API verification`, 'airtable');
+
+      // Make a basic request to the metadata API
+      const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        return { ...auth, status: 'valid' };
+      }
+
+      const errorData = await response.json();
+      log(`Airtable authentication test failed: ${JSON.stringify(errorData)}`, 'airtable');
+      
+      if (errorData?.error?.type === 'UNAUTHORIZED' || 
+          errorData?.error?.type === 'AUTHENTICATION_REQUIRED') {
+        log(`Airtable authentication failed verification`, 'airtable');
+        return { ...auth, status: 'invalid' };
+      }
+      
+      // If we get here, the token might be valid but there are other issues
+      return { ...auth, status: 'invalid' };
+    } 
+    // For classic API key, use Airtable SDK
+    else if (auth.type === 'classic_key') {
+      const airtable = new Airtable({ apiKey: auth.value });
+      const base = airtable.base(baseId);
+      
+      // Try to list tables, which will verify the API key
+      try {
+        // Just try to retrieve metadata, not actual records
+        await base.tables();
+        return { ...auth, status: 'valid' };
+      } catch (error) {
+        log(`Classic API key verification failed: ${error}`, 'airtable');
+        return { ...auth, status: 'invalid' };
+      }
+    }
+    
+    // For unknown types, assume invalid
+    return { ...auth, status: 'invalid' };
+  } catch (error) {
+    log(`Error testing Airtable authentication: ${error}`, 'airtable');
+    return { ...auth, status: 'invalid' };
+  }
 }
 
 /**
- * Test if the authentication is valid
- * @param baseId Airtable base ID
- * @param auth Authentication info
- * @returns Promise resolving to the auth with updated status
+ * Process an API key and ensure it has the correct prefix for its type
+ * @param apiKey API key to format
+ * @returns Properly formatted API key
  */
-export async function testAuth(baseId: string, auth: AirtableAuth): Promise<AirtableAuth> {
-  if (!auth.rawValue || !baseId) {
-    auth.status = 'invalid';
-    return auth;
-  }
-
-  try {
-    // Try to access a table to verify authentication
-    const url = `https://api.airtable.com/v0/${baseId}/Leads?maxRecords=1`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': auth.headerValue
-      }
-    });
-    
-    // Check if response is ok or if it's a 404 (which means the table doesn't exist but auth is valid)
-    if (response.ok || response.status === 404) {
-      auth.status = 'valid';
-      log('Airtable authentication test successful', 'airtable');
-    } else {
-      auth.status = 'invalid';
-      const errorText = await response.text();
-      log(`Airtable authentication test failed: ${errorText}`, 'airtable');
-    }
-  } catch (error) {
-    auth.status = 'invalid';
-    log(`Airtable authentication test error: ${error}`, 'airtable');
+export function formatApiKeyForRequest(apiKey: string): string {
+  const auth = processAuth(apiKey);
+  
+  if (auth.type === 'pat' && !auth.hasPrefix) {
+    return `Bearer ${apiKey}`;
   }
   
+  return apiKey;
+}
+
+/**
+ * Get the current API key from environment variables
+ * @returns The current API key
+ */
+export function getCurrentApiKey(): string | null {
+  return process.env.AIRTABLE_API_KEY || null;
+}
+
+/**
+ * Set a new API key in the environment
+ * @param apiKey New API key to use
+ */
+export function setApiKey(apiKey: string): void {
+  process.env.AIRTABLE_API_KEY = apiKey;
+}
+
+/**
+ * Retrieve current auth information from environment
+ * @returns Current authentication object
+ */
+export function getAuth(): AirtableAuth {
+  const apiKey = process.env.AIRTABLE_API_KEY || '';
+  
+  if (!apiKey) {
+    return {
+      type: 'unknown',
+      value: '',
+      hasPrefix: false,
+      rawValue: '',
+      sdkValue: ''
+    };
+  }
+  
+  const auth = processAuth(apiKey);
+  
+  // Add backward compatibility properties
+  auth.rawValue = auth.value;
+  
+  // For SDK usage, remove Bearer prefix if it's a PAT
+  auth.sdkValue = auth.type === 'pat' && auth.hasPrefix 
+    ? auth.value.replace('Bearer ', '') 
+    : auth.value;
+    
   return auth;
 }
