@@ -261,9 +261,18 @@ export class AirtableService {
    */
   async testConnection() {
     try {
-      // First, verify the credentials by checking if we can access the base metadata
+      // Check if environment variables are configured
+      const { baseId, pat, missingVars } = validateEnvVars();
+      
+      if (missingVars.length > 0) {
+        return {
+          connected: false,
+          error: `Missing configuration: ${missingVars.join(', ')}`
+        };
+      }
+      
+      // Verify the credentials by checking if we can access the base metadata
       try {
-        const { baseId } = validateEnvVars();
         const url = `${AIRTABLE_API_URL}/meta/bases/${baseId}`;
         const response = await axios.get(url, { headers: getAuthHeaders() });
         
@@ -277,39 +286,59 @@ export class AirtableService {
           }
         };
       } catch (error) {
+        // Handle specific error types from Airtable
         const axiosError = error as AxiosError;
         console.error('Error connecting to Airtable:', {
           status: axiosError.response?.status,
           data: axiosError.response?.data
         });
         
-        // If we get a 404 error, it might be because the base doesn't exist or the token doesn't have access
+        // Unauthorized - invalid PAT
+        if (axiosError.response?.status === 401) {
+          return {
+            connected: false,
+            error: 'Authentication failed. Please check your Personal Access Token.'
+          };
+        }
+        
+        // Not found - invalid base ID
         if (axiosError.response?.status === 404) {
           return {
             connected: false,
-            error: 'Base not found or insufficient permissions'
+            error: 'Base not found. Please check your Base ID.'
           };
         }
         
-        // If we get a 401 or 403 error, it's likely an authentication issue
-        if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
+        // Forbidden - insufficient permissions
+        if (axiosError.response?.status === 403) {
+          // Try to extract more specific error from Airtable response
+          const airtableError = axiosError.response?.data?.error;
+          
+          if (airtableError && airtableError.type === 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND') {
+            return {
+              connected: false,
+              error: 'Invalid permissions or base not found. Make sure your token has access to this base.'
+            };
+          }
+          
           return {
             connected: false,
-            error: 'Authentication failed. Please check your PAT'
+            error: airtableError?.message || 'Insufficient permissions to access this base.'
           };
         }
         
-        // For any other error, return the error message
+        // For any other error, return a generic message with status code
         return {
           connected: false,
-          error: axiosError.message
+          error: `Connection error (${axiosError.response?.status || 'unknown'}): ${axiosError.message}`
         };
       }
     } catch (error) {
+      // Any other unexpected errors
       const err = error as Error;
       return {
         connected: false,
-        error: err.message
+        error: err.message || 'Unexpected error during connection test'
       };
     }
   }
@@ -408,9 +437,10 @@ export class AirtableService {
       }
     } catch (error) {
       console.error('Error updating Airtable credentials:', error);
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
       return {
         success: false,
-        error: error.message || "An unexpected error occurred"
+        error: errorMessage
       };
     }
   }
