@@ -1742,6 +1742,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Add Airtable integration endpoint
+  app.post("/api/integrations/airtable", async (req, res) => {
+    try {
+      const { baseId } = req.body;
+      
+      if (!baseId) {
+        return res.status(400).json({ error: "Airtable Base ID is required" });
+      }
+      
+      // Check if Airtable integration already exists
+      const existingIntegrations = await storage.getAllIntegrations();
+      const airtableIntegration = existingIntegrations.find(i => i.name === "Airtable");
+      
+      if (airtableIntegration) {
+        // Update existing integration
+        const updated = await db.update(integrations)
+          .set({ 
+            config: { 
+              baseId,
+              apiUrl: "https://api.airtable.com/v0"
+            },
+            status: "active",
+            lastChecked: new Date()
+          })
+          .where(eq(integrations.id, airtableIntegration.id))
+          .returning();
+          
+        return res.status(200).json(updated[0]);
+      } else {
+        // Create new integration
+        const newIntegration = await db.insert(integrations)
+          .values({
+            name: "Airtable",
+            type: "database",
+            config: { 
+              baseId,
+              apiUrl: "https://api.airtable.com/v0"
+            },
+            status: "active",
+            lastChecked: new Date()
+          })
+          .returning();
+          
+        return res.status(201).json(newIntegration[0]);
+      }
+    } catch (error: any) {
+      console.error("Error setting up Airtable integration:", error);
+      return res.status(500).json({ 
+        error: "Failed to set up Airtable integration",
+        message: error.message 
+      });
+    }
+  });
+
+  // Sync data with Airtable
+  app.post("/api/integrations/airtable/sync", async (req, res) => {
+    try {
+      const { entities = ["leads", "campaigns", "enrichment", "email_drafts"] } = req.body;
+      const results: Record<string, any> = {};
+      
+      // Get all integrations to find Airtable
+      const allIntegrations = await storage.getAllIntegrations();
+      const airtableIntegration = allIntegrations.find(i => i.name === "Airtable");
+      
+      if (!airtableIntegration) {
+        return res.status(404).json({ error: "Airtable integration not found" });
+      }
+      
+      const baseId = airtableIntegration.config?.baseId;
+      
+      if (!baseId) {
+        return res.status(400).json({ error: "Airtable Base ID not configured" });
+      }
+      
+      // Sync requested entities
+      if (entities.includes("leads")) {
+        const leads = await storage.getAllLeads();
+        results.leads = await syncLeadsToAirtable(leads, "Leads", baseId);
+      }
+      
+      if (entities.includes("campaigns")) {
+        const campaigns = await storage.getAllCampaigns();
+        results.campaigns = await syncCampaignsToAirtable(campaigns, "Campaigns", baseId);
+      }
+      
+      if (entities.includes("email_drafts")) {
+        // Get all email drafts across all leads
+        const leads = await storage.getAllLeads();
+        const allDrafts: EmailDraft[] = [];
+        
+        for (const lead of leads) {
+          const drafts = await storage.getEmailDraftsForLead(lead.id);
+          allDrafts.push(...drafts);
+        }
+        
+        results.email_drafts = await syncEmailDraftsToAirtable(allDrafts, "Email_Drafts", baseId);
+      }
+      
+      // Update integration status
+      await db.update(integrations)
+        .set({ 
+          status: "active",
+          lastChecked: new Date()
+        })
+        .where(eq(integrations.id, airtableIntegration.id));
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Successfully synced data with Airtable",
+        results
+      });
+    } catch (error: any) {
+      console.error("Error syncing with Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to sync with Airtable",
+        message: error.message 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

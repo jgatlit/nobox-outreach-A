@@ -26,7 +26,10 @@ import {
   BarChart,
   Brain,
   Puzzle,
-  Plus
+  Plus,
+  Grid,
+  Save,
+  ArrowUpDown
 } from "lucide-react";
 
 export default function Integrations() {
@@ -117,6 +120,7 @@ export default function Integrations() {
             <TabsTrigger value="crm">CRM</TabsTrigger>
             <TabsTrigger value="project_management">Project Management</TabsTrigger>
             <TabsTrigger value="ai">AI</TabsTrigger>
+            <TabsTrigger value="database">Database</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
