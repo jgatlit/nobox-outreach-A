@@ -34,6 +34,7 @@ import {
 
 export default function Integrations() {
   const [activeTab, setActiveTab] = React.useState("all");
+  const [isAirtableDialogOpen, setIsAirtableDialogOpen] = React.useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -62,6 +63,57 @@ export default function Integrations() {
       toast({
         title: "Failed to update status",
         description: error.message || "An error occurred while updating the integration status.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const syncAirtableMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(
+        "POST", 
+        `/api/integrations/airtable/sync`,
+        { entities: ["leads", "campaigns", "email_drafts"] }
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Airtable sync complete",
+        description: "All data has been successfully synced with Airtable.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/integrations'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Sync failed",
+        description: error.message || "An error occurred while syncing with Airtable.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const configureAirtableMutation = useMutation({
+    mutationFn: async (baseId: string) => {
+      const response = await apiRequest(
+        "POST", 
+        `/api/integrations/airtable`,
+        { baseId }
+      );
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Airtable configured",
+        description: "Airtable integration has been successfully configured.",
+      });
+      setIsAirtableDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/integrations'] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Configuration failed",
+        description: error.message || "An error occurred while configuring Airtable.",
         variant: "destructive",
       });
     },
