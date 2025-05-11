@@ -1597,6 +1597,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to sync campaigns to Airtable" });
     }
   });
+  
+  // Sync campaigns from Airtable to PostgreSQL
+  app.post("/api/airtable/sync/campaigns-from-airtable", async (req, res) => {
+    try {
+      const { tableName, baseId } = req.body;
+      
+      if (!tableName) {
+        return res.status(400).json({ error: "tableName is required" });
+      }
+      
+      // Sync campaigns from Airtable
+      const campaignsFromAirtable = await syncCampaignsFromAirtable(tableName, baseId);
+      
+      // Keep track of created and updated campaigns
+      const createdCampaigns = [];
+      const updatedCampaigns = [];
+      const skippedCampaigns = [];
+      
+      // Process each campaign from Airtable
+      for (const campaign of campaignsFromAirtable) {
+        try {
+          if (campaign.id && campaign.id > 0) {
+            // Update existing campaign
+            // First check if the campaign exists
+            const existingCampaign = await storage.getCampaignById(campaign.id);
+            
+            if (existingCampaign) {
+              // Update the existing campaign
+              const result = await db.update(campaigns)
+                .set({
+                  name: campaign.name,
+                  description: campaign.description,
+                  isActive: campaign.isActive,
+                  updatedAt: new Date(),
+                  segmentFilters: campaign.segmentFilters
+                })
+                .where(eq(campaigns.id, campaign.id))
+                .returning();
+              
+              if (result.length > 0) {
+                updatedCampaigns.push(result[0]);
+              }
+            } else {
+              // Campaign with this ID doesn't exist, so create a new one
+              const newCampaign = await db.insert(campaigns)
+                .values({
+                  name: campaign.name,
+                  description: campaign.description,
+                  isActive: campaign.isActive,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                  segmentFilters: campaign.segmentFilters
+                })
+                .returning();
+              
+              if (newCampaign.length > 0) {
+                createdCampaigns.push(newCampaign[0]);
+              }
+            }
+          } else {
+            // Create a new campaign
+            const newCampaign = await db.insert(campaigns)
+              .values({
+                name: campaign.name,
+                description: campaign.description,
+                isActive: campaign.isActive,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                segmentFilters: campaign.segmentFilters
+              })
+              .returning();
+            
+            if (newCampaign.length > 0) {
+              createdCampaigns.push(newCampaign[0]);
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing campaign ${campaign.name} from Airtable:`, error);
+          skippedCampaigns.push({ name: campaign.name, error: error.message });
+        }
+      }
+      
+      return res.status(200).json({
+        message: `Successfully synced campaigns from Airtable`,
+        created: createdCampaigns.length,
+        updated: updatedCampaigns.length,
+        skipped: skippedCampaigns.length,
+        skippedDetails: skippedCampaigns
+      });
+    } catch (error) {
+      console.error("Error syncing campaigns from Airtable:", error);
+      return res.status(500).json({ error: "Failed to sync campaigns from Airtable" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

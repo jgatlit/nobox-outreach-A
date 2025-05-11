@@ -235,13 +235,13 @@ export async function syncCampaignsToAirtable(
           name: campaign.name || '',
           description: campaign.description || '',
           type: campaign.type || '',
-          status: campaign.status || '',
-          startDate: campaign.startDate ? new Date(campaign.startDate).toISOString() : null,
-          endDate: campaign.endDate ? new Date(campaign.endDate).toISOString() : null,
-          goal: campaign.goal || '',
-          budget: campaign.budget ? campaign.budget.toString() : '',
-          results: campaign.results || '',
-          tags: campaign.tags || ''
+          status: campaign.isActive ? 'active' : 'inactive',
+          startDate: campaign.createdAt ? new Date(campaign.createdAt).toISOString() : null,
+          endDate: null, // This field doesn't exist in our schema but we'll include it for completeness
+          goal: '', // Not in our schema but a useful field in Airtable
+          budget: '0', // Not in our schema but a useful field in Airtable
+          results: '', // Not in our schema but a useful field in Airtable
+          tags: Array.isArray(campaign.segmentFilters) ? JSON.stringify(campaign.segmentFilters) : ''
         }
       };
       
@@ -273,6 +273,36 @@ export async function syncCampaignsToAirtable(
   } catch (error) {
     console.error('Error syncing campaigns to Airtable:', error);
     throw new Error(`Failed to sync campaigns to Airtable: ${error.message}`);
+  }
+}
+
+/**
+ * Sync campaigns from Airtable to PostgreSQL
+ */
+export async function syncCampaignsFromAirtable(tableName: string = 'Campaigns', baseId?: string): Promise<Campaign[]> {
+  try {
+    const records = await getAirtableRecords(tableName, baseId);
+    
+    return records.map(record => {
+      const fields = record;
+      
+      // Convert Airtable record to Campaign format
+      return {
+        id: fields.PostgreSQL_Campaign_ID ? parseInt(fields.PostgreSQL_Campaign_ID, 10) : 0,
+        name: fields.name || '',
+        description: fields.description || '',
+        isActive: fields.status === 'active',
+        createdAt: fields.startDate ? new Date(fields.startDate) : new Date(),
+        updatedAt: new Date(), // Current timestamp for the update
+        segmentFilters: fields.tags 
+          ? (typeof fields.tags === 'string' ? JSON.parse(fields.tags) : fields.tags) 
+          : null,
+        airtableId: record.id // Store the Airtable record ID for future syncing
+      };
+    });
+  } catch (error) {
+    console.error('Error syncing campaigns from Airtable:', error);
+    throw new Error(`Failed to sync campaigns from Airtable: ${error.message}`);
   }
 }
 
