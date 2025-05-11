@@ -9,7 +9,7 @@ import { db } from '../../db';
 import { eq, desc, sql } from 'drizzle-orm';
 import { leads, syncStatus } from '../../shared/schema';
 import type { AirtableRecord, LeadFields } from '../../shared/types';
-import { airtableClient } from './client';
+import { createRecord, listRecords, searchRecords } from './client';
 
 // Sync status tracking in the database
 export async function getSyncStatus() {
@@ -114,8 +114,7 @@ export async function syncLeadsToAirtable() {
       return { success: true, count: 0 };
     }
     
-    // Get Airtable client
-    const client = airtableClient();
+    // Get Airtable baseId
     const baseId = process.env.AIRTABLE_BASE_ID;
     const leadRecords = leadsToSync.map(lead => {
       // Convert PostgreSQL lead to Airtable record
@@ -150,9 +149,11 @@ export async function syncLeadsToAirtable() {
       const chunk = leadRecords.slice(i, i + chunkSize);
       
       try {
-        // Create or update records in Airtable
-        await client.createRecords(baseId, 'Leads', chunk);
-        processedCount += chunk.length;
+        // Create or update records in Airtable one at a time
+        for (const record of chunk) {
+          await createRecord(baseId, 'Leads', record.fields);
+          processedCount++;
+        }
                   
         console.log(`[airtable-sync] Synced ${processedCount}/${leadRecords.length} leads to Airtable`);
       } catch (error) {
@@ -180,8 +181,7 @@ export async function syncAirtableToLeads() {
       throw new Error('AIRTABLE_BASE_ID environment variable is not set');
     }
     
-    // Get Airtable client
-    const client = airtableClient();
+    // Get base ID
     const baseId = process.env.AIRTABLE_BASE_ID;
     
     // Get leads from Airtable that have been updated since last sync
@@ -194,14 +194,8 @@ export async function syncAirtableToLeads() {
     let airtableLeads: AirtableRecord<LeadFields>[] = [];
     
     try {
-      if (!lastSyncStatus?.lastSyncTime) {
-        // First sync - get all records
-        airtableLeads = await client.getAllRecords(baseId, 'Leads');
-      } else {
-        // Subsequent sync - get only records updated since last sync
-        const filterByFormula = `UPDATED_TIME() > '${lastSyncStatus.lastSyncTime.toISOString()}'`;
-        airtableLeads = await client.getRecords(baseId, 'Leads', { filterByFormula });
-      }
+      // First sync - get all records
+      airtableLeads = await listRecords(baseId, 'Leads');
     } catch (error) {
       console.error('[airtable-sync] Error fetching leads from Airtable:', error);
       await updateSyncStatus('airtable_to_leads', false, 0, `Error fetching leads: ${error instanceof Error ? error.message : String(error)}`);
