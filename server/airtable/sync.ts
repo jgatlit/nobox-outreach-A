@@ -8,7 +8,7 @@
 import { db } from '../../db';
 import { eq, desc, sql } from 'drizzle-orm';
 import { leads, syncStatus } from '../../shared/schema';
-import { Lead, AirtableRecord, LeadFields } from '../../shared/types';
+import type { AirtableRecord, LeadFields } from '../../shared/types';
 import { airtableClient } from './client';
 
 // Sync status tracking in the database
@@ -27,33 +27,73 @@ export async function getSyncStatus() {
     toAirtable: pgToAirtableStatus || { 
       id: 0, 
       type: 'leads_to_airtable', 
-      lastSync: null, 
-      recordsProcessed: 0, 
-      status: 'never_run',
-      message: 'Sync has never been run'
+      lastSyncTime: null, 
+      totalSynced: 0, 
+      lastSyncSuccess: false,
+      details: 'Sync has never been run',
+      createdAt: new Date(),
+      updatedAt: new Date()
     },
     fromAirtable: airtableToPgStatus || { 
       id: 0, 
       type: 'airtable_to_leads', 
-      lastSync: null, 
-      recordsProcessed: 0, 
-      status: 'never_run',
-      message: 'Sync has never been run'
+      lastSyncTime: null, 
+      totalSynced: 0, 
+      lastSyncSuccess: false,
+      details: 'Sync has never been run',
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
   };
 }
 
 // Update sync status in the database
-async function updateSyncStatus(type: 'leads_to_airtable' | 'airtable_to_leads', status: string, recordsProcessed: number, message?: string) {
-  const [result] = await db.insert(syncStatus).values({
-    type,
-    status,
-    recordsProcessed,
-    message: message || `Processed ${recordsProcessed} records`,
-    lastSync: new Date()
-  }).returning();
-  
-  return result;
+async function updateSyncStatus(type: 'leads_to_airtable' | 'airtable_to_leads', success: boolean, recordsProcessed: number, message?: string) {
+  try {
+    // Check if a record already exists
+    const existingStatus = await db.query.syncStatus.findFirst({
+      where: eq(syncStatus.type, type)
+    });
+    
+    if (existingStatus) {
+      // Update existing record
+      const [updated] = await db.update(syncStatus)
+        .set({
+          lastSyncTime: new Date(),
+          lastSyncSuccess: success,
+          totalSynced: existingStatus.totalSynced + recordsProcessed,
+          details: message || `Processed ${recordsProcessed} records`
+        })
+        .where(eq(syncStatus.id, existingStatus.id))
+        .returning();
+      
+      return updated;
+    } else {
+      // Create new record
+      const [result] = await db.insert(syncStatus).values({
+        type,
+        lastSyncTime: new Date(),
+        lastSyncSuccess: success,
+        totalSynced: recordsProcessed,
+        details: message || `Processed ${recordsProcessed} records`
+      }).returning();
+      
+      return result;
+    }
+  } catch (error) {
+    console.error(`[airtable-sync] Error updating sync status for ${type}:`, error);
+    // Return basic status object even if save fails
+    return {
+      id: 0,
+      type,
+      lastSyncTime: new Date(),
+      lastSyncSuccess: false,
+      totalSynced: recordsProcessed,
+      details: `Error: ${error instanceof Error ? error.message : String(error)}`,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
 }
 
 // Sync PostgreSQL leads to Airtable
@@ -65,14 +105,12 @@ export async function syncLeadsToAirtable() {
       throw new Error('AIRTABLE_BASE_ID environment variable is not set');
     }
     
-    // Get leads that haven't been synced or have been updated since last sync
-    const leadsToSync = await db.query.leads.findMany({
-      where: sql`(${leads.lastSyncedAt} IS NULL OR ${leads.updatedAt} > ${leads.lastSyncedAt})`
-    });
+    // Get all leads for now - later we can add a lastSyncedAt column to leads table
+    const leadsToSync = await db.query.leads.findMany();
     
     if (leadsToSync.length === 0) {
       console.log('[airtable-sync] No leads to sync to Airtable');
-      await updateSyncStatus('leads_to_airtable', 'success', 0, 'No leads to sync');
+      await updateSyncStatus('leads_to_airtable', true, 0, 'No leads to sync');
       return { success: true, count: 0 };
     }
     
@@ -94,7 +132,6 @@ export async function syncLeadsToAirtable() {
         website: lead.website || undefined,
         notes: lead.notes || undefined,
         tags: lead.tags as string[] || [],
-        lastActivityDate: lead.lastActivityDate ? new Date(lead.lastActivityDate).toISOString() : undefined,
         createdAt: new Date(lead.createdAt).toISOString(),
         updatedAt: new Date(lead.updatedAt).toISOString(),
         lastSyncedAt: new Date().toISOString(),
@@ -116,13 +153,7 @@ export async function syncLeadsToAirtable() {
         // Create or update records in Airtable
         await client.createRecords(baseId, 'Leads', chunk);
         processedCount += chunk.length;
-        
-        // Update sync timestamps in PostgreSQL
-        const leadIds = chunk.map(record => record.fields.id);
-        await db.update(leads)
-          .set({ lastSyncedAt: new Date() })
-          .where(sql`${leads.id} IN (${leadIds.join(',')})`);
-          
+                  
         console.log(`[airtable-sync] Synced ${processedCount}/${leadRecords.length} leads to Airtable`);
       } catch (error) {
         console.error(`[airtable-sync] Error syncing chunk ${i}-${i+chunkSize} to Airtable:`, error);
@@ -131,11 +162,11 @@ export async function syncLeadsToAirtable() {
     }
     
     // Update sync status
-    await updateSyncStatus('leads_to_airtable', 'success', processedCount);
+    await updateSyncStatus('leads_to_airtable', true, processedCount);
     return { success: true, count: processedCount };
   } catch (error) {
     console.error('[airtable-sync] Error syncing leads to Airtable:', error);
-    await updateSyncStatus('leads_to_airtable', 'error', 0, error instanceof Error ? error.message : String(error));
+    await updateSyncStatus('leads_to_airtable', false, 0, error instanceof Error ? error.message : String(error));
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -160,20 +191,26 @@ export async function syncAirtableToLeads() {
     });
     
     // Fetch all records if this is the first sync, otherwise only get updated ones
-    let airtableLeads: AirtableRecord<LeadFields>[];
+    let airtableLeads: AirtableRecord<LeadFields>[] = [];
     
-    if (!lastSyncStatus?.lastSync) {
-      // First sync - get all records
-      airtableLeads = await client.getAllRecords(baseId, 'Leads');
-    } else {
-      // Subsequent sync - get only records updated since last sync
-      const filterByFormula = `UPDATED_TIME() > '${lastSyncStatus.lastSync.toISOString()}'`;
-      airtableLeads = await client.getRecords(baseId, 'Leads', { filterByFormula });
+    try {
+      if (!lastSyncStatus?.lastSyncTime) {
+        // First sync - get all records
+        airtableLeads = await client.getAllRecords(baseId, 'Leads');
+      } else {
+        // Subsequent sync - get only records updated since last sync
+        const filterByFormula = `UPDATED_TIME() > '${lastSyncStatus.lastSyncTime.toISOString()}'`;
+        airtableLeads = await client.getRecords(baseId, 'Leads', { filterByFormula });
+      }
+    } catch (error) {
+      console.error('[airtable-sync] Error fetching leads from Airtable:', error);
+      await updateSyncStatus('airtable_to_leads', false, 0, `Error fetching leads: ${error instanceof Error ? error.message : String(error)}`);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
     
     if (airtableLeads.length === 0) {
       console.log('[airtable-sync] No leads to sync from Airtable');
-      await updateSyncStatus('airtable_to_leads', 'success', 0, 'No leads to sync');
+      await updateSyncStatus('airtable_to_leads', true, 0, 'No leads to sync');
       return { success: true, count: 0 };
     }
     
@@ -209,8 +246,7 @@ export async function syncAirtableToLeads() {
               priority: fields.priority as any || existingLead.priority,
               website: fields.website || existingLead.website,
               notes: fields.notes || existingLead.notes,
-              tags: fields.tags || existingLead.tags,
-              lastSyncedAt: new Date()
+              tags: fields.tags || existingLead.tags
             })
             .where(eq(leads.id, existingLead.id));
         } else {
@@ -226,8 +262,7 @@ export async function syncAirtableToLeads() {
             priority: fields.priority as any || null,
             website: fields.website || null,
             notes: fields.notes || null,
-            tags: fields.tags || [],
-            lastSyncedAt: new Date()
+            tags: fields.tags || []
           });
         }
         
@@ -239,11 +274,11 @@ export async function syncAirtableToLeads() {
     }
     
     // Update sync status
-    await updateSyncStatus('airtable_to_leads', 'success', processedCount);
+    await updateSyncStatus('airtable_to_leads', true, processedCount);
     return { success: true, count: processedCount };
   } catch (error) {
     console.error('[airtable-sync] Error syncing leads from Airtable:', error);
-    await updateSyncStatus('airtable_to_leads', 'error', 0, error instanceof Error ? error.message : String(error));
+    await updateSyncStatus('airtable_to_leads', false, 0, error instanceof Error ? error.message : String(error));
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
