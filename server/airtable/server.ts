@@ -41,10 +41,21 @@ export async function startAirtableServer() {
       // We'll spawn it as a child process instead
       const { spawn } = await import('child_process');
       
+      // Prepare the API key for MCP server
+      let formattedApiKey = process.env.AIRTABLE_API_KEY || '';
+      
+      // If it's a PAT format (starts with "pat") and already has "Bearer " prefix, remove it
+      // as the MCP server expects just the token itself
+      if (formattedApiKey.startsWith('Bearer pat')) {
+        formattedApiKey = formattedApiKey.replace('Bearer ', '');
+        log('Removed Bearer prefix from PAT for MCP server compatibility', 'airtable');
+      }
+      // If it's just a PAT without Bearer prefix, use as is
+      
       // Start the MCP server as a child process
       const mcpProcess = spawn('node', [
         './node_modules/airtable-mcp-server/dist/index.js',
-        process.env.AIRTABLE_API_KEY || ''
+        formattedApiKey
       ], {
         stdio: ['pipe', 'pipe', 'pipe'],
         detached: false

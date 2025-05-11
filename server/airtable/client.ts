@@ -36,9 +36,19 @@ try {
   if (!process.env.AIRTABLE_API_KEY) {
     log('Airtable not configured. Add AIRTABLE_API_KEY to use Airtable integration.', 'airtable');
   } else {
+    // Format the API key properly for a Personal Access Token (PAT)
+    // PATs start with "pat" and need to be provided as "Bearer patXXXXXX"
+    let formattedApiKey = process.env.AIRTABLE_API_KEY;
+    
+    // If it's a PAT but doesn't have the Bearer prefix, add it
+    if (formattedApiKey.startsWith('pat') && !formattedApiKey.startsWith('Bearer ')) {
+      formattedApiKey = `Bearer ${formattedApiKey}`;
+      log('Added Bearer prefix to Personal Access Token', 'airtable');
+    }
+    
     // Initialize with ES module import correctly - airtableLib is a constructor function
-    airtableInstance = new airtableLib({ apiKey: process.env.AIRTABLE_API_KEY });
-    log('Airtable package loaded successfully', 'airtable');
+    airtableInstance = new airtableLib({ apiKey: formattedApiKey });
+    log('Airtable package loaded successfully with Personal Access Token', 'airtable');
     
     // Use the correct base ID from config or environment variable
     // Use the verified base ID from our config, not the environment variable

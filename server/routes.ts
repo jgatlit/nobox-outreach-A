@@ -1840,9 +1840,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Test the new credentials
       try {
         const testUrl = `https://api.airtable.com/v0/${baseId || process.env.AIRTABLE_BASE_ID}/Conversations?maxRecords=1`;
+        
+        // Format the API key properly
+        let authHeader = apiKey || process.env.AIRTABLE_API_KEY || '';
+        
+        // If it's a PAT (starts with "pat") but doesn't have "Bearer " prefix, add it
+        if (authHeader.startsWith('pat') && !authHeader.startsWith('Bearer ')) {
+          authHeader = `Bearer ${authHeader}`;
+          console.log('[airtable] Added Bearer prefix to PAT for API test');
+        }
+        
         const testResponse = await fetch(testUrl, {
           headers: {
-            'Authorization': `Bearer ${apiKey || process.env.AIRTABLE_API_KEY}`
+            'Authorization': authHeader
           }
         });
         
