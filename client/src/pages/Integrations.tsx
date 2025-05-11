@@ -165,11 +165,13 @@ export default function Integrations() {
           }
         }
       } catch (error: any) {
-        // Handle error response from API
-        if (error.message && error.message.includes('400')) {
+        // Handle error response from API - check for any HTTP error code
+        if (error.message && /\d{3}:/.test(error.message)) {
           try {
-            // Try to parse the error response
-            const errorText = error.message.split(': ')[1];
+            // Try to parse the error response - need to handle different formats
+            const errorMatch = error.message.match(/\d+: (.*)/);
+            const errorText = errorMatch ? errorMatch[1] : error.message;
+            console.log("Error text to parse:", errorText);
             const errorJson = JSON.parse(errorText);
             
             if (errorJson.fieldError && errorJson.missingField) {
