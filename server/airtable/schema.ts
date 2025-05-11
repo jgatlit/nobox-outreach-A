@@ -306,8 +306,7 @@ export async function createLeadsTable(baseId: string): Promise<{
             description: 'Creation timestamp',
             options: {
               dateFormat: { name: 'iso' },
-              timeFormat: { name: '24hour' },
-              timeZone: 'UTC'
+              timeFormat: { name: '24hour' }
             } 
           },
           { 
@@ -316,8 +315,7 @@ export async function createLeadsTable(baseId: string): Promise<{
             description: 'Last update timestamp',
             options: {
               dateFormat: { name: 'iso' },
-              timeFormat: { name: '24hour' },
-              timeZone: 'UTC'
+              timeFormat: { name: '24hour' }
             } 
           },
           { 
@@ -326,8 +324,7 @@ export async function createLeadsTable(baseId: string): Promise<{
             description: 'Last synchronization timestamp',
             options: {
               dateFormat: { name: 'iso' },
-              timeFormat: { name: '24hour' },
-              timeZone: 'UTC'
+              timeFormat: { name: '24hour' }
             } 
           },
           { name: 'syncSource', type: 'singleSelect', description: 'Synchronization source',
