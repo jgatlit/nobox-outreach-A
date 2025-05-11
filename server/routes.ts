@@ -7,7 +7,7 @@ import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSu
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
-import { syncLeadsToAirtable, syncLeadsFromAirtable, syncCampaignsToAirtable, syncCampaignsFromAirtable, listAirtableTables, getAirtableRecords, callAirtableApi } from "./airtable";
+import { syncLeadsToAirtable, syncLeadsFromAirtable, syncCampaignsToAirtable, syncCampaignsFromAirtable, listAirtableTables, getAirtableRecords, callAirtableApi, validateAirtableAccess } from "./airtable";
 import path from "path";
 import fs from "fs";
 import { db } from "../db";
@@ -1470,9 +1470,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const baseId = req.query.baseId as string;
 
-      // Add baseId validation
-      if (!/^app[A-Za-z0-9]{14}$/.test(baseId)) {
-        return res.status(400).json({ error: "Invalid Airtable base ID format" });
+      // Validate Airtable access
+      const validation = await validateAirtableAccess(baseId);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: "Airtable Base ID validation failed", 
+          message: validation.message 
+        });
       }
 
       const tables = await listAirtableTables(baseId);
@@ -1594,9 +1598,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if baseId is provided or available in environment
       const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
       
-      if (!effectiveBaseId) {
+      // Validate Airtable access
+      const validation = await validateAirtableAccess(effectiveBaseId);
+      if (!validation.success) {
         return res.status(400).json({ 
-          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+          error: "Airtable Base ID validation failed", 
+          message: validation.message 
         });
       }
 
@@ -1727,9 +1734,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if baseId is provided or available in environment
       const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
       
-      if (!effectiveBaseId) {
+      // Validate Airtable access
+      const validation = await validateAirtableAccess(effectiveBaseId);
+      if (!validation.success) {
         return res.status(400).json({ 
-          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+          error: "Airtable Base ID validation failed", 
+          message: validation.message 
         });
       }
       
@@ -1772,9 +1782,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if baseId is provided or available in environment
       const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
       
-      if (!effectiveBaseId) {
+      // Validate Airtable access
+      const validation = await validateAirtableAccess(effectiveBaseId);
+      if (!validation.success) {
         return res.status(400).json({ 
-          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+          error: "Airtable Base ID validation failed", 
+          message: validation.message 
         });
       }
       
