@@ -26,7 +26,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 interface AirtableStatus {
   config: {
     isConfigured: boolean;
-    apiKeyPresent: boolean;
+    apiKeyPresent: boolean; // Whether PAT is present
     baseIdPresent: boolean;
     baseIdCorrect: boolean;
     usedBaseId: string;

@@ -85,8 +85,8 @@ export async function verifyAirtableTables(baseId: string): Promise<{
   tables: Record<string, { exists: boolean; error?: string }>;
   error?: string;
   apiKeyInfo?: {
-    type: "pat" | "classic_key" | "unknown";
-    format: "valid" | "invalid";
+    type: string;
+    format: string;
     hasPrefix: boolean;
   };
 }> {
@@ -103,12 +103,13 @@ export async function verifyAirtableTables(baseId: string): Promise<{
     }
     
     // Check if the API key is a PAT and format it correctly
+    // Create mutable version of apiKeyInfo
     const apiKeyInfo = {
       type: apiKey.startsWith('pat') || apiKey.startsWith('Bearer pat') ? 'pat' : 
             (apiKey.length > 16 && !apiKey.startsWith('pat') && !apiKey.startsWith('Bearer')) ? 'classic_key' : 'unknown',
       format: 'valid',
       hasPrefix: apiKey.startsWith('Bearer ')
-    } as const;
+    };
     
     // If it's a PAT (starts with "pat") but doesn't have the Bearer prefix, add it
     if (apiKey.startsWith('pat') && !apiKey.startsWith('Bearer')) {
@@ -190,8 +191,8 @@ export async function verifyAirtableTables(baseId: string): Promise<{
       tables: {},
       error: error instanceof Error ? error.message : String(error),
       apiKeyInfo: {
-        type: 'unknown' as const,
-        format: 'invalid' as const,
+        type: 'unknown',
+        format: 'invalid',
         hasPrefix: false
       }
     };
