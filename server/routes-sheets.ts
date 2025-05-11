@@ -131,7 +131,7 @@ export function registerGoogleSheetsRoutes(app: Express): void {
             phoneNumber: leadData.phoneNumber || null,
             website: leadData.website || null,
             linkedinUrl: leadData.linkedinUrl || null,
-            source: 'manual', // Default source for Google Sheets
+            source: 'import', // Set source type to import for Google Sheets
             status: leadData.status as any || 'active',
             priority: leadData.priority as any || 'medium',
             notes: leadData.notes || null,
