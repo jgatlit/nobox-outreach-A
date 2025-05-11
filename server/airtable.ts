@@ -7,6 +7,7 @@
 
 import axios from 'axios';
 import { config } from 'dotenv';
+import { AxiosError } from 'axios';
 
 // Initialize environment variables
 config();
@@ -16,7 +17,7 @@ const AIRTABLE_API_URL = 'https://api.airtable.com/v0';
 const MCP_SERVER_URL = 'https://airtable-mcp-proxy.deno.dev';
 
 // Validate required environment variables
-const validateEnvVars = () => {
+const validateEnvVars = (): { pat: string; baseId: string } => {
   const missing = [];
   if (!process.env.AIRTABLE_PAT) missing.push('AIRTABLE_PAT');
   if (!process.env.AIRTABLE_BASE_ID) missing.push('AIRTABLE_BASE_ID');
@@ -25,15 +26,19 @@ const validateEnvVars = () => {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
   
-  return {
-    pat: process.env.AIRTABLE_PAT,
-    baseId: process.env.AIRTABLE_BASE_ID
-  };
+  // We can assert these are not undefined because we checked above
+  const pat = process.env.AIRTABLE_PAT as string;
+  const baseId = process.env.AIRTABLE_BASE_ID as string;
+  
+  return { pat, baseId };
 };
 
 // Get auth headers for API requests
 const getAuthHeaders = () => {
   const { pat } = validateEnvVars();
+  if (!pat) {
+    throw new Error('PAT not found in environment variables');
+  }
   return {
     'Authorization': `Bearer ${pat}`,
     'Content-Type': 'application/json'
@@ -75,8 +80,10 @@ class AirtableClient {
       
       return response.data;
     } catch (error) {
+      const axiosError = error as AxiosError;
+      
       // Handle rate limiting with exponential backoff
-      if (error.response && error.response.status === 429 && retryCount < this.maxRetries) {
+      if (axiosError.response && axiosError.response.status === 429 && retryCount < this.maxRetries) {
         const delay = Math.pow(2, retryCount) * 1000;
         console.log(`Rate limited, retrying after ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -85,9 +92,9 @@ class AirtableClient {
       
       // Log the error details for debugging
       console.error('Airtable API Error:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
+        status: axiosError.response?.status,
+        statusText: axiosError.response?.statusText,
+        data: axiosError.response?.data,
         url,
         method
       });
@@ -176,7 +183,8 @@ class MCPClient {
       
       return response.data;
     } catch (error) {
-      console.error('MCP Server Error:', error.response?.data || error.message);
+      const axiosError = error as AxiosError;
+      console.error('MCP Server Error:', axiosError.response?.data || axiosError.message);
       throw error;
     }
   }
@@ -273,7 +281,8 @@ export class AirtableService {
         }))
       };
     } catch (error) {
-      console.error('Error fetching tables:', error.message);
+      const axiosError = error as AxiosError;
+      console.error('Error fetching tables:', axiosError.message);
       throw error;
     }
   }
