@@ -242,7 +242,14 @@ export async function createLeadsTable(baseId: string): Promise<{
         name: TABLES.LEADS,
         description: 'Synchronized leads from the noboxLeadGen application',
         fields: [
-          { name: 'id', type: 'number', description: 'PostgreSQL ID' },
+          { 
+            name: 'id', 
+            type: 'number', 
+            description: 'PostgreSQL ID',
+            options: {
+              precision: 0  // Integer
+            }
+          },
           { name: 'firstName', type: 'singleLineText', description: 'First name' },
           { name: 'lastName', type: 'singleLineText', description: 'Last name' },
           { name: 'email', type: 'email', description: 'Email address' },
