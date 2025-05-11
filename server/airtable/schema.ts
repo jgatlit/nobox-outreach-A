@@ -84,10 +84,15 @@ export async function verifyAirtableTables(baseId: string): Promise<{
   success: boolean;
   tables: Record<string, { exists: boolean; error?: string }>;
   error?: string;
+  apiKeyInfo?: {
+    type: 'pat' | 'old_api_key' | 'unknown';
+    format: 'valid' | 'invalid';
+    hasPrefix: boolean;
+  };
 }> {
   try {
     // Get the API key
-    const apiKey = process.env.AIRTABLE_API_KEY;
+    let apiKey = process.env.AIRTABLE_API_KEY;
     
     if (!apiKey) {
       return {
@@ -95,6 +100,20 @@ export async function verifyAirtableTables(baseId: string): Promise<{
         tables: {},
         error: "Airtable API key not configured"
       };
+    }
+    
+    // Check if the API key is a PAT and format it correctly
+    const apiKeyInfo = {
+      type: apiKey.startsWith('pat') || apiKey.startsWith('Bearer pat') ? 'pat' : 
+            (apiKey.length > 16 && !apiKey.startsWith('pat') && !apiKey.startsWith('Bearer')) ? 'old_api_key' : 'unknown',
+      format: 'valid',
+      hasPrefix: apiKey.startsWith('Bearer ')
+    };
+    
+    // If it's a PAT (starts with "pat") but doesn't have the Bearer prefix, add it
+    if (apiKey.startsWith('pat') && !apiKey.startsWith('Bearer')) {
+      apiKey = `Bearer ${apiKey}`;
+      console.log('[airtable] Added Bearer prefix to PAT for Airtable API verification');
     }
     
     if (!baseId) {
@@ -143,17 +162,38 @@ export async function verifyAirtableTables(baseId: string): Promise<{
     // Overall success if all tables exist
     const success = Object.values(results).every(r => r.exists);
     
+    // Check if we're having authentication issues
+    const hasAuthIssues = Object.values(results).some(r => {
+      if (!r.error) return false;
+      return r.error.includes('UNAUTHORIZED') || 
+             r.error.includes('AUTHENTICATION_REQUIRED') || 
+             r.error.includes('Invalid authentication token');
+    });
+    
+    if (hasAuthIssues) {
+      // Update apiKeyInfo format status
+      apiKeyInfo.format = 'invalid';
+    }
+    
     return {
       success,
       tables: results,
-      error: success ? undefined : "Some required tables are missing or inaccessible"
+      error: success ? undefined : 
+             hasAuthIssues ? "Authentication failed. Verify your Personal Access Token is correct and has proper permissions." :
+             "Some required tables are missing or inaccessible",
+      apiKeyInfo
     };
   } catch (error) {
     console.error("[airtable] Error verifying tables:", error);
     return {
       success: false,
       tables: {},
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      apiKeyInfo: {
+        type: 'unknown',
+        format: 'invalid',
+        hasPrefix: false
+      }
     };
   }
 }
