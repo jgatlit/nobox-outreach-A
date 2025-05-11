@@ -95,26 +95,42 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
   const saveApiConfig = async () => {
     setConfiguring(true);
     try {
-      // In a real implementation, we would POST to '/api/airtable/config'
-      // For now, store in localStorage for demo purposes
+      // Create the request to update Airtable credentials on the server
       if (apiKey || baseId) {
-        // If API key is provided, update it
+        const credentials: Record<string, string> = {};
+        
+        // Only include provided credentials
         if (apiKey) {
-          localStorage.setItem('AIRTABLE_API_KEY', apiKey);
+          credentials.apiKey = apiKey;
         }
         
-        // If Base ID is provided, update it
         if (baseId) {
-          localStorage.setItem('AIRTABLE_BASE_ID', baseId);
+          credentials.baseId = baseId;
+        }
+        
+        // POST the credentials to the server
+        const response = await fetch('/api/airtable/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(credentials)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to save configuration');
         }
         
         toast({
           title: 'Configuration Saved',
-          description: 'Airtable configuration has been updated successfully.',
+          description: 'Airtable credentials have been updated successfully. The system will restart required services.',
         });
         
-        // Refresh status
-        await fetchStatus();
+        // Give the server a moment to apply the new credentials
+        setTimeout(async () => {
+          await fetchStatus();
+        }, 2000);
       } else {
         toast({
           title: 'No Changes',
@@ -125,7 +141,7 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
       console.error('Error saving Airtable configuration:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save Airtable configuration. Please try again.',
+        description: `Failed to save Airtable configuration: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: 'destructive',
       });
     } finally {
@@ -256,14 +272,17 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
               
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="airtable-api-key">Airtable API Key</Label>
+                  <Label htmlFor="airtable-api-key">Airtable Personal Access Token</Label>
                   <Input 
                     id="airtable-api-key" 
                     type="password" 
-                    placeholder="Enter API key" 
+                    placeholder="pat..." 
                     value={apiKey} 
                     onChange={(e) => setApiKey(e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Starts with "pat" (e.g., patXXXXXXXX)
+                  </p>
                 </div>
                 
                 <div className="space-y-2">
@@ -279,14 +298,20 @@ export function AirtableStatusTile({ className }: AirtableStatusTileProps) {
                   </p>
                 </div>
                 
-                <Alert>
+                <Alert className="mt-4">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Note</AlertTitle>
-                  <AlertDescription>
-                    Find your API key in the 
-                    <a href="https://airtable.com/account" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline ml-1">
-                      Airtable account settings
-                    </a>
+                  <AlertTitle>How to get a Personal Access Token</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>
+                      Personal Access Tokens have replaced traditional API keys in Airtable.
+                    </p>
+                    <ol className="list-decimal pl-4 text-xs space-y-1">
+                      <li>Go to <a href="https://airtable.com/create/tokens" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">Airtable Developer Hub</a></li>
+                      <li>Click "Create new token"</li>
+                      <li>Name your token (e.g., "NoBox Lead Integration")</li>
+                      <li>Select your base and set scopes to "data.records:read" and "data.records:write"</li>
+                      <li>Click "Create token" and copy the token starting with "pat..."</li>
+                    </ol>
                   </AlertDescription>
                 </Alert>
               </div>

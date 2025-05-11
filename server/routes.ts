@@ -1811,6 +1811,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Route to update Airtable configuration
+  app.post("/api/airtable/config", async (req, res) => {
+    try {
+      const { apiKey, baseId } = req.body;
+      
+      if (!apiKey && !baseId) {
+        return res.status(400).json({
+          success: false,
+          message: 'No configuration changes provided'
+        });
+      }
+      
+      // Save API key to .env or environment
+      if (apiKey) {
+        // Format is "Bearer patXXXXXXXXXXXXXX" for Airtable PAT
+        // or just "patXXXXXXXXXXXXXX" is also acceptable
+        // Store the API key as-is
+        process.env.AIRTABLE_API_KEY = apiKey;
+        console.log('[airtable] API key has been updated');
+      }
+      
+      if (baseId) {
+        process.env.AIRTABLE_BASE_ID = baseId;
+        console.log('[airtable] Base ID has been updated to', baseId);
+      }
+      
+      // Test the new credentials
+      try {
+        const testUrl = `https://api.airtable.com/v0/${baseId || process.env.AIRTABLE_BASE_ID}/Conversations?maxRecords=1`;
+        const testResponse = await fetch(testUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey || process.env.AIRTABLE_API_KEY}`
+          }
+        });
+        
+        if (testResponse.ok) {
+          console.log('[airtable] Test connection successful');
+        } else {
+          const errorText = await testResponse.text();
+          console.error('[airtable] Test connection failed:', errorText);
+        }
+        
+        // Restart the Airtable server
+        try {
+          const { startAirtableServer } = await import('./airtable');
+          console.log('[airtable] Restarting Airtable MCP server with new credentials...');
+          const serverStatus = await startAirtableServer();
+          
+          return res.json({
+            success: true,
+            message: 'Airtable configuration updated successfully',
+            connectionTest: {
+              success: testResponse.ok,
+              status: testResponse.status,
+              statusText: testResponse.statusText
+            },
+            serverRestarted: Boolean(serverStatus)
+          });
+        } catch (serverError: any) {
+          console.error('[airtable] Error restarting Airtable server:', serverError);
+          return res.json({
+            success: true,
+            message: 'Airtable configuration updated but server restart failed',
+            connectionTest: {
+              success: testResponse.ok,
+              status: testResponse.status,
+              statusText: testResponse.statusText
+            },
+            serverError: serverError?.message || String(serverError)
+          });
+        }
+      } catch (testError: any) {
+        console.error('[airtable] Error testing new credentials:', testError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to test new Airtable credentials',
+          error: testError?.message || String(testError)
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating Airtable configuration:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update Airtable configuration',
+        error: error?.message || String(error)
+      });
+    }
+  });
+  
   // Direct test endpoint for the Airtable API connection
   app.get("/api/airtable/test-connection", async (req, res) => {
     try {
