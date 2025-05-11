@@ -20,8 +20,10 @@ import {
   getSyncStatus, 
   triggerFullSync, 
   syncLeadsToAirtable, 
-  syncAirtableToLeads
+  syncAirtableToLeads,
+  syncSpecificLeadToAirtable
 } from "./airtable/sync";
+import { runDiagnostics } from "./airtable/diagnostics";
 import { startLeadSyncScheduler, stopLeadSyncScheduler } from "./scheduler";
 import path from "path";
 import fs from "fs";
@@ -1702,7 +1704,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Diagnostic endpoint to directly test Airtable API connection
-  // Diagnostic endpoint for the Airtable configuration and connection status
+  app.get("/api/airtable/diagnostics", async (req, res) => {
+    try {
+      if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+        return res.status(400).json({ 
+          error: "Airtable not configured. Please add AIRTABLE_API_KEY and AIRTABLE_BASE_ID environment variables." 
+        });
+      }
+      
+      const diagnostics = await runDiagnostics();
+      return res.json(diagnostics);
+    } catch (error) {
+      console.error("Error running Airtable diagnostics:", error);
+      return res.status(500).json({ 
+        error: "Failed to run Airtable diagnostics",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // API routes for lead synchronization with Airtable
   app.get("/api/airtable/sync/status", async (req, res) => {
     try {

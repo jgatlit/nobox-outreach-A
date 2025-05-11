@@ -310,8 +310,6 @@ export async function syncSpecificLeadToAirtable(leadId: number) {
       };
     }
     
-    // Get Airtable client
-    const client = airtableClient();
     const baseId = process.env.AIRTABLE_BASE_ID;
     
     // Convert PostgreSQL lead to Airtable record
@@ -328,7 +326,6 @@ export async function syncSpecificLeadToAirtable(leadId: number) {
       website: lead.website || undefined,
       notes: lead.notes || undefined,
       tags: lead.tags as string[] || [],
-      lastActivityDate: lead.lastActivityDate ? new Date(lead.lastActivityDate).toISOString() : undefined,
       createdAt: new Date(lead.createdAt).toISOString(),
       updatedAt: new Date(lead.updatedAt).toISOString(),
       lastSyncedAt: new Date().toISOString(),
@@ -336,7 +333,7 @@ export async function syncSpecificLeadToAirtable(leadId: number) {
     };
     
     // Create or update record in Airtable
-    await client.createRecords(baseId, 'Leads', [{ fields }]);
+    await createRecord(baseId, 'Leads', fields);
     
     // Update sync timestamp in PostgreSQL
     await db.update(leads)
