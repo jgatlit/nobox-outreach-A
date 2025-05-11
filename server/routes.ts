@@ -8,6 +8,14 @@ import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
 import { isAirtableConfigured, searchRecords, listRecords, createRecord, updateRecord, deleteRecord } from "./airtable";
+import { 
+  getSyncStatus, 
+  triggerFullSync, 
+  syncLeadsToAirtable, 
+  syncLeadsFromAirtable,
+  syncSpecificLeadToAirtable
+} from "./airtable/sync";
+import { startLeadSyncScheduler, stopLeadSyncScheduler } from "./scheduler";
 import path from "path";
 import fs from "fs";
 import * as https from 'node:https';

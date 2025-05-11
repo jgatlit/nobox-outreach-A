@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Database, CloudSync } from "lucide-react";
+import { RefreshCw, Database, Cloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -76,7 +76,7 @@ export function LeadsSyncStatus() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CloudSync className="h-10 w-10 text-purple-500" />
+          <Cloud className="h-10 w-10 text-purple-500" />
           {getStatusBadge()}
         </div>
         <CardTitle className="mt-4">Leads Sync</CardTitle>

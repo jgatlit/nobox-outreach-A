@@ -15,6 +15,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { formatRelativeTime } from "@/lib/utils";
 import { AirtableStatusTile } from "@/components/Integrations/AirtableStatusTile";
 import { GoogleSheetsStatusTile } from "@/components/Integrations/GoogleSheetsStatusTile";
+import { LeadsSyncStatus } from "@/components/Integrations/LeadsSyncStatus";
 import { 
   CheckCircle, 
   AlertTriangle, 
@@ -172,6 +173,11 @@ export default function Integrations() {
           {/* Google Sheets status tile - always show in "all" or "database" tabs */}
           {(activeTab === "all" || activeTab === "database") && (
             <GoogleSheetsStatusTile />
+          )}
+          
+          {/* Leads Sync status tile - always show in "all" or "database" tabs */}
+          {(activeTab === "all" || activeTab === "database") && (
+            <LeadsSyncStatus />
           )}
           
           {/* Regular integrations from the backend */}
