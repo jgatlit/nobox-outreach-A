@@ -2,6 +2,7 @@
  * Airtable MCP Client
  * 
  * This file provides utility functions to interact with Airtable via the MCP server.
+ * It handles authentication and provides fallback mechanisms when the MCP server is unavailable.
  */
 
 import * as Airtable from 'airtable';
@@ -9,6 +10,7 @@ import { airtableConfig } from './config';
 import { log } from '../vite';
 import { getMcpClientAdapter } from './mcp-client';
 import { getMcpServerStatus } from '.';
+import { AirtableAuth, getAuth, processAuth, testAuth } from './auth';
 
 // Define client interface since type definitions are incomplete
 interface AirtableMCPClient {
@@ -28,78 +30,85 @@ import airtableLib from 'airtable';
 // Will use MCP server when available with fallback to direct client
 let airtableInstance: any = null;
 let mcpClientAdapter: any = null;
+let authInfo: AirtableAuth = getAuth();
 
-try {
-  log('Initializing direct Airtable client...', 'airtable');
-  
-  // Check if we have the necessary API key
-  if (!process.env.AIRTABLE_API_KEY) {
-    log('Airtable not configured. Add AIRTABLE_API_KEY to use Airtable integration.', 'airtable');
-  } else {
-    // Format the API key properly for a Personal Access Token (PAT)
-    // PATs start with "pat" and need to be provided as "Bearer patXXXXXX"
-    let formattedApiKey = process.env.AIRTABLE_API_KEY;
+/**
+ * Initialize the Airtable client with proper authentication
+ */
+async function initializeAirtableClient() {
+  try {
+    log('Initializing Airtable client...', 'airtable');
     
-    // If it's a PAT but doesn't have the Bearer prefix, add it
-    if (formattedApiKey && formattedApiKey.startsWith('pat') && !formattedApiKey.startsWith('Bearer ')) {
-      formattedApiKey = `Bearer ${formattedApiKey}`;
-      log('Added Bearer prefix to Personal Access Token', 'airtable');
+    // Get authentication credentials
+    authInfo = getAuth();
+    
+    if (!authInfo.rawValue) {
+      log('Airtable not configured. Add AIRTABLE_API_KEY to use Airtable integration.', 'airtable');
+      return false;
     }
     
-    // If it doesn't start with either pat or Bearer, it might be the wrong format
-    if (formattedApiKey && !formattedApiKey.startsWith('pat') && !formattedApiKey.startsWith('Bearer')) {
-      log('Warning: API key does not appear to be a Personal Access Token. It should start with "pat"', 'airtable');
+    // Log information about the authentication type
+    if (authInfo.type === 'pat') {
+      log('Using Personal Access Token (PAT) for Airtable authentication', 'airtable');
+      if (authInfo.hasPrefix) {
+        log('PAT includes Bearer prefix', 'airtable');
+      } else {
+        log('PAT does not include Bearer prefix, it will be added for API calls', 'airtable');
+      }
+    } else if (authInfo.type === 'classic_key') {
+      log('Using Classic API Key for Airtable authentication (PAT is recommended for better security)', 'airtable');
+    } else {
+      log('Unknown authentication type. Please check your AIRTABLE_API_KEY format', 'airtable');
     }
     
-    // Initialize with ES module import correctly - airtableLib is a constructor function
-    // When using a Personal Access Token (PAT), we need to remove "Bearer " prefix for the apiKey parameter
-    // but keep it for Authorization headers in fetch calls
-    let apiKeyForSDK = formattedApiKey;
-    if (apiKeyForSDK && apiKeyForSDK.startsWith('Bearer ')) {
-      apiKeyForSDK = apiKeyForSDK.substring(7); // Remove "Bearer " prefix
-      log('Removed Bearer prefix for Airtable SDK initialization', 'airtable');
-    }
-    
-    airtableInstance = new airtableLib({ apiKey: apiKeyForSDK });
-    log('Airtable package loaded successfully', 'airtable');
-    
-    // Use the correct base ID from config or environment variable
-    // Use the verified base ID from our config, not the environment variable
-    const baseId = airtableConfig.bases[0].id;
-    log(`Using Airtable Base ID: ${baseId}`, 'airtable');
-    
-    // Try to list all tables to validate connection
+    // Initialize with Airtable package
     try {
-      const base = airtableInstance.base(baseId);
-      // This is a hack to get the tables - we have to make a request to the API
-      // and catch the response which includes table info
-      log('Attempting to list available tables in the base...', 'airtable');
+      airtableInstance = new airtableLib({ apiKey: authInfo.sdkValue });
+      log('Airtable package initialized successfully', 'airtable');
       
-      // Try to ping the Pipelines table which we know exists
-      base('Pipelines').select({ maxRecords: 1 }).firstPage()
-        .then(() => {
-          log('Successfully connected to Airtable base and verified "Pipelines" table exists', 'airtable');
-        })
-        .catch((err: any) => {
-          log(`Error accessing Pipelines table: ${err?.message || 'Unknown error'}`, 'airtable');
-        });
-    } catch (innerError: any) {
-      log(`Error checking base tables: ${innerError?.message || 'Unknown error'}`, 'airtable');
+      // Test the authentication if we have a base ID
+      const baseId = process.env.AIRTABLE_BASE_ID || airtableConfig.bases[0]?.id;
+      if (baseId) {
+        authInfo = await testAuth(baseId, authInfo);
+        if (authInfo.status === 'valid') {
+          log('Airtable authentication verified successfully', 'airtable');
+          return true;
+        } else {
+          log('Airtable authentication failed verification', 'airtable');
+          return false;
+        }
+      }
+    } catch (sdkError: any) {
+      log(`Error initializing Airtable SDK: ${sdkError?.message || 'Unknown error'}`, 'airtable');
+      return false;
     }
+    
+    return true;
+  } catch (error: any) {
+    log(`Error in Airtable client initialization: ${error?.message || 'Unknown error'}`, 'airtable');
+    return false;
   }
-} catch (error: any) {
-  log(`Error in Airtable client initialization: ${error?.message || 'Unknown error'}`, 'airtable');
 }
 
-// Initialize with either environment variable or config file value
-const apiKey = process.env.AIRTABLE_API_KEY || airtableConfig.apiKey;
+// Initialize the client when this module is loaded
+initializeAirtableClient().then(success => {
+  if (success) {
+    log('Airtable client initialization completed successfully', 'airtable');
+  } else {
+    log('Airtable client initialization failed or incomplete', 'airtable');
+  }
+});
 
 // Initialize the MCP client adapter with the correct base ID
 try {
-  // Use the correct base ID from our config
-  const baseId = airtableConfig.bases[0].id;
-  mcpClientAdapter = getMcpClientAdapter(baseId);
-  log(`MCP client adapter initialized with baseId: ${baseId}`, 'airtable');
+  // Use the base ID from environment or config
+  const baseId = process.env.AIRTABLE_BASE_ID || airtableConfig.bases[0]?.id;
+  if (baseId) {
+    mcpClientAdapter = getMcpClientAdapter(baseId);
+    log(`MCP client adapter initialized with baseId: ${baseId}`, 'airtable');
+  } else {
+    log('No Airtable base ID available for MCP client adapter', 'airtable');
+  }
 } catch (error: any) {
   log(`Error initializing MCP client adapter: ${error?.message || 'Unknown error'}`, 'airtable');
 }
@@ -114,10 +123,42 @@ async function isMcpServerRunning(): Promise<boolean> {
   }
 }
 
+/**
+ * Ensures that we have a valid Airtable client instance
+ * If not, attempts to initialize it on-demand
+ * @returns True if client is available, false otherwise
+ */
+async function ensureAirtableClient(): Promise<boolean> {
+  if (airtableInstance) {
+    return true;
+  }
+  
+  // Try to initialize the client on-demand
+  log('Attempting to initialize Airtable client on-demand', 'airtable');
+  
+  // Get fresh authentication info
+  authInfo = getAuth();
+  
+  if (!authInfo.rawValue) {
+    log('Airtable API key not available. Check environment variables.', 'airtable');
+    return false;
+  }
+  
+  try {
+    airtableInstance = new airtableLib({ apiKey: authInfo.sdkValue });
+    log('Airtable client initialized successfully on-demand', 'airtable');
+    return true;
+  } catch (error) {
+    log(`Failed to initialize Airtable client: ${error}`, 'airtable');
+    return false;
+  }
+}
+
 // Create a compatible interface adapter with error handling and MCP server support
 airtableClient = {
   query: async (baseId: string, tableName: string, options = {}) => {
-    if (!process.env.AIRTABLE_API_KEY) {
+    // Verify we have authentication info
+    if (!authInfo.rawValue) {
       log('Airtable API key not configured. Check your environment variables.', 'airtable');
       throw new Error('Airtable API key not configured');
     }
@@ -129,28 +170,15 @@ airtableClient = {
         log('Using MCP server for query operation', 'airtable');
         return await mcpClientAdapter.query(baseId, tableName, options);
       } catch (mcpError: any) {
-        log(`MCP query failed, using fallback: ${mcpError?.message || 'Unknown error'}`, 'airtable');
         log(`MCP query failed, falling back to direct client: ${mcpError?.message || 'Unknown error'}`, 'airtable');
         // Fall through to direct client if MCP fails
       }
     }
 
     // Fall back to direct client
-    if (!airtableInstance) {
-      log('Attempting to initialize Airtable client on-demand', 'airtable');
-      
-      // Format API key for direct use
-      let apiKeyForSDK = process.env.AIRTABLE_API_KEY || '';
-      if (apiKeyForSDK.startsWith('Bearer ')) {
-        apiKeyForSDK = apiKeyForSDK.substring(7); // Remove "Bearer " prefix
-      }
-      
-      try {
-        airtableInstance = new airtableLib({ apiKey: apiKeyForSDK });
-      } catch (initError) {
-        log(`Failed to initialize Airtable client: ${initError}`, 'airtable');
-        return [];
-      }
+    if (!await ensureAirtableClient()) {
+      log('Failed to initialize Airtable client for query operation', 'airtable');
+      return [];
     }
     
     try {
@@ -166,7 +194,8 @@ airtableClient = {
   },
   
   create: async (baseId: string, tableName: string, fields: Record<string, any>) => {
-    if (!process.env.AIRTABLE_API_KEY) {
+    // Verify we have authentication info
+    if (!authInfo.rawValue) {
       log('Airtable API key not configured. Check your environment variables.', 'airtable');
       throw new Error('Airtable API key not configured');
     }
@@ -178,28 +207,15 @@ airtableClient = {
         log('Using MCP server for create operation', 'airtable');
         return await mcpClientAdapter.create(baseId, tableName, fields);
       } catch (mcpError: any) {
-        log(`MCP create failed, using fallback: ${mcpError?.message || 'Unknown error'}`, 'airtable');
         log(`MCP create failed, falling back to direct client: ${mcpError?.message || 'Unknown error'}`, 'airtable');
         // Fall through to direct client if MCP fails
       }
     }
     
     // Fall back to direct client
-    if (!airtableInstance) {
-      log('Attempting to initialize Airtable client on-demand', 'airtable');
-      
-      // Format API key for direct use
-      let apiKeyForSDK = process.env.AIRTABLE_API_KEY || '';
-      if (apiKeyForSDK.startsWith('Bearer ')) {
-        apiKeyForSDK = apiKeyForSDK.substring(7); // Remove "Bearer " prefix
-      }
-      
-      try {
-        airtableInstance = new airtableLib({ apiKey: apiKeyForSDK });
-      } catch (initError) {
-        log(`Failed to initialize Airtable client: ${initError}`, 'airtable');
-        throw new Error(`Failed to initialize Airtable client: ${initError}`);
-      }
+    if (!await ensureAirtableClient()) {
+      log('Failed to initialize Airtable client for create operation', 'airtable');
+      throw new Error('Failed to initialize Airtable client');
     }
     
     try {
@@ -214,7 +230,8 @@ airtableClient = {
   },
   
   update: async (baseId: string, tableName: string, recordId: string, fields: Record<string, any>) => {
-    if (!process.env.AIRTABLE_API_KEY) {
+    // Verify we have authentication info
+    if (!authInfo.rawValue) {
       log('Airtable API key not configured. Check your environment variables.', 'airtable');
       throw new Error('Airtable API key not configured');
     }
@@ -226,28 +243,15 @@ airtableClient = {
         log('Using MCP server for update operation', 'airtable');
         return await mcpClientAdapter.update(baseId, tableName, recordId, fields);
       } catch (mcpError: any) {
-        log(`MCP update failed, using fallback: ${mcpError?.message || 'Unknown error'}`, 'airtable');
         log(`MCP update failed, falling back to direct client: ${mcpError?.message || 'Unknown error'}`, 'airtable');
         // Fall through to direct client if MCP fails
       }
     }
     
     // Fall back to direct client
-    if (!airtableInstance) {
-      log('Attempting to initialize Airtable client on-demand', 'airtable');
-      
-      // Format API key for direct use
-      let apiKeyForSDK = process.env.AIRTABLE_API_KEY || '';
-      if (apiKeyForSDK.startsWith('Bearer ')) {
-        apiKeyForSDK = apiKeyForSDK.substring(7); // Remove "Bearer " prefix
-      }
-      
-      try {
-        airtableInstance = new airtableLib({ apiKey: apiKeyForSDK });
-      } catch (initError) {
-        log(`Failed to initialize Airtable client: ${initError}`, 'airtable');
-        throw new Error(`Failed to initialize Airtable client: ${initError}`);
-      }
+    if (!await ensureAirtableClient()) {
+      log('Failed to initialize Airtable client for update operation', 'airtable');
+      throw new Error('Failed to initialize Airtable client');
     }
     
     try {
@@ -262,7 +266,9 @@ airtableClient = {
   },
   
   delete: async (baseId: string, tableName: string, recordId: string) => {
-    if (!apiKey) {
+    // Verify we have authentication info
+    if (!authInfo.rawValue) {
+      log('Airtable API key not configured. Check your environment variables.', 'airtable');
       throw new Error('Airtable API key not configured');
     }
     
@@ -279,15 +285,20 @@ airtableClient = {
     }
     
     // Fall back to direct client
-    if (!airtableInstance) {
-      log('Airtable client not initialized. Delete operation failed.', 'airtable');
-      throw new Error('Airtable client not initialized');
+    if (!await ensureAirtableClient()) {
+      log('Failed to initialize Airtable client for delete operation', 'airtable');
+      throw new Error('Failed to initialize Airtable client');
     }
     
-    log('Using direct Airtable client for delete operation', 'airtable');
-    const base = airtableInstance.base(baseId);
-    await base(tableName).destroy(recordId);
-    return { id: recordId, deleted: true };
+    try {
+      log('Using direct Airtable client for delete operation', 'airtable');
+      const base = airtableInstance.base(baseId);
+      await base(tableName).destroy(recordId);
+      return { id: recordId, deleted: true };
+    } catch (error: any) {
+      log(`Error deleting record from Airtable: ${error?.message || 'Unknown error'}`, 'airtable');
+      throw error;
+    }
   }
 };
 

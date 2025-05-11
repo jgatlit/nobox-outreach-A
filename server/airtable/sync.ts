@@ -8,8 +8,8 @@
 import { db } from '../../db';
 import { eq, desc, sql } from 'drizzle-orm';
 import { leads, syncStatus } from '../../shared/schema';
-import type { AirtableRecord, LeadFields } from '../../shared/types';
-import { createRecord, listRecords, searchRecords } from './client';
+import { AirtableRecord, LeadFields } from './schema';
+import { airtableClient, createRecord, listRecords, searchRecords } from './client';
 
 // Sync status tracking in the database
 export async function getSyncStatus() {
