@@ -1512,31 +1512,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!tableName) {
         return res.status(400).json({ error: "tableName is required" });
       }
+      
+      // Check if baseId is provided or available in environment
+      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      
+      if (!effectiveBaseId) {
+        return res.status(400).json({ 
+          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+        });
+      }
 
       const leads = await storage.getAllLeads();
 
       // Add batch processing
       const BATCH_SIZE = 10;
       const syncResults = [];
+      const failedBatches = [];
 
       for (let i = 0; i < leads.length; i += BATCH_SIZE) {
-        const batch = leads.slice(i, i + BATCH_SIZE);
-        const mappedBatch = batch.map(lead => ({
-          fields: mapFields(lead, fieldMappings.dbToAirtable)
-        }));
+        try {
+          const batch = leads.slice(i, i + BATCH_SIZE);
+          const mappedBatch = batch.map(lead => ({
+            fields: mapFields(lead, fieldMappings.dbToAirtable)
+          }));
 
-        const batchResult = await processAirtableBatch(tableName, baseId, mappedBatch);
-        syncResults.push(...batchResult);
-        await delay(250); // Rate limit protection
+          const batchResult = await processAirtableBatch(tableName, effectiveBaseId, mappedBatch);
+          syncResults.push(...batchResult);
+          await delay(250); // Rate limit protection
+        } catch (batchError) {
+          console.error(`Error processing batch ${i / BATCH_SIZE + 1}:`, batchError);
+          failedBatches.push({
+            batchIndex: i / BATCH_SIZE + 1,
+            error: batchError.message || "Unknown error"
+          });
+          // Continue with next batch
+        }
       }
 
-      return res.status(200).json({
-        message: `Successfully synced ${syncResults.length} leads to Airtable`,
-        syncedLeadsCount: syncResults.length
-      });
+      // If some batches failed but some succeeded
+      if (failedBatches.length > 0 && syncResults.length > 0) {
+        return res.status(207).json({
+          message: `Partially synced ${syncResults.length} leads to Airtable. ${failedBatches.length} batches failed.`,
+          syncedLeadsCount: syncResults.length,
+          failedBatches
+        });
+      } 
+      // If all batches failed
+      else if (failedBatches.length > 0 && syncResults.length === 0) {
+        return res.status(500).json({
+          error: "Failed to sync any leads to Airtable",
+          failedBatches
+        });
+      }
+      // If all succeeded
+      else {
+        return res.status(200).json({
+          message: `Successfully synced ${syncResults.length} leads to Airtable`,
+          syncedLeadsCount: syncResults.length
+        });
+      }
     } catch (error) {
       console.error("Error syncing leads to Airtable:", error);
-      return res.status(500).json({ error: "Failed to sync leads to Airtable" });
+      return res.status(500).json({ 
+        error: "Failed to sync leads to Airtable", 
+        message: error.message || "Unknown error"
+      });
     }
   });
 
@@ -1627,11 +1667,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return [];
     }
     
+    // Check if baseId is provided either as parameter or environment variable
+    const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+    
+    if (!effectiveBaseId) {
+      throw new Error("Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable.");
+    }
+    
     try {
       // Use the Airtable API to create records in a batch
       const response = await callAirtableApi({
         method: 'POST',
-        url: `/${baseId || process.env.AIRTABLE_BASE_ID}/${tableName}`,
+        url: `/${effectiveBaseId}/${tableName}`,
         data: {
           records
         }
@@ -1640,8 +1687,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return response.data.records || [];
     } catch (error) {
       console.error('Error processing Airtable batch:', error);
-      // Return empty array instead of throwing to allow process to continue with other batches
-      return [];
+      // Throw the error to properly handle it at the route level
+      throw new Error(`Failed to process Airtable batch: ${error.message || 'Unknown error'}`);
     }
   };
   
@@ -1654,19 +1701,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "tableName is required" });
       }
       
+      // Check if baseId is provided or available in environment
+      const effectiveBaseId = baseId || process.env.AIRTABLE_BASE_ID;
+      
+      if (!effectiveBaseId) {
+        return res.status(400).json({ 
+          error: "Airtable Base ID is required. Please provide it in the request or set AIRTABLE_BASE_ID environment variable."
+        });
+      }
+      
       // Get all campaigns from the database
       const campaigns = await storage.getAllCampaigns();
       
-      // Sync campaigns to Airtable
-      const syncResults = await syncCampaignsToAirtable(campaigns, tableName, baseId);
-      
-      return res.status(200).json({
-        message: `Successfully synced ${syncResults.length} campaigns to Airtable`,
-        syncedCampaignsCount: syncResults.length
-      });
+      try {
+        // Sync campaigns to Airtable
+        const syncResults = await syncCampaignsToAirtable(campaigns, tableName, effectiveBaseId);
+        
+        return res.status(200).json({
+          message: `Successfully synced ${syncResults.length} campaigns to Airtable`,
+          syncedCampaignsCount: syncResults.length
+        });
+      } catch (syncError) {
+        console.error("Error in Airtable sync operation:", syncError);
+        return res.status(500).json({ 
+          error: "Failed to sync campaigns to Airtable", 
+          message: syncError.message || "Unknown error" 
+        });
+      }
     } catch (error) {
       console.error("Error syncing campaigns to Airtable:", error);
-      return res.status(500).json({ error: "Failed to sync campaigns to Airtable" });
+      return res.status(500).json({ 
+        error: "Failed to sync campaigns to Airtable", 
+        message: error.message || "Unknown error" 
+      });
     }
   });
   
