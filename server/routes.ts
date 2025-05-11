@@ -7,6 +7,15 @@ import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSu
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
+import { 
+  listTables, 
+  getRecords, 
+  syncLeadsToAirtable, 
+  syncLeadsFromAirtable,
+  syncLeadEnrichmentToAirtable,
+  syncEmailDraftsToAirtable,
+  syncCampaignsToAirtable
+} from "./airtable";
 import path from "path";
 import fs from "fs";
 
@@ -1438,6 +1447,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(`Error importing Gmail data for lead ${req.params.id}:`, error);
       return res.status(500).json({ error: "Failed to import Gmail data" });
+    }
+  });
+
+  // =========================================================================
+  // Airtable Integration Routes
+  // =========================================================================
+  
+  // Get available Airtable tables
+  app.get("/api/airtable/tables", async (req, res) => {
+    try {
+      const baseId = req.query.baseId as string;
+      const tables = await listTables(baseId);
+      return res.json({ tables });
+    } catch (error: any) {
+      console.error("Error listing Airtable tables:", error);
+      return res.status(500).json({ 
+        error: "Failed to fetch Airtable tables",
+        message: error.message 
+      });
+    }
+  });
+  
+  // Get records from a specific Airtable table
+  app.get("/api/airtable/:tableName/records", async (req, res) => {
+    try {
+      const { tableName } = req.params;
+      const baseId = req.query.baseId as string;
+      
+      const records = await getRecords(tableName, baseId);
+      return res.json({ records });
+    } catch (error) {
+      console.error(`Error fetching records from Airtable table ${req.params.tableName}:`, error);
+      return res.status(500).json({ 
+        error: `Failed to fetch records from Airtable table ${req.params.tableName}`,
+        message: error.message 
+      });
+    }
+  });
+
+  // Sync leads from PostgreSQL to Airtable
+  app.post("/api/airtable/sync/leads-to-airtable", async (req, res) => {
+    try {
+      const { baseId, tableName } = req.body;
+      
+      if (!tableName) {
+        return res.status(400).json({ error: "Table name is required" });
+      }
+      
+      // Get all leads from PostgreSQL
+      const leads = await storage.getAllLeads();
+      
+      // Sync leads to Airtable
+      const result = await syncLeadsToAirtable(leads, tableName, baseId);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Successfully synced ${result.length} leads to Airtable`,
+        syncedLeads: result 
+      });
+    } catch (error) {
+      console.error("Error syncing leads to Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to sync leads to Airtable",
+        message: error.message 
+      });
+    }
+  });
+  
+  // Sync leads from Airtable to PostgreSQL
+  app.post("/api/airtable/sync/leads-from-airtable", async (req, res) => {
+    try {
+      const { baseId, tableName } = req.body;
+      
+      if (!tableName) {
+        return res.status(400).json({ error: "Table name is required" });
+      }
+      
+      // Get leads from Airtable
+      const airtableLeads = await syncLeadsFromAirtable(tableName, baseId);
+      
+      // Track sync results
+      const results: {
+        created: number;
+        updated: number;
+        errors: number;
+        leads: any[];
+      } = {
+        created: 0,
+        updated: 0,
+        errors: 0,
+        leads: []
+      };
+      
+      // Process each lead from Airtable
+      for (const leadData of airtableLeads) {
+        try {
+          // Map phone field from Airtable to phoneNumber in our schema
+          // and handle any other field transformations
+          const mappedLeadData = {
+            firstName: leadData.firstName || null,
+            lastName: leadData.lastName || null,
+            email: leadData.email,
+            company: leadData.company || null,
+            title: leadData.title || null,
+            phoneNumber: leadData.phoneNumber || leadData.phone || null,
+            website: leadData.website || null,
+            status: ['active', 'inactive', 'contacted', 'responded', 'qualified', 'disqualified'].includes(leadData.status || '') 
+              ? leadData.status 
+              : 'contacted',
+            priority: ['high', 'medium', 'low'].includes(leadData.priority || '') 
+              ? leadData.priority 
+              : 'medium',
+            notes: leadData.notes || null,
+            tags: leadData.tags || null
+          };
+          
+          // Check if the lead already exists in our database
+          if (leadData.id) {
+            // Update existing lead
+            const updatedLead = await storage.updateLead(leadData.id, mappedLeadData);
+            
+            results.updated++;
+            results.leads.push(updatedLead);
+          } else {
+            // Check for duplicate email
+            const existingLeads = await storage.findDuplicateLeads(leadData.email);
+            
+            if (existingLeads.length > 0) {
+              // Update the existing lead
+              const updatedLead = await storage.updateLead(existingLeads[0].id, mappedLeadData);
+              
+              results.updated++;
+              results.leads.push(updatedLead);
+            } else {
+              // Create a new lead
+              const newLead = await storage.addLead({
+                ...mappedLeadData,
+                source: 'airtable' as const
+              });
+              
+              results.created++;
+              results.leads.push(newLead);
+            }
+          }
+        } catch (error: any) {
+          console.error(`Error processing Airtable lead ${leadData.email}:`, error);
+          results.errors++;
+        }
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Successfully synced leads from Airtable. Created: ${results.created}, Updated: ${results.updated}, Errors: ${results.errors}`,
+        results 
+      });
+    } catch (error: any) {
+      console.error("Error syncing leads from Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to sync leads from Airtable",
+        message: error.message 
+      });
+    }
+  });
+  
+  // Sync lead enrichment for a specific lead to Airtable
+  app.post("/api/airtable/sync/lead-enrichment/:leadId", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.leadId, 10);
+      const { baseId, tableName } = req.body;
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      if (!tableName) {
+        return res.status(400).json({ error: "Table name is required" });
+      }
+      
+      // Get lead enrichment data
+      const { enrichment } = await storage.getLeadWithEnrichment(leadId);
+      
+      if (!enrichment) {
+        return res.status(404).json({ error: "Enrichment data not found for this lead" });
+      }
+      
+      // Sync enrichment data to Airtable
+      const result = await syncLeadEnrichmentToAirtable(leadId, enrichment, tableName, baseId);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Successfully synced enrichment data for lead ${leadId} to Airtable`,
+        syncedData: result 
+      });
+    } catch (error) {
+      console.error(`Error syncing lead enrichment to Airtable for lead ${req.params.leadId}:`, error);
+      return res.status(500).json({ 
+        error: `Failed to sync lead enrichment to Airtable for lead ${req.params.leadId}`,
+        message: error.message 
+      });
+    }
+  });
+  
+  // Sync email drafts for a specific lead to Airtable
+  app.post("/api/airtable/sync/email-drafts/:leadId", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.leadId, 10);
+      const { baseId, tableName } = req.body;
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      if (!tableName) {
+        return res.status(400).json({ error: "Table name is required" });
+      }
+      
+      // Get email drafts for the lead
+      const drafts = await storage.getEmailDraftsForLead(leadId);
+      
+      if (drafts.length === 0) {
+        return res.status(404).json({ error: "No email drafts found for this lead" });
+      }
+      
+      // Sync email drafts to Airtable
+      const result = await syncEmailDraftsToAirtable(drafts, tableName, baseId);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Successfully synced ${result.length} email drafts for lead ${leadId} to Airtable`,
+        syncedDrafts: result 
+      });
+    } catch (error) {
+      console.error(`Error syncing email drafts to Airtable for lead ${req.params.leadId}:`, error);
+      return res.status(500).json({ 
+        error: `Failed to sync email drafts to Airtable for lead ${req.params.leadId}`,
+        message: error.message 
+      });
+    }
+  });
+  
+  // Sync all campaigns to Airtable
+  app.post("/api/airtable/sync/campaigns", async (req, res) => {
+    try {
+      const { baseId, tableName } = req.body;
+      
+      if (!tableName) {
+        return res.status(400).json({ error: "Table name is required" });
+      }
+      
+      // Get all campaigns
+      const campaigns = await storage.getAllCampaigns();
+      
+      // Sync campaigns to Airtable
+      const result = await syncCampaignsToAirtable(campaigns, tableName, baseId);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: `Successfully synced ${result.length} campaigns to Airtable`,
+        syncedCampaigns: result 
+      });
+    } catch (error) {
+      console.error("Error syncing campaigns to Airtable:", error);
+      return res.status(500).json({ 
+        error: "Failed to sync campaigns to Airtable",
+        message: error.message 
+      });
+    }
+  });
+
+  // Test Airtable connection
+  app.post("/api/airtable/test-connection", async (req, res) => {
+    try {
+      const { baseId } = req.body;
+      
+      if (!baseId) {
+        return res.status(400).json({ error: "Base ID is required" });
+      }
+      
+      // Try to list tables as a connection test
+      const tables = await listTables(baseId);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Successfully connected to Airtable",
+        tables 
+      });
+    } catch (error) {
+      console.error("Error testing Airtable connection:", error);
+      return res.status(500).json({ 
+        error: "Failed to connect to Airtable",
+        message: error.message 
+      });
     }
   });
 

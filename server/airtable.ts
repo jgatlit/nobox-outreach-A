@@ -27,10 +27,12 @@ export async function listTables(baseId?: string): Promise<string[]> {
   try {
     const base = getBase(baseId);
     
-    // Use Airtable's metadata API to list all tables in the base
+    // Note: This is a workaround as the TypeScript types for Airtable
+    // don't include the tables() method, which is actually available in the API
+    // @ts-ignore - tables() is available in the API but not in types
     const tables = await base.tables();
-    return tables.map(table => table.name);
-  } catch (error) {
+    return tables.map((table: any) => table.name);
+  } catch (error: any) {
     console.error('Error listing Airtable tables:', error);
     throw new Error(`Failed to list Airtable tables: ${error.message}`);
   }
@@ -48,7 +50,7 @@ export async function getRecords(tableName: string, baseId?: string): Promise<an
       id: record.id,
       ...record.fields
     }));
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error getting records from ${tableName}:`, error);
     throw new Error(`Failed to get records from Airtable table ${tableName}: ${error.message}`);
   }
