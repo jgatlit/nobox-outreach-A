@@ -93,12 +93,14 @@ export function LeadsSyncStatus() {
       return <Badge className="bg-gray-500 hover:bg-gray-600">Loading...</Badge>;
     }
     
-    if (!syncStatus || !syncStatus.lastSyncSuccess) {
+    const status = syncStatus || emptyStatus;
+    
+    if (!status.lastSyncSuccess) {
       return <Badge variant="destructive">Not Synced</Badge>;
     }
     
     // Check if last sync was within 10 minutes
-    const lastSyncTime = syncStatus.lastSyncTime ? new Date(syncStatus.lastSyncTime).getTime() : 0;
+    const lastSyncTime = status.lastSyncTime ? new Date(status.lastSyncTime).getTime() : 0;
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
     
     if (lastSyncTime > tenMinutesAgo) {
@@ -107,6 +109,9 @@ export function LeadsSyncStatus() {
     
     return <Badge className="bg-yellow-500 hover:bg-yellow-600">Sync Needed</Badge>;
   };
+  
+  // Use the empty status when data is not loaded yet or undefined
+  const currentStatus = syncStatus || emptyStatus;
   
   return (
     <Card>
@@ -124,15 +129,15 @@ export function LeadsSyncStatus() {
         <div className="text-sm space-y-2">
           <div className="flex justify-between items-center">
             <span>Last sync:</span>
-            <span>{formatSyncTime(syncStatus?.lastSyncTime)}</span>
+            <span>{formatSyncTime(currentStatus.lastSyncTime)}</span>
           </div>
           <div className="flex justify-between items-center">
             <span>Records synced:</span>
-            <span>{syncStatus?.totalSynced || 0}</span>
+            <span>{currentStatus.totalSynced || 0}</span>
           </div>
           <div className="flex justify-between items-center">
             <span>Status:</span>
-            <span>{syncStatus?.lastSyncSuccess ? 'Successful' : 'Failed'}</span>
+            <span>{currentStatus.lastSyncSuccess ? 'Successful' : 'Failed'}</span>
           </div>
         </div>
       </CardContent>
