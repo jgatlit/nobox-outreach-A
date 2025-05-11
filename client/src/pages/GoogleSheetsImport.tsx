@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 
 // Import assistant components
-import { GoogleSheetsImportAssistant, GoogleSheetsImportProgress } from '@/components/GoogleSheetsImportAssistant';
+import { GoogleSheetsImportAssistant } from '@/components/GoogleSheetsImportAssistant';
 
 const leadFieldOptions = [
   { label: 'First Name', value: 'firstName' },

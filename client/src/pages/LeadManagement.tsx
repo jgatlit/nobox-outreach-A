@@ -61,6 +61,7 @@ export default function LeadManagement() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   
   // Fetch leads or search results
   const { data: searchResults, isLoading: isSearchLoading } = useQuery({
@@ -101,6 +102,10 @@ export default function LeadManagement() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+  };
+  
+  const navigateToGoogleSheetsImport = () => {
+    setLocation("/google-sheets-import");
   };
 
   const handleCsvImportClick = () => {
@@ -434,12 +439,13 @@ export default function LeadManagement() {
           <BulkImportModal />
           
           {/* Google Sheets Import Button */}
-          <RouteLink href="/google-sheets-import">
-            <Button className="bg-white text-black border border-gray-200 hover:bg-gray-50">
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Import Google Sheets
-            </Button>
-          </RouteLink>
+          <Button 
+            className="bg-white text-black border border-gray-200 hover:bg-gray-50"
+            onClick={navigateToGoogleSheetsImport}
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Import Google Sheets
+          </Button>
         </div>
       </div>
 
