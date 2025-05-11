@@ -197,3 +197,141 @@ export async function verifyAirtableTables(baseId: string): Promise<{
     };
   }
 }
+
+/**
+ * Creates the Leads table in Airtable if it doesn't exist
+ * This sets up the table with the correct field structure to match our PostgreSQL schema
+ * @param baseId The Airtable Base ID
+ * @returns Promise resolving to creation result
+ */
+export async function createLeadsTable(baseId: string): Promise<{
+  success: boolean;
+  message: string;
+  tableId?: string;
+  error?: string;
+}> {
+  try {
+    // First verify if the table exists already
+    const verifyResult = await verifyAirtableTables(baseId);
+    
+    // If table already exists, return success
+    if (verifyResult.tables[TABLES.LEADS]?.exists) {
+      return {
+        success: true,
+        message: 'Leads table already exists',
+      };
+    }
+
+    // Get the API key and format it correctly
+    let apiKey = process.env.AIRTABLE_API_KEY;
+    
+    if (!apiKey) {
+      return {
+        success: false,
+        message: 'Failed to create Leads table',
+        error: 'Airtable API key not configured'
+      };
+    }
+    
+    // Format API key for authentication if needed (handle PAT format)
+    if (apiKey.startsWith('pat') && !apiKey.startsWith('Bearer ')) {
+      apiKey = `Bearer ${apiKey}`;
+      console.log('[airtable] Added Bearer prefix to PAT for table creation');
+    }
+
+    // Use Airtable Meta API to create the table
+    // Note: This requires appropriate permissions on the PAT
+    const createTableResponse = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+      method: 'POST',
+      headers: {
+        'Authorization': apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: TABLES.LEADS,
+        description: 'Synchronized leads from the noboxLeadGen application',
+        fields: [
+          { name: 'id', type: 'number', description: 'PostgreSQL ID' },
+          { name: 'firstName', type: 'singleLineText', description: 'First name' },
+          { name: 'lastName', type: 'singleLineText', description: 'Last name' },
+          { name: 'email', type: 'email', description: 'Email address' },
+          { name: 'company', type: 'singleLineText', description: 'Company name' },
+          { name: 'title', type: 'singleLineText', description: 'Job title' },
+          { name: 'status', type: 'singleSelect', description: 'Current status', 
+            options: { 
+              choices: [
+                { name: 'active' },
+                { name: 'inactive' },
+                { name: 'contacted' },
+                { name: 'responded' },
+                { name: 'qualified' },
+                { name: 'disqualified' }
+              ] 
+            } 
+          },
+          { name: 'source', type: 'singleLineText', description: 'Lead source' },
+          { name: 'priority', type: 'singleSelect', description: 'Priority level',
+            options: {
+              choices: [
+                { name: 'high' },
+                { name: 'medium' },
+                { name: 'low' }
+              ]
+            }
+          },
+          { name: 'lastActivityDate', type: 'date', description: 'Date of last activity' },
+          { name: 'website', type: 'url', description: 'Website URL' },
+          { name: 'notes', type: 'multilineText', description: 'Additional notes' },
+          { name: 'tags', type: 'multipleSelects', description: 'Tags',
+            options: {
+              choices: [
+                { name: 'follow-up' },
+                { name: 'important' },
+                { name: 'new' },
+                { name: 'qualified' },
+                { name: 'cold' },
+                { name: 'warm' },
+                { name: 'hot' }
+              ]
+            }
+          },
+          { name: 'createdAt', type: 'dateTime', description: 'Creation timestamp' },
+          { name: 'updatedAt', type: 'dateTime', description: 'Last update timestamp' },
+          { name: 'lastSyncedAt', type: 'dateTime', description: 'Last synchronization timestamp' },
+          { name: 'syncSource', type: 'singleSelect', description: 'Synchronization source',
+            options: {
+              choices: [
+                { name: 'postgresql' },
+                { name: 'airtable' }
+              ]
+            }
+          }
+        ]
+      })
+    });
+
+    // Check response status
+    if (createTableResponse.ok) {
+      const responseData = await createTableResponse.json();
+      return {
+        success: true,
+        message: 'Successfully created Leads table in Airtable',
+        tableId: responseData.id
+      };
+    } else {
+      const errorData = await createTableResponse.text();
+      return {
+        success: false,
+        message: 'Failed to create Leads table',
+        error: errorData
+      };
+    }
+  } catch (error) {
+    console.error('[airtable] Error creating Leads table:', error);
+    return {
+      success: false,
+      message: 'Failed to create Leads table due to an exception',
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}

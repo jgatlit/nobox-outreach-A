@@ -6,6 +6,7 @@
 
 export { airtableConfig } from './config';
 export { startAirtableServer } from './server';
+export { createLeadsTable } from './schema';
 export { 
   airtableClient,
   searchRecords,
@@ -152,7 +153,7 @@ export async function getMcpServerStatus() {
  * Creates tables that don't exist if possible.
  * @returns Promise resolving to verification result
  */
-export async function verifyAirtableTables(): Promise<{
+async function _verifyAirtableTables(): Promise<{
   success: boolean;
   tables: Record<string, { exists: boolean; error?: string }>;
   error?: string;
