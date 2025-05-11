@@ -1,6 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { HelpCircleIcon, FileSpreadsheetIcon, TableIcon, CheckCircleIcon } from 'lucide-react';
+import * as React from "react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { CheckCircle, FileSpreadsheet, HelpCircle, ArrowRight, Clock } from "lucide-react";
 
 interface GoogleSheetsImportAssistantProps {
   importStep: number;
@@ -8,155 +12,145 @@ interface GoogleSheetsImportAssistantProps {
 
 export function GoogleSheetsImportAssistant({ importStep }: GoogleSheetsImportAssistantProps) {
   return (
-    <Card>
-      <CardHeader className="bg-muted/50">
-        <CardTitle className="flex items-center gap-2">
-          <HelpCircleIcon className="h-5 w-5" />
-          <span>Import Assistant</span>
-        </CardTitle>
+    <Card className="w-full mb-8">
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <FileSpreadsheet className="h-5 w-5 text-green-600" />
+          <CardTitle className="text-xl">Google Sheets Import Assistant</CardTitle>
+        </div>
+        <CardDescription>
+          Follow these steps to import your leads from Google Sheets
+        </CardDescription>
       </CardHeader>
-      <CardContent className="p-6">
-        {importStep === 1 && (
-          <div className="space-y-4">
-            <h3 className="font-medium">Getting Started</h3>
-            <p className="text-sm text-muted-foreground">
-              Import leads directly from Google Sheets. Follow these steps to get started:
-            </p>
-            
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 text-xs">1</div>
-                <p className="text-sm">
-                  <span className="font-medium">Prepare your sheet</span> with a header row containing column names.
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 text-xs">2</div>
-                <p className="text-sm">
-                  <span className="font-medium">Share your sheet</span> to be publicly accessible or with view permissions.
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 text-xs">3</div>
-                <p className="text-sm">
-                  <span className="font-medium">Copy the URL</span> from your browser address bar.
-                </p>
-              </div>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="flex gap-4 items-center">
+            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
+              {importStep > 1 ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : importStep === 1 ? (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">1</Badge>
+              ) : (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">1</Badge>
+              )}
             </div>
-            
-            <Separator />
-            
-            <div>
-              <h3 className="font-medium mb-2">URL Format Example</h3>
-              <p className="text-xs text-muted-foreground break-all">
-                https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit#gid=0
+            <div className="flex-1">
+              <h3 className={`font-medium ${importStep === 1 ? 'text-primary-900' : importStep > 1 ? 'text-gray-600' : 'text-gray-400'}`}>
+                Enter Google Sheet URL
+              </h3>
+              <p className={`text-sm ${importStep === 1 ? 'text-gray-600' : importStep > 1 ? 'text-gray-500' : 'text-gray-400'}`}>
+                Provide a shared Google Sheet URL containing your leads data
               </p>
             </div>
+            {importStep === 1 && (
+              <div className="flex-shrink-0">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium">Current Step</Badge>
+              </div>
+            )}
           </div>
-        )}
-        
-        {importStep === 2 && (
-          <div className="space-y-4">
-            <h3 className="font-medium">Mapping Fields</h3>
-            <p className="text-sm text-muted-foreground">
-              Match your Google Sheet columns to the corresponding lead fields in our system.
-            </p>
-            
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <FileSpreadsheetIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                <p className="text-sm">
-                  <span className="font-medium">Email field is required</span> for import. Make sure to map it.
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <TableIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                <p className="text-sm">
-                  <span className="font-medium">Preview your data</span> before importing to ensure correct mapping.
-                </p>
-              </div>
+
+          <Separator className="my-2" />
+
+          <div className="flex gap-4 items-center">
+            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
+              {importStep > 2 ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : importStep === 2 ? (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">2</Badge>
+              ) : (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">2</Badge>
+              )}
             </div>
-            
-            <Separator />
-            
-            <div>
-              <h3 className="font-medium mb-2">Tips</h3>
-              <ul className="text-sm space-y-2 list-disc pl-4">
-                <li>For tags, use comma-separated values in a single column.</li>
-                <li>Dates should be in YYYY-MM-DD format for reliable imports.</li>
-                <li>Duplicate emails will be skipped during import.</li>
-              </ul>
+            <div className="flex-1">
+              <h3 className={`font-medium ${importStep === 2 ? 'text-primary-900' : importStep > 2 ? 'text-gray-600' : 'text-gray-400'}`}>
+                Select Sheet & Map Columns
+              </h3>
+              <p className={`text-sm ${importStep === 2 ? 'text-gray-600' : importStep > 2 ? 'text-gray-500' : 'text-gray-400'}`}>
+                Choose which sheet to import and map columns to lead fields
+              </p>
             </div>
+            {importStep === 2 && (
+              <div className="flex-shrink-0">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium">Current Step</Badge>
+              </div>
+            )}
           </div>
-        )}
-        
-        {importStep === 3 && (
-          <div className="space-y-4">
-            <h3 className="font-medium">Importing in Progress</h3>
-            <p className="text-sm text-muted-foreground">
-              Please wait while we process your data. This may take a moment depending on the size of your sheet.
-            </p>
-            
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <CheckCircleIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                <p className="text-sm">
-                  <span className="font-medium">Validation:</span> Each row is validated for required fields
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <CheckCircleIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                <p className="text-sm">
-                  <span className="font-medium">Deduplication:</span> Checking for existing leads by email
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <CheckCircleIcon className="h-5 w-5 text-primary flex-shrink-0" />
-                <p className="text-sm">
-                  <span className="font-medium">Import:</span> Adding new leads to your database
-                </p>
-              </div>
+
+          <Separator className="my-2" />
+
+          <div className="flex gap-4 items-center">
+            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
+              {importStep > 3 ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : importStep === 3 ? (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">3</Badge>
+              ) : (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">3</Badge>
+              )}
             </div>
-          </div>
-        )}
-        
-        {importStep === 4 && (
-          <div className="space-y-4">
-            <h3 className="font-medium">Import Complete</h3>
-            <p className="text-sm text-muted-foreground">
-              Your leads have been successfully imported. Here's what you can do next:
-            </p>
-            
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 text-xs">1</div>
-                <p className="text-sm">
-                  <span className="font-medium">Review your leads</span> to ensure all data was imported correctly.
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 text-xs">2</div>
-                <p className="text-sm">
-                  <span className="font-medium">Enrich your leads</span> with additional data like company information.
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 text-xs">3</div>
-                <p className="text-sm">
-                  <span className="font-medium">Create email campaigns</span> to engage with your newly imported leads.
-                </p>
-              </div>
+            <div className="flex-1">
+              <h3 className={`font-medium ${importStep === 3 ? 'text-primary-900' : importStep > 3 ? 'text-gray-600' : 'text-gray-400'}`}>
+                Import Data
+              </h3>
+              <p className={`text-sm ${importStep === 3 ? 'text-gray-600' : importStep > 3 ? 'text-gray-500' : 'text-gray-400'}`}>
+                Review and start import process
+              </p>
             </div>
+            {importStep === 3 && (
+              <div className="flex-shrink-0">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-100 font-medium">Current Step</Badge>
+              </div>
+            )}
           </div>
-        )}
+
+          <Separator className="my-2" />
+
+          <div className="flex gap-4 items-center">
+            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-50 flex items-center justify-center">
+              {importStep > 4 ? (
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              ) : importStep === 4 ? (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full">4</Badge>
+              ) : (
+                <Badge variant="outline" className="h-6 w-6 p-1 flex items-center justify-center rounded-full text-gray-400">4</Badge>
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className={`font-medium ${importStep === 4 ? 'text-primary-900' : importStep > 4 ? 'text-gray-600' : 'text-gray-400'}`}>
+                Complete
+              </h3>
+              <p className={`text-sm ${importStep === 4 ? 'text-gray-600' : importStep > 4 ? 'text-gray-500' : 'text-gray-400'}`}>
+                Import complete
+              </p>
+            </div>
+            {importStep === 4 && (
+              <div className="flex-shrink-0">
+                <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 font-medium">Complete</Badge>
+              </div>
+            )}
+          </div>
+        </div>
       </CardContent>
+      <CardFooter className="bg-gray-50 py-2 px-6 text-sm text-gray-500 flex items-center gap-2 rounded-b-lg border-t">
+        <HelpCircle className="h-4 w-4" />
+        <p>The import process will not duplicate leads with the same email</p>
+      </CardFooter>
     </Card>
+  );
+}
+
+export function GoogleSheetsImportProgress({ progress }: { progress: number }) {
+  return (
+    <div className="w-full space-y-2">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-blue-500" />
+          <span className="text-sm font-medium">Import in progress</span>
+        </div>
+        <span className="text-sm text-gray-500">{progress}%</span>
+      </div>
+      <Progress value={progress} className="h-2 w-full" />
+      <p className="text-xs text-gray-500">Importing and deduplicating your leads...</p>
+    </div>
   );
 }

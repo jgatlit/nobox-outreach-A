@@ -17,8 +17,8 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 
-// Import assistant component
-import { GoogleSheetsImportAssistant } from '@/components/GoogleSheetsImportAssistant';
+// Import assistant components
+import { GoogleSheetsImportAssistant, GoogleSheetsImportProgress } from '@/components/GoogleSheetsImportAssistant';
 
 const leadFieldOptions = [
   { label: 'First Name', value: 'firstName' },
@@ -367,7 +367,7 @@ export default function GoogleSheetsImport() {
                   <h3 className="text-lg font-medium mb-4">Step 3: Importing Leads</h3>
                   
                   <div className="space-y-6">
-                    <Progress value={importProgress} className="w-full" />
+                    <GoogleSheetsImportProgress progress={importProgress} />
                     
                     <div className="flex items-center justify-center p-8">
                       <div className="text-center">

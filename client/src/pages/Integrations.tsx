@@ -340,6 +340,46 @@ export default function Integrations() {
     return integration.type === activeTab;
   }) || [];
   
+  // Google Sheets card component
+  const GoogleSheetsCard = () => (
+    <Card className="mb-6">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-10 w-10">
+              <rect width="24" height="24" rx="4" fill="#F8FAFC" />
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z" fill="#0F9D58"/>
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14h-4v-2h4v2zm5-4H5v-2h14v2zm0-4H5V7h14v2z" fill="#0F9D58"/>
+            </svg>
+            <div>
+              <CardTitle className="text-lg font-semibold">Google Sheets</CardTitle>
+              <CardDescription>Import leads directly from Google Sheets</CardDescription>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-sm text-neutral-500">
+          <p>Import your leads data from Google Sheets spreadsheets into your lead database.</p>
+          <p className="mt-2">Features:</p>
+          <ul className="list-disc list-inside mt-1 space-y-1 text-xs">
+            <li>Map spreadsheet columns to lead fields</li>
+            <li>Preview data before import</li>
+            <li>Automatic duplicate detection</li>
+          </ul>
+        </div>
+      </CardContent>
+      <CardFooter className="border-t pt-4 flex justify-end">
+        <Link href="/google-sheets-import">
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            Import From Sheets
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        </Link>
+      </CardFooter>
+    </Card>
+  );
+
   // Function to get Airtable status icon
   const getAirtableStatusIcon = () => {
     switch (airtableStatus) {
