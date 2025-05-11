@@ -237,12 +237,28 @@ export async function diagnoseAirtableIntegration() {
   let apiConnectionResult = null;
   try {
     // Test the base metadata API
-    const apiKey = process.env.AIRTABLE_API_KEY;
+    let apiKey = process.env.AIRTABLE_API_KEY;
+    
+    // Analyze the API key format for diagnostics
+    const apiKeyInfo = {
+      type: apiKey?.startsWith('pat') ? 'PAT' : 
+            apiKey?.startsWith('Bearer pat') ? 'PAT with Bearer prefix' : 'Unknown',
+      value: apiKey ? (apiKey.length > 10 ? `${apiKey.substring(0, 10)}...` : apiKey) : 'Not set',
+      hasPrefix: apiKey?.startsWith('Bearer ') || false
+    };
+    
+    // Format API key for the request properly
+    let formattedApiKey = apiKey || '';
+    if (formattedApiKey.startsWith('pat') && !formattedApiKey.startsWith('Bearer ')) {
+      formattedApiKey = `Bearer ${formattedApiKey}`;
+      console.log('[airtable] Added Bearer prefix to PAT for diagnostic test');
+    }
+    
     const url = `https://api.airtable.com/v0/meta/bases/${CORRECT_BASE_ID}`;
     
     const metaResponse = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': formattedApiKey,
         'Content-Type': 'application/json'
       }
     });
@@ -271,7 +287,8 @@ export async function diagnoseAirtableIntegration() {
       isSuccess,
       data,
       error: errorText,
-      tablesAccess: tablesResult
+      tablesAccess: tablesResult,
+      apiKeyInfo: apiKeyInfo
     };
   } catch (error) {
     apiConnectionResult = {
