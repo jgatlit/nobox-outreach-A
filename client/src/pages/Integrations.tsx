@@ -200,6 +200,19 @@ export default function Integrations() {
               return;
             }
             
+            if (errorJson.tagsFieldError) {
+              toast({
+                title: "Tags field format error",
+                description: "The tags field in your Airtable can't accept array values. Change it to 'Single line text' type to fix this issue.",
+                variant: "destructive",
+              });
+              
+              // Update connection status
+              setAirtableNeedsSetup(true);
+              setAirtableConnectionMessage("Connected to Airtable, but there's an issue with the tags field format. Change the tags field in Airtable to 'Single line text' type.");
+              return;
+            }
+            
             if (errorJson.tableError) {
               toast({
                 title: "Table error in Airtable",

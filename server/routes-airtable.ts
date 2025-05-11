@@ -130,6 +130,18 @@ export function registerAirtableRoutes(app: Express): void {
             emailFieldError: true
           });
         }
+
+        // Check if tags validation error
+        if (error.message && (error.message.includes('field tags') || 
+                              error.message.includes('Field "tags" cannot') ||
+                              error.message.includes('parse value') && error.message.includes('tags'))) {
+          return res.status(400).json({
+            success: false,
+            message: `Airtable sync failed: The tags field in Airtable is not accepting the tags format. Make sure the tags field in Airtable is set to 'Single line text' type and not 'Multiple select' type.`,
+            tagsFieldError: true,
+            error: error.message
+          });
+        }
         
         // Other errors should be returned with 400 status, not 500
         return res.status(400).json({

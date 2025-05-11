@@ -123,6 +123,34 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<{ count: numbe
     const recordsToUpdate = [];
     
     for (const lead of leads) {
+      // Format the tags - handle both string and array formats
+      let formattedTags = '';
+      if (lead.tags) {
+        // Handle array format
+        if (Array.isArray(lead.tags)) {
+          formattedTags = lead.tags.join(', ');
+        } 
+        // Handle JSON string format that needs to be parsed
+        else if (typeof lead.tags === 'string' && (lead.tags.startsWith('[') || lead.tags.includes(','))) {
+          try {
+            // Try to parse as JSON if it looks like an array
+            if (lead.tags.startsWith('[')) {
+              const tagsArray = JSON.parse(lead.tags);
+              formattedTags = Array.isArray(tagsArray) ? tagsArray.join(', ') : lead.tags;
+            } else {
+              // Already comma-separated
+              formattedTags = lead.tags;
+            }
+          } catch (e) {
+            // If parsing fails, use as is
+            formattedTags = lead.tags;
+          }
+        } else {
+          // Simple string, use as is
+          formattedTags = lead.tags;
+        }
+      }
+      
       // Convert PostgreSQL lead to Airtable format
       const leadData = {
         PostgreSQL_ID: lead.id.toString(),
@@ -137,7 +165,7 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<{ count: numbe
         source: lead.source || '',
         notes: lead.notes || '',
         priority: lead.priority || 'medium',
-        tags: lead.tags || '',
+        tags: formattedTags, // Now always a comma-separated string
         lastContactDate: lead.lastContactDate ? new Date(lead.lastContactDate).toISOString() : null // Field name matches EXPECTED_FIELDS
       };
       
