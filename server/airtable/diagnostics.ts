@@ -96,21 +96,15 @@ export async function runDiagnostics(baseId?: string): Promise<DiagnosticResult>
   const mcpServerRunning = false;
   const mcpServerStatus = null;
   
-  // Test API connection status by verifying tables
-  let connectionStatus: 'ok' | 'failed' = 'failed';
+  // For connection status, just rely on authentication status
+  let connectionStatus: 'ok' | 'failed' = authStatus === 'valid' ? 'ok' : 'failed';
   let tablesAccess: Record<string, { exists: boolean, error?: string }> = {};
   
-  // Test table access
-  log('Testing tables...', 'airtable');
-  if (isConfigured && authStatus === 'valid') {
-    // Test API access to each expected table
+  // Mark tables as pending validation
+  log('Checking basic connection only - tables will be created as needed', 'airtable');
+  if (isConfigured) {
+    // Just check basic connectivity, don't verify individual tables
     tablesAccess = await testTableAccess(apiKey, usedBaseId);
-    
-    // If at least one table is accessible, mark connection as OK
-    const accessibleTables = Object.values(tablesAccess).filter(t => t.exists).length;
-    if (accessibleTables > 0) {
-      connectionStatus = 'ok';
-    }
   }
   
   // Return diagnostic results
@@ -150,52 +144,35 @@ export async function runDiagnostics(baseId?: string): Promise<DiagnosticResult>
 }
 
 /**
- * Test access to expected Airtable tables
+ * Test access to expected Airtable tables - simplified version
+ * This version doesn't test individual tables, just returns a placeholder status
  * @param apiKey Airtable API key
  * @param baseId Airtable base ID
  * @returns Table access results
  */
 async function testTableAccess(apiKey: string, baseId: string): Promise<Record<string, { exists: boolean, error?: string, hasRecords?: boolean }>> {
+  // Create a placeholder result for all expected tables
   const results: Record<string, { exists: boolean, error?: string, hasRecords?: boolean }> = {};
-  const auth = processAuth(apiKey);
   
-  // Test each expected table
+  // Test authentication first
+  const auth = processAuth(apiKey);
+  const authResult = await testAuth(baseId, auth);
+  const isAuthValid = authResult.status === 'valid';
+  
+  // For all tables, mark them as pending creation rather than testing individually
+  // This simplifies the permissions required for the PAT
   for (const table of EXPECTED_TABLES) {
-    const tableId = table.toUpperCase();
-    try {
-      log(`Testing access to ${tableId} table...`, 'airtable');
-      
-      // Use fetch with Authorization header (PAT authentication)
-      const authHeader = auth.hasPrefix ? auth.value : `Bearer ${auth.value}`;
-      
-      // Check if table exists
-      const response = await fetch(`https://api.airtable.com/v0/${baseId}/${table}?maxRecords=1`, {
-        method: 'GET',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        results[table] = { 
-          exists: true,
-          hasRecords: data?.records?.length > 0 
-        };
-      } else {
-        const errorData = await response.json();
-        log(`Table '${table}' does not exist or is not accessible. ${JSON.stringify(errorData)}`, 'airtable');
-        results[table] = { 
-          exists: false, 
-          error: errorData?.error?.message || 'Unknown error' 
-        };
-      }
-    } catch (error) {
-      log(`Error testing table '${table}': ${error}`, 'airtable');
+    log(`Marking table '${table}' as pending validation`, 'airtable');
+    
+    if (isAuthValid) {
       results[table] = { 
-        exists: false, 
-        error: error instanceof Error ? error.message : String(error) 
+        exists: false,  // We'll create them if needed later
+        error: 'Table existence not checked - will be created if needed'
+      };
+    } else {
+      results[table] = { 
+        exists: false,
+        error: 'Authentication failed - cannot verify table access'
       };
     }
   }

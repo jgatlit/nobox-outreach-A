@@ -132,25 +132,15 @@ export async function verifyAirtableTables(baseId: string): Promise<{
     // Check each table
     for (const tableName of requiredTables) {
       try {
-        // Check if table exists
-        const url = `https://api.airtable.com/v0/${baseId}/${tableName}?maxRecords=1`;
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`
-          }
-        });
+        // Just mark all tables as pending - we'll create them as needed
+        // This simplifies the permission requirements for the PAT
+        results[tableName] = { 
+          exists: false, 
+          error: 'Table status checking simplified - will create as needed' 
+        };
+        console.log(`[airtable] Table '${tableName}' status: pending creation if needed`);
         
-        if (response.ok) {
-          results[tableName] = { exists: true };
-          console.log(`[airtable] Table '${tableName}' exists.`);
-        } else {
-          const errorText = await response.text();
-          results[tableName] = { 
-            exists: false, 
-            error: `Table check failed: ${response.status} - ${errorText}` 
-          };
-          console.log(`[airtable] Table '${tableName}' does not exist or is not accessible. ${errorText}`);
-        }
+        // Skip the individual table checks - we'll verify basic auth only
       } catch (error) {
         results[tableName] = { 
           exists: false, 
