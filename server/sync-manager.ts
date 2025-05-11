@@ -51,6 +51,15 @@ async function performBidirectionalSync(): Promise<void> {
             const existingLead = await storage.getLeadById(lead.id);
             
             if (existingLead) {
+              // Handle tags: convert string to array if necessary
+              let tagsArray: string[] = [];
+              if (Array.isArray(lead.tags)) {
+                tagsArray = lead.tags;
+              } else if (typeof lead.tags === 'string') {
+                // Split by comma if it's a CSV string
+                tagsArray = lead.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+              }
+              
               // Update existing lead
               await storage.updateLead(lead.id, {
                 firstName: lead.firstName,
@@ -64,7 +73,7 @@ async function performBidirectionalSync(): Promise<void> {
                 source: lead.source as any, // Type cast needed due to enum constraints
                 notes: lead.notes,
                 priority: lead.priority as any, // Type cast needed due to enum constraints
-                tags: lead.tags,
+                tags: tagsArray,
                 lastContactDate: lead.lastContactDate
               });
               results.updated++;
@@ -84,6 +93,15 @@ async function performBidirectionalSync(): Promise<void> {
             }
             
             // Create as new lead with source "airtable"
+            // Handle tags: convert string to array if necessary
+            let tagsArray: string[] = [];
+            if (Array.isArray(lead.tags)) {
+              tagsArray = lead.tags;
+            } else if (typeof lead.tags === 'string') {
+              // Split by comma if it's a CSV string
+              tagsArray = lead.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+            }
+            
             const leadData = {
               firstName: lead.firstName,
               lastName: lead.lastName,
@@ -96,8 +114,11 @@ async function performBidirectionalSync(): Promise<void> {
               source: 'airtable' as const, // Set source to airtable
               notes: lead.notes || '',
               priority: (lead.priority || 'medium') as any, // Map to our schema enum
-              tags: Array.isArray(lead.tags) ? lead.tags : typeof lead.tags === 'string' ? [lead.tags] : [], // Ensure tags is an array
-              lastContactDate: lead.lastContactDate || null
+              tags: tagsArray,
+              lastContactDate: lead.lastContactDate || null,
+              linkedinUrl: null, // Required fields that weren't in Airtable
+              enrichmentStatus: 'not_started' as const,
+              emailStatus: 'not_started' as const
             };
             
             // Add the lead

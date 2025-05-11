@@ -11,7 +11,8 @@ export const leadSourceEnum = pgEnum('lead_source', [
   'instantly', 
   'cyberleads', 
   'linkedin',
-  'manual'
+  'manual',
+  'airtable'
 ]);
 
 // Lead status enum
