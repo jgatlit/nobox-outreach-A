@@ -75,18 +75,33 @@ export default function Integrations() {
     },
   });
   
+  const [airtableNeedsSetup, setAirtableNeedsSetup] = React.useState(false);
+  const [airtableNeedsTable, setAirtableNeedsTable] = React.useState(false);
+
   // Function to check Airtable connection
   const checkAirtableConnectionStatus = async () => {
     try {
       setAirtableStatus('unchecked');
       setAirtableConnectionMessage("Checking connection...");
+      setAirtableNeedsSetup(false);
+      setAirtableNeedsTable(false);
       
       const response = await checkAirtableConnection();
       const result = await response.json();
       
       if (result.success) {
         setAirtableStatus('connected');
-        setAirtableConnectionMessage(`Successfully connected to Airtable. Records: ${result.recordCount || 0}`);
+        
+        if (result.needsSetup) {
+          setAirtableNeedsSetup(true);
+          setAirtableConnectionMessage(result.message || "Connected to Airtable, but table structure needs setup.");
+        } else if (result.needsTable) {
+          setAirtableNeedsTable(true);
+          setAirtableConnectionMessage(result.message || "Connected to Airtable, but 'Leads' table doesn't exist.");
+        } else {
+          setAirtableConnectionMessage(`Successfully connected to Airtable. Records: ${result.recordCount || 0}`);
+        }
+        
         if (result.baseId) {
           setAirtableBaseId(result.baseId);
         }
@@ -114,12 +129,39 @@ export default function Integrations() {
           title: "Leads synced to Airtable",
           description: `Successfully synced ${result.syncedCount || 0} leads to Airtable.`,
         });
+        // After successful sync, refresh connection status
+        checkAirtableConnectionStatus();
       } else {
-        toast({
-          title: "Failed to sync leads",
-          description: result.message || "An error occurred while syncing leads to Airtable.",
-          variant: "destructive",
-        });
+        // Handle specific error cases
+        if (result.fieldError && result.missingField) {
+          toast({
+            title: "Field error in Airtable",
+            description: `You need to create a field named "${result.missingField}" in your Airtable "Leads" table.`,
+            variant: "destructive",
+          });
+          
+          // We should also update the connection status to show the need for setup
+          setAirtableNeedsSetup(true);
+          setAirtableConnectionMessage(`Connected to Airtable, but you need to create a field named "${result.missingField}" in your Airtable "Leads" table.`);
+        }
+        else if (result.tableError) {
+          toast({
+            title: "Table error in Airtable",
+            description: "You need to create a 'Leads' table in your Airtable base first.",
+            variant: "destructive",
+          });
+          
+          // Update connection status to show need for table
+          setAirtableNeedsTable(true);
+          setAirtableConnectionMessage("Connected to Airtable, but 'Leads' table doesn't exist. Create a table named 'Leads' in your Airtable base first.");
+        }
+        else {
+          toast({
+            title: "Failed to sync leads",
+            description: result.message || "An error occurred while syncing leads to Airtable.",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
       toast({
@@ -235,7 +277,7 @@ export default function Integrations() {
       <CardContent>
         <div className="text-sm">
           <p className="my-2">{airtableConnectionMessage}</p>
-          {airtableStatus === 'connected' && (
+          {airtableStatus === 'connected' && !airtableNeedsSetup && !airtableNeedsTable && (
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="text-center p-2 bg-neutral-100 rounded-md">
                 <p className="text-sm font-medium">Base ID</p>
@@ -245,6 +287,70 @@ export default function Integrations() {
                 <p className="text-sm font-medium">Table</p>
                 <p className="text-xs">Leads</p>
               </div>
+            </div>
+          )}
+          
+          {airtableNeedsTable && (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md text-amber-800">
+              <h4 className="font-medium mb-2 flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Table Missing
+              </h4>
+              <p className="text-sm mb-2">
+                Your Airtable base is missing the "Leads" table required for synchronization.
+              </p>
+              <ol className="list-decimal list-inside text-sm space-y-1">
+                <li>Open your Airtable base</li>
+                <li>Click the "+" icon to add a new table</li>
+                <li>Name it exactly "Leads" (case sensitive)</li>
+                <li>Click "Check Connection" once you're done</li>
+              </ol>
+              <a 
+                href={`https://airtable.com/${airtableBaseId}`} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-xs text-blue-600 hover:underline flex items-center mt-3"
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Open in Airtable
+              </a>
+            </div>
+          )}
+          
+          {airtableNeedsSetup && !airtableNeedsTable && (
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md text-amber-800">
+              <h4 className="font-medium mb-2 flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Missing Fields
+              </h4>
+              <p className="text-sm mb-2">
+                Your "Leads" table needs these fields to work with our system:
+              </p>
+              <ul className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mt-2">
+                {[
+                  "PostgreSQL_ID", "firstName", "lastName", "email", 
+                  "company", "title", "website", "phone", 
+                  "status", "source", "notes", "priority", 
+                  "tags", "lastContact"
+                ].map(field => (
+                  <li key={field} className="flex items-center">
+                    <span className="h-1.5 w-1.5 bg-amber-500 rounded-full mr-1"></span>
+                    {field}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs mt-2">
+                In Airtable, click "+" in your Fields section and add these fields.
+              </p>
+              <a 
+                href={`https://airtable.com/${airtableBaseId}`} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-xs text-blue-600 hover:underline flex items-center mt-3"
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Open in Airtable
+              </a>
             </div>
           )}
         </div>
@@ -275,7 +381,7 @@ export default function Integrations() {
             variant="outline" 
             size="sm"
             onClick={syncLeadsFromAirtableHandler}
-            disabled={airtableStatus !== 'connected' || airtableSyncingFrom}
+            disabled={airtableStatus !== 'connected' || airtableSyncingFrom || airtableNeedsSetup || airtableNeedsTable}
           >
             {airtableSyncingFrom ? 
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> :

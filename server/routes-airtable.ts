@@ -73,14 +73,37 @@ export function registerAirtableRoutes(app: Express): void {
         });
       }
       
-      // Sync leads to Airtable
-      const syncedCount = await syncLeadsToAirtable(leads);
-      
-      return res.status(200).json({
-        success: true,
-        message: `Successfully synced ${syncedCount} leads to Airtable`,
-        syncedCount
-      });
+      try {
+        // Sync leads to Airtable
+        const syncedCount = await syncLeadsToAirtable(leads);
+        
+        return res.status(200).json({
+          success: true,
+          message: `Successfully synced ${syncedCount} leads to Airtable`,
+          syncedCount
+        });
+      } catch (error) {
+        // Check if this is a field name error
+        if (error.message && error.message.includes('Unknown field name')) {
+          return res.status(400).json({
+            success: false,
+            message: `Airtable sync failed: ${error.message}. Create a field in your Airtable Leads table with this name.`,
+            fieldError: true,
+            missingField: error.message.split('"')[1] || ''
+          });
+        }
+        
+        // Check if table doesn't exist
+        if (error.message && error.message.toLowerCase().includes('not found')) {
+          return res.status(400).json({
+            success: false,
+            message: `Airtable sync failed: The "Leads" table doesn't exist in your Airtable base. Please create it first.`,
+            tableError: true
+          });
+        }
+        
+        throw error;
+      }
     } catch (error) {
       console.error('Error syncing to Airtable:', error);
       return res.status(500).json({
