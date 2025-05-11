@@ -25,9 +25,16 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { CheckCircle2, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+
+// Interface for the authentication result
+interface AuthResult {
+  type: "pat" | "classic_key" | "unknown";
+  status?: "valid" | "invalid" | "untested";
+  hasPrefix?: boolean;
+}
 
 const formSchema = z.object({
   apiKey: z.string().min(1, "API key is required"),
@@ -38,9 +45,8 @@ type FormValues = z.infer<typeof formSchema>;
 export function AirtableApiKeyForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [validationResult, setValidationResult] = useState<any>(null);
-  const [isValidating, setIsValidating] = useState(false);
-
+  const [authResult, setAuthResult] = useState<AuthResult | null>(null);
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -48,56 +54,54 @@ export function AirtableApiKeyForm() {
     },
   });
 
-  const validateMutation = useMutation({
-    mutationFn: async (values: FormValues) => {
-      return await apiRequest("/api/airtable/validate-key", "POST", values);
-    },
-    onSuccess: (data) => {
-      setValidationResult(data);
-    },
-    onError: (error) => {
-      toast({
-        title: "Validation Error",
-        description: error instanceof Error ? error.message : "Failed to validate API key",
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      setIsValidating(false);
-    },
-  });
-
   const updateMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       return await apiRequest("/api/airtable/update-key", "POST", values);
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      if (data && data.details) {
+        setAuthResult(data.details);
+      }
+      
       toast({
         title: "Success",
-        description: "Airtable API key updated successfully",
+        description: data && data.message ? data.message : "Airtable API key updated successfully",
       });
       
       // Invalidate all Airtable-related queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["/api/airtable/sync/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/airtable/diagnostics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/integrations"] });
+      
+      // Reset form
+      form.reset();
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      let errorMessage = "Failed to update API key";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        // Try to extract API error message
+        if (error.error) {
+          errorMessage = error.error;
+        } else if (error.message) {
+          errorMessage = error.message;
+        } else if (error.details) {
+          errorMessage = error.details;
+        }
+      }
+      
       toast({
         title: "Update Error",
-        description: error instanceof Error ? error.message : "Failed to update API key",
+        description: errorMessage,
         variant: "destructive",
       });
     },
   });
 
-  const onValidate = (values: FormValues) => {
-    setIsValidating(true);
-    setValidationResult(null);
-    validateMutation.mutate(values);
-  };
-
   const onSubmit = (values: FormValues) => {
+    setAuthResult(null);
     updateMutation.mutate(values);
   };
 
@@ -138,52 +142,45 @@ export function AirtableApiKeyForm() {
               )}
             />
 
-            {/* Validation Result */}
-            {validationResult && (
+            {/* Authentication Result */}
+            {authResult && (
               <Alert
-                variant={validationResult.valid ? "default" : "destructive"}
+                variant="default"
                 className="mt-4"
               >
-                {validationResult.valid ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                  <AlertCircle className="h-4 w-4" />
-                )}
-                <AlertTitle>
-                  {validationResult.valid ? "Valid API Key" : "Invalid API Key"}
-                </AlertTitle>
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertTitle>API Key Set Successfully</AlertTitle>
                 <AlertDescription className="mt-2">
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                       <strong>Type:</strong> 
-                      <Badge variant={validationResult.type === "pat" ? "default" : "outline"}>
-                        {validationResult.type === "pat" 
+                      <Badge variant={authResult.type === "pat" ? "default" : "outline"}>
+                        {authResult.type === "pat" 
                           ? "Personal Access Token (PAT)" 
-                          : validationResult.type === "classic_key" 
+                          : authResult.type === "classic_key" 
                           ? "Classic API Key" 
                           : "Unknown"}
                       </Badge>
                     </div>
-                    <div>
-                      <strong>Message:</strong> {validationResult.message}
-                    </div>
+                    {authResult.hasPrefix !== undefined && (
+                      <div>
+                        <strong>Format:</strong> {authResult.hasPrefix ? "Contains proper prefix" : "No prefix detected"}
+                      </div>
+                    )}
+                    {authResult.status && (
+                      <div>
+                        <strong>Status:</strong> {authResult.status === 'valid' ? 'Valid and authenticated' : 'Unknown'}
+                      </div>
+                    )}
                   </div>
                 </AlertDescription>
               </Alert>
             )}
             
             <div className="flex gap-3 pt-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => onValidate(form.getValues())}
-                disabled={isValidating || validateMutation.isPending}
-              >
-                {isValidating || validateMutation.isPending ? "Validating..." : "Validate Key"}
-              </Button>
               <Button
                 type="submit"
-                disabled={updateMutation.isPending || !validationResult?.valid}
+                disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? "Updating..." : "Update Key"}
               </Button>

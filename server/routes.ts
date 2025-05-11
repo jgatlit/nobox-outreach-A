@@ -1753,6 +1753,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // API endpoint to validate an Airtable API key without storing it
+  app.post("/api/airtable/validate-key", async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+      
+      if (!apiKey) {
+        return res.status(400).json({ 
+          success: false,
+          error: "No API key provided" 
+        });
+      }
+      
+      // Import the new auth functions
+      const { processAuth, testAuth } = await import('./airtable/auth');
+      
+      const baseId = process.env.AIRTABLE_BASE_ID;
+      if (!baseId) {
+        return res.status(400).json({ 
+          success: false,
+          error: "No Airtable Base ID configured. Please add AIRTABLE_BASE_ID environment variable." 
+        });
+      }
+      
+      // Process and validate the authentication token
+      const auth = processAuth(apiKey);
+      
+      // Test the authentication against the base
+      try {
+        const testedAuth = await testAuth(baseId, auth);
+        
+        return res.json({ 
+          success: true,
+          valid: testedAuth.status === 'valid',
+          type: testedAuth.type,
+          hasPrefix: testedAuth.hasPrefix,
+          status: testedAuth.status,
+          message: testedAuth.status === 'valid' 
+            ? "API key validated successfully" 
+            : "API key validation failed"
+        });
+      } catch (error) {
+        return res.status(400).json({ 
+          success: false,
+          valid: false,
+          error: "Failed to validate API key", 
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    } catch (error) {
+      console.error("Error validating API key:", error);
+      return res.status(500).json({ 
+        success: false,
+        valid: false,
+        error: "Failed to validate API key",
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
   // API endpoint to update the stored Airtable API key
   app.post("/api/airtable/update-key", async (req, res) => {
     try {
