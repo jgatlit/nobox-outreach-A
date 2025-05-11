@@ -7,6 +7,12 @@
 export { airtableConfig } from './config';
 export { startAirtableServer } from './server';
 export { createLeadsTable } from './schema';
+export {
+  createLeadsTableHandler,
+  getSyncStatusHandler,
+  configureAirtableHandler,
+  triggerFullSyncHandler
+} from './api';
 export { 
   airtableClient,
   searchRecords,

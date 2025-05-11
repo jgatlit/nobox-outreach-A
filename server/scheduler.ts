@@ -2,7 +2,7 @@
  * This module handles scheduled tasks for the application
  */
 
-import { syncLeadsToAirtable, syncLeadsFromAirtable } from './airtable/sync';
+import { syncLeadsToAirtable, syncAirtableToLeads } from './airtable/sync';
 import { log } from './vite';
 
 // Constants
@@ -63,7 +63,7 @@ async function runLeadSync() {
   try {
     // Sync in both directions
     const toAirtableResult = await syncLeadsToAirtable();
-    const fromAirtableResult = await syncLeadsFromAirtable();
+    const fromAirtableResult = await syncAirtableToLeads();
     
     log(`Completed scheduled lead sync. To Airtable: ${toAirtableResult.count || 0} leads. From Airtable: ${fromAirtableResult.count || 0} leads.`, 'scheduler');
     

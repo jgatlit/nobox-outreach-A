@@ -20,8 +20,7 @@ import {
   getSyncStatus, 
   triggerFullSync, 
   syncLeadsToAirtable, 
-  syncLeadsFromAirtable,
-  syncSpecificLeadToAirtable
+  syncAirtableToLeads
 } from "./airtable/sync";
 import { startLeadSyncScheduler, stopLeadSyncScheduler } from "./scheduler";
 import path from "path";
