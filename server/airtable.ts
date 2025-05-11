@@ -72,7 +72,7 @@ export async function createRecord(tableName: string, data: Record<string, any>,
     }
     
     throw new Error('Failed to create record');
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error creating record in ${tableName}:`, error);
     throw new Error(`Failed to create record in Airtable table ${tableName}: ${error.message}`);
   }
@@ -94,7 +94,7 @@ export async function updateRecord(tableName: string, recordId: string, data: Re
     }
     
     throw new Error('Failed to update record');
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error updating record in ${tableName}:`, error);
     throw new Error(`Failed to update record in Airtable table ${tableName}: ${error.message}`);
   }
@@ -108,7 +108,7 @@ export async function deleteRecord(tableName: string, recordId: string, baseId?:
     const base = getBase(baseId);
     await base(tableName).destroy([recordId]);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error deleting record from ${tableName}:`, error);
     throw new Error(`Failed to delete record from Airtable table ${tableName}: ${error.message}`);
   }
@@ -174,7 +174,7 @@ export async function syncLeadsToAirtable(leads: Lead[], tableName: string = 'Le
       id: record.id,
       ...record.fields
     }));
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing leads to Airtable:', error);
     throw new Error(`Failed to sync leads to Airtable: ${error.message}`);
   }
@@ -212,7 +212,7 @@ export async function syncLeadsFromAirtable(tableName: string = 'Leads', baseId?
         airtableId: record.id // Store the Airtable record ID for future syncing
       };
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing leads from Airtable:', error);
     throw new Error(`Failed to sync leads from Airtable: ${error.message}`);
   }
@@ -268,7 +268,7 @@ export async function syncLeadEnrichmentToAirtable(
         ...newRecord[0].fields
       };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing lead enrichment to Airtable:', error);
     throw new Error(`Failed to sync lead enrichment to Airtable: ${error.message}`);
   }
@@ -330,7 +330,7 @@ export async function syncEmailDraftsToAirtable(
     }
     
     return results;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing email drafts to Airtable:', error);
     throw new Error(`Failed to sync email drafts to Airtable: ${error.message}`);
   }
@@ -394,7 +394,7 @@ export async function syncCampaignsToAirtable(
     }
     
     return results;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing campaigns to Airtable:', error);
     throw new Error(`Failed to sync campaigns to Airtable: ${error.message}`);
   }
