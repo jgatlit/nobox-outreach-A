@@ -81,6 +81,8 @@ export const leads = pgTable("leads", {
   priorityScore: integer("priority_score"),
   priorityReason: text("priority_reason"),
   priorityUpdatedAt: timestamp("priority_updated_at"),
+  // Sync with Airtable
+  lastSyncedAt: timestamp("last_synced_at"),
 });
 
 export const leadEnrichment = pgTable("lead_enrichment", {

@@ -72,9 +72,10 @@ async function runLeadSync() {
       toAirtable: toAirtableResult,
       fromAirtable: fromAirtableResult,
     };
-  } catch (error) {
-    log(`Error in scheduled lead sync: ${error.message}`, 'scheduler');
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log(`Error in scheduled lead sync: ${errorMessage}`, 'scheduler');
+    return { success: false, error: errorMessage };
   }
 }
 
