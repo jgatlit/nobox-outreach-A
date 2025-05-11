@@ -1442,6 +1442,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================
+  // Airtable Integration Routes
+  // ============================
+
+  // Test Airtable connection
+  app.get("/api/airtable/test-connection", async (req, res) => {
+    try {
+      const result = await airtableService.testConnection();
+      return res.status(result.connected ? 200 : 400).json(result);
+    } catch (error) {
+      console.error("Error testing Airtable connection:", error);
+      return res.status(500).json({ error: "Failed to connect to Airtable" });
+    }
+  });
+
+  // Get Airtable tables
+  app.get("/api/airtable/tables", async (req, res) => {
+    try {
+      const tables = await airtableService.getTables();
+      return res.json(tables);
+    } catch (error) {
+      console.error("Error fetching Airtable tables:", error);
+      return res.status(500).json({ error: "Failed to fetch Airtable tables" });
+    }
+  });
+
+  // Get records from a table
+  app.get("/api/airtable/:tableName/records", async (req, res) => {
+    try {
+      const { tableName } = req.params;
+      const options: Record<string, any> = {};
+      
+      // Extract query parameters
+      if (req.query.maxRecords) options.maxRecords = Number(req.query.maxRecords);
+      if (req.query.view) options.view = req.query.view as string;
+      if (req.query.filterByFormula) options.filterByFormula = req.query.filterByFormula as string;
+      if (req.query.sort) {
+        try {
+          options.sort = JSON.parse(req.query.sort as string);
+        } catch (e) {
+          return res.status(400).json({ error: "Invalid sort parameter format" });
+        }
+      }
+      
+      const records = await airtableService.listRecords(tableName, options);
+      return res.json(records);
+    } catch (error) {
+      console.error(`Error fetching records from ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to fetch records" });
+    }
+  });
+
+  // Create a new record
+  app.post("/api/airtable/:tableName/records", async (req, res) => {
+    try {
+      const { tableName } = req.params;
+      const fields = req.body;
+      
+      if (!fields || Object.keys(fields).length === 0) {
+        return res.status(400).json({ error: "No fields provided" });
+      }
+      
+      const result = await airtableService.createRecord(tableName, fields);
+      return res.status(201).json(result);
+    } catch (error) {
+      console.error(`Error creating record in ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to create record" });
+    }
+  });
+
+  // Create multiple records with batch operation via MCP server
+  app.post("/api/airtable/:tableName/batch", async (req, res) => {
+    try {
+      const { tableName } = req.params;
+      const { records } = req.body;
+      
+      if (!Array.isArray(records) || records.length === 0) {
+        return res.status(400).json({ error: "No records provided in batch" });
+      }
+      
+      const result = await airtableService.createRecords(tableName, records);
+      return res.status(201).json(result);
+    } catch (error) {
+      console.error(`Error batch creating records in ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to create records in batch" });
+    }
+  });
+
+  // Update a record
+  app.patch("/api/airtable/:tableName/records/:recordId", async (req, res) => {
+    try {
+      const { tableName, recordId } = req.params;
+      const fields = req.body;
+      
+      if (!fields || Object.keys(fields).length === 0) {
+        return res.status(400).json({ error: "No fields provided for update" });
+      }
+      
+      const result = await airtableService.updateRecord(tableName, recordId, fields);
+      return res.json(result);
+    } catch (error) {
+      console.error(`Error updating record ${req.params.recordId} in ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to update record" });
+    }
+  });
+
+  // Delete a record
+  app.delete("/api/airtable/:tableName/records/:recordId", async (req, res) => {
+    try {
+      const { tableName, recordId } = req.params;
+      const result = await airtableService.deleteRecord(tableName, recordId);
+      return res.json(result);
+    } catch (error) {
+      console.error(`Error deleting record ${req.params.recordId} from ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to delete record" });
+    }
+  });
+
+  // Delete multiple records with batch operation via MCP server
+  app.delete("/api/airtable/:tableName/batch", async (req, res) => {
+    try {
+      const { tableName } = req.params;
+      const { recordIds } = req.body;
+      
+      if (!Array.isArray(recordIds) || recordIds.length === 0) {
+        return res.status(400).json({ error: "No record IDs provided for batch deletion" });
+      }
+      
+      const result = await airtableService.deleteRecords(tableName, recordIds);
+      return res.json(result);
+    } catch (error) {
+      console.error(`Error batch deleting records from ${req.params.tableName}:`, error);
+      return res.status(500).json({ error: "Failed to delete records in batch" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

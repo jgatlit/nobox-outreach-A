@@ -245,16 +245,55 @@ export class AirtableService {
    */
   async testConnection() {
     try {
-      // Try to fetch a single record from the Conversations table
-      const result = await this.airtableClient.listRecords('Conversations', { maxRecords: 1 });
-      return {
-        connected: true,
-        data: result
-      };
+      // First, verify the credentials by checking if we can access the base metadata
+      try {
+        const { baseId } = validateEnvVars();
+        const url = `${AIRTABLE_API_URL}/meta/bases/${baseId}`;
+        const response = await axios.get(url, { headers: getAuthHeaders() });
+        
+        // If successful, return the base info
+        return {
+          connected: true,
+          baseInfo: {
+            id: response.data.id,
+            name: response.data.name,
+            permissionLevel: response.data.permissionLevel
+          }
+        };
+      } catch (error) {
+        const axiosError = error as AxiosError;
+        console.error('Error connecting to Airtable:', {
+          status: axiosError.response?.status,
+          data: axiosError.response?.data
+        });
+        
+        // If we get a 404 error, it might be because the base doesn't exist or the token doesn't have access
+        if (axiosError.response?.status === 404) {
+          return {
+            connected: false,
+            error: 'Base not found or insufficient permissions'
+          };
+        }
+        
+        // If we get a 401 or 403 error, it's likely an authentication issue
+        if (axiosError.response?.status === 401 || axiosError.response?.status === 403) {
+          return {
+            connected: false,
+            error: 'Authentication failed. Please check your PAT'
+          };
+        }
+        
+        // For any other error, return the error message
+        return {
+          connected: false,
+          error: axiosError.message
+        };
+      }
     } catch (error) {
+      const err = error as Error;
       return {
         connected: false,
-        error: error.message
+        error: err.message
       };
     }
   }
