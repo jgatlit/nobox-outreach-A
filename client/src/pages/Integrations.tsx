@@ -7,7 +7,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,176 +26,18 @@ import {
   BarChart,
   Brain,
   Puzzle,
-  Plus,
-  Grid,
-  Upload,
-  Download,
-  Table
+  Plus
 } from "lucide-react";
-
-// Form schema for Airtable sync
-const airtableSyncSchema = z.object({
-  tableName: z.string().min(1, { message: "Table name is required" }),
-  syncDirection: z.enum(["to_airtable", "from_airtable"]),
-  dataType: z.enum(["leads", "campaigns"])
-});
-
-type AirtableSyncFormValues = z.infer<typeof airtableSyncSchema>;
 
 export default function Integrations() {
   const [activeTab, setActiveTab] = React.useState("all");
-  const [isAirtableDialogOpen, setIsAirtableDialogOpen] = React.useState(false);
-  const [isSyncing, setIsSyncing] = React.useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  // Airtable sync form
-  const airtableForm = useForm<AirtableSyncFormValues>({
-    resolver: zodResolver(airtableSyncSchema),
-    defaultValues: {
-      tableName: "Leads",
-      syncDirection: "to_airtable",
-      dataType: "leads"
-    },
-  });
   
   const { data: integrations, isLoading } = useQuery({
     queryKey: ['/api/integrations'],
     staleTime: 60000, // 1 minute
   });
-  
-  // Add Airtable card to the list of integrations
-  const allIntegrations = React.useMemo(() => {
-    const existingIntegrations = integrations || [];
-    return [
-      ...existingIntegrations,
-      {
-        id: "airtable",
-        name: "Airtable",
-        type: "database",
-        status: "active",
-        lastChecked: new Date().toISOString(),
-        description: "Sync leads and campaigns with Airtable",
-        config: {
-          // The actual base ID is stored in environment variables
-          apiUrl: "https://api.airtable.com/v0",
-        }
-      }
-    ];
-  }, [integrations]);
-  
-  // Handle Airtable sync 
-  const handleSyncWithAirtable = async (data: AirtableSyncFormValues) => {
-    setIsSyncing(true);
-    
-    try {
-      let endpoint = '';
-      let successMessage = '';
-      let invalidateQueryKey = '';
-      
-      // Determine the correct endpoint based on data type and sync direction
-      if (data.dataType === "leads") {
-        invalidateQueryKey = '/api/leads';
-        
-        if (data.syncDirection === "to_airtable") {
-          endpoint = "/api/airtable/sync/leads-to-airtable";
-          successMessage = "Successfully synced leads to Airtable";
-        } else {
-          endpoint = "/api/airtable/sync/leads-from-airtable";
-          successMessage = "Successfully synced leads from Airtable";
-        }
-      } else if (data.dataType === "campaigns") {
-        invalidateQueryKey = '/api/campaigns';
-        
-        if (data.syncDirection === "to_airtable") {
-          endpoint = "/api/airtable/sync/campaigns-to-airtable";
-          successMessage = "Successfully synced campaigns to Airtable";
-        } else {
-          endpoint = "/api/airtable/sync/campaigns-from-airtable";
-          successMessage = "Successfully synced campaigns from Airtable";
-        }
-      }
-      
-      // Logging to help with debugging
-      console.log("Airtable sync request:", {
-        endpoint,
-        tableName: data.tableName,
-        baseId: 'appUPDttFgRrz9YiC', // Hard-coded Base ID
-        syncDirection: data.syncDirection,
-        dataType: data.dataType
-      });
-      
-      // Make API request - only sending the table name as Base ID is hard-coded in the backend
-      const response = await apiRequest("POST", endpoint, {
-        tableName: data.tableName
-      });
-      
-      // Parse response
-      const result = await response.json();
-      
-      // Handle success 
-      if (response.ok) {
-        let successDetails = '';
-        
-        if (result.created !== undefined) {
-          successDetails += `Created: ${result.created}. `;
-        }
-        
-        if (result.updated !== undefined) {
-          successDetails += `Updated: ${result.updated}. `;
-        }
-        
-        if (result.skipped !== undefined) {
-          successDetails += `Skipped: ${result.skipped}. `;
-        }
-        
-        if (result.syncedLeadsCount) {
-          successDetails += `Total leads: ${result.syncedLeadsCount}. `;
-        }
-        
-        if (result.syncedCampaignsCount) {
-          successDetails += `Total campaigns: ${result.syncedCampaignsCount}. `;
-        }
-        
-        // Add details about skipped items if available
-        if (result.skippedDetails && result.skippedDetails.length > 0) {
-          console.log("Skipped details:", result.skippedDetails);
-          const skipReasons = result.skippedDetails.map((item: any) => 
-            `${item.name || 'Item'}: ${item.error || 'Unknown error'}`
-          ).join('; ');
-          
-          if (result.skipped > 0) {
-            successDetails += `\nSkipped items: ${skipReasons}`;
-          }
-        }
-        
-        toast({
-          title: "Sync completed",
-          description: `${successMessage}. ${successDetails}`,
-        });
-        
-        // Refresh the relevant data after sync
-        queryClient.invalidateQueries({ queryKey: [invalidateQueryKey] });
-        
-        // Close the dialog
-        setIsAirtableDialogOpen(false);
-      } else {
-        // Handle error from API
-        const errorMessage = result.message || result.error || "Failed to sync with Airtable";
-        console.error("Airtable sync API error:", result);
-        throw new Error(errorMessage);
-      }
-    } catch (error: any) {
-      console.error("Airtable sync error:", error);
-      toast({
-        title: "Sync failed",
-        description: error.message || "Failed to sync with Airtable. Check console for details.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
   
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number, status: string }) => {
@@ -253,7 +94,7 @@ export default function Integrations() {
     }
   };
   
-  const filteredIntegrations = allIntegrations.filter(integration => {
+  const filteredIntegrations = integrations?.filter(integration => {
     if (activeTab === "all") return true;
     return integration.type === activeTab;
   }) || [];
@@ -275,155 +116,10 @@ export default function Integrations() {
             <TabsTrigger value="workflow_automation">Automation</TabsTrigger>
             <TabsTrigger value="crm">CRM</TabsTrigger>
             <TabsTrigger value="project_management">Project Management</TabsTrigger>
-            <TabsTrigger value="database">Database</TabsTrigger>
             <TabsTrigger value="ai">AI</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
-      
-      {/* Airtable Sync Dialog */}
-      <Dialog open={isAirtableDialogOpen} onOpenChange={setIsAirtableDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Sync with Airtable</DialogTitle>
-            <DialogDescription>
-              Sync your data between the application and Airtable.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Form {...airtableForm}>
-            <form onSubmit={airtableForm.handleSubmit(handleSyncWithAirtable)} className="space-y-4">
-              {/* Data Type Selector Tabs */}
-              <FormField
-                control={airtableForm.control}
-                name="dataType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data Type</FormLabel>
-                    <Tabs 
-                      defaultValue={field.value}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        // Update default table name based on selected data type
-                        if (value === "leads") {
-                          airtableForm.setValue("tableName", "Leads");
-                        } else if (value === "campaigns") {
-                          airtableForm.setValue("tableName", "Campaigns");
-                        }
-                      }}
-                      className="w-full"
-                    >
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="leads" className="flex items-center">
-                          <Users className="h-4 w-4 mr-2" />
-                          Leads
-                        </TabsTrigger>
-                        <TabsTrigger value="campaigns" className="flex items-center">
-                          <BarChart className="h-4 w-4 mr-2" />
-                          Campaigns
-                        </TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                    <FormDescription>
-                      Select which data type you want to synchronize.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={airtableForm.control}
-                name="syncDirection"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sync Direction</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select sync direction" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="to_airtable">
-                          <div className="flex items-center">
-                            <Upload className="mr-2 h-4 w-4" />
-                            <span>PostgreSQL → Airtable</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="from_airtable">
-                          <div className="flex items-center">
-                            <Download className="mr-2 h-4 w-4" />
-                            <span>Airtable → PostgreSQL</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Choose whether to push data to Airtable or pull data from Airtable.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={airtableForm.control}
-                name="tableName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Airtable Table Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder={`e.g., ${airtableForm.getValues("dataType") === "leads" ? "Leads" : "Campaigns"}`} {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Enter the name of the Airtable table to sync with.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              {/* Display Base ID as read-only info (not a form field) */}
-              <div className="p-4 border rounded-md bg-muted/50">
-                <h4 className="font-medium mb-1">Airtable Base ID</h4>
-                <p className="text-sm text-muted-foreground mb-2 flex items-center">
-                  <code className="bg-background px-1 py-0.5 rounded">appUPDttFgRrz9YiC</code>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  This Base ID is hard-coded in the application for security and consistency.
-                </p>
-              </div>
-              
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAirtableDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={isSyncing}
-                  className="bg-primary-600 hover:bg-primary-700"
-                >
-                  {isSyncing ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Start Sync
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
       
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -452,127 +148,45 @@ export default function Integrations() {
         </div>
       ) : filteredIntegrations.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredIntegrations.map(integration => {
-            // Special case for Airtable integration
-            if (integration.id === "airtable") {
-              return (
-                <Card key={integration.id} className="border-2 border-green-100">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <Grid className="h-10 w-10 text-green-500" />
-                      {getStatusIcon(integration.status)}
-                    </div>
-                    <CardTitle className="mt-4">Airtable</CardTitle>
-                    <CardDescription>
-                      Database Integration
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-sm text-neutral-500">
-                      <p>Bidirectional sync for leads and campaigns</p>
-                      <p className="mt-1">Sync leads, campaigns, and other data with Airtable</p>
-                      <div className="mt-3">
-                        <Badge variant="outline" className="mr-2 bg-green-50">
-                          <Table className="h-3 w-3 mr-1" />
-                          Leads
-                        </Badge>
-                        <Badge variant="outline" className="bg-blue-50">
-                          <BarChart className="h-3 w-3 mr-1" />
-                          Campaigns
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex flex-col space-y-2">
-                    <div className="flex justify-between w-full">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          // Reset form to default values first
-                          airtableForm.reset({
-                            tableName: "Leads",
-                            dataType: "leads",
-                            syncDirection: "to_airtable"
-                          });
-                          // Then open dialog
-                          setIsAirtableDialogOpen(true);
-                        }}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Export to Airtable
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => {
-                          // Reset form to default values first
-                          airtableForm.reset({
-                            tableName: "Leads",
-                            dataType: "leads",
-                            syncDirection: "from_airtable"
-                          });
-                          // Then open dialog
-                          setIsAirtableDialogOpen(true);
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Import from Airtable
-                      </Button>
-                    </div>
-                    <div className="text-xs text-center text-neutral-500 mt-2">
-                      Using Airtable Personal Access Token for authentication
-                    </div>
-                  </CardFooter>
-                </Card>
-              );
-            }
-            
-            // Standard card for other integrations
-            return (
-              <Card key={integration.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    {getIntegrationIcon(integration.type)}
-                    {getStatusIcon(integration.status)}
-                  </div>
-                  <CardTitle className="mt-4">{integration.name}</CardTitle>
-                  <CardDescription>
-                    {integration.type.replace("_", " ").replace(/^\w/, c => c.toUpperCase())}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-neutral-500">
-                    <p>Last checked: {formatRelativeTime(integration.lastChecked)}</p>
-                    {integration.config?.apiUrl && (
-                      <p className="mt-1 truncate">API: {integration.config.apiUrl}</p>
-                    )}
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (typeof integration.id === 'number') {
-                        updateStatusMutation.mutate({
-                          id: integration.id,
-                          status: integration.status === "active" ? "warning" : "active"
-                        });
-                      }
-                    }}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Configure
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          })}
+          {filteredIntegrations.map(integration => (
+            <Card key={integration.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  {getIntegrationIcon(integration.type)}
+                  {getStatusIcon(integration.status)}
+                </div>
+                <CardTitle className="mt-4">{integration.name}</CardTitle>
+                <CardDescription>
+                  {integration.type.replace("_", " ").replace(/^\w/, c => c.toUpperCase())}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm text-neutral-500">
+                  <p>Last checked: {formatRelativeTime(integration.lastChecked)}</p>
+                  {integration.config?.apiUrl && (
+                    <p className="mt-1 truncate">API: {integration.config.apiUrl}</p>
+                  )}
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => updateStatusMutation.mutate({
+                    id: integration.id,
+                    status: integration.status === "active" ? "warning" : "active"
+                  })}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configure
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
         </div>
       ) : (
         <div className="text-center py-12">
