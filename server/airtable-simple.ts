@@ -1,6 +1,29 @@
 import Airtable from 'airtable';
 import { Lead } from '../shared/schema';
 
+/**
+ * Format a date for Airtable
+ * Airtable requires dates to be in YYYY-MM-DD format for the Date field type
+ */
+function formatDateForAirtable(dateValue: Date | string | null): string | null {
+  if (!dateValue) return null;
+  
+  try {
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    
+    // Ensure it's a valid date
+    if (isNaN(date.getTime())) {
+      return null;
+    }
+    
+    // Format as YYYY-MM-DD which is what Airtable Date fields expect
+    return date.toISOString().split('T')[0];
+  } catch (error) {
+    console.error('Error formatting date for Airtable:', error);
+    return null;
+  }
+}
+
 // Get or create the Airtable client
 function getAirtableClient() {
   const apiKey = process.env.AIRTABLE_PAT;
@@ -166,7 +189,8 @@ export async function syncLeadsToAirtable(leads: Lead[]): Promise<{ count: numbe
         notes: lead.notes || '',
         priority: lead.priority || 'medium',
         tags: formattedTags, // Now always a comma-separated string
-        lastContactDate: lead.lastContactDate ? new Date(lead.lastContactDate).toISOString() : null // Field name matches EXPECTED_FIELDS
+        // Format the date for Airtable - must be in YYYY-MM-DD format for the Date field type
+        lastContactDate: lead.lastContactDate ? formatDateForAirtable(lead.lastContactDate) : null
       };
       
       // Check if this lead already exists in Airtable

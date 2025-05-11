@@ -143,6 +143,17 @@ export function registerAirtableRoutes(app: Express): void {
           });
         }
         
+        // Check if date field validation error
+        if (error.message && (error.message.includes('lastContactDate') || 
+                              error.message.includes('Field "lastContactDate" cannot'))) {
+          return res.status(400).json({
+            success: false,
+            message: `Airtable sync failed: The lastContactDate field in Airtable is not accepting the date format. Make sure the lastContactDate field in Airtable is set to 'Date' type.`,
+            dateFieldError: true,
+            error: error.message
+          });
+        }
+        
         // Other errors should be returned with 400 status, not 500
         return res.status(400).json({
           success: false,

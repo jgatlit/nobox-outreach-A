@@ -213,6 +213,19 @@ export default function Integrations() {
               return;
             }
             
+            if (errorJson.dateFieldError) {
+              toast({
+                title: "Date field format error",
+                description: "The lastContactDate field in your Airtable can't accept the provided date format. Make sure it's set to 'Date' type.",
+                variant: "destructive",
+              });
+              
+              // Update connection status
+              setAirtableNeedsSetup(true);
+              setAirtableConnectionMessage("Connected to Airtable, but there's an issue with the date field format. Ensure the lastContactDate field in Airtable is set to 'Date' type.");
+              return;
+            }
+            
             if (errorJson.tableError) {
               toast({
                 title: "Table error in Airtable",
