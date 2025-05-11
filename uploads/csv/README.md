@@ -19,7 +19,7 @@ Use this template to bulk import new leads into the system.
 - `phoneNumber`: Contact phone number
 - `website`: Company or personal website URL
 - `linkedinUrl`: LinkedIn profile URL
-- `source`: Source of the lead (default: manual, options: pipedrive, asana, email, instantly, cyberleads, linkedin, manual)
+- `source`: Source of the lead (default: import, options: pipedrive, asana, email, instantly, cyberleads, linkedin, manual, import, airtable)
 - `status`: Lead status (default: active, options: active, inactive, contacted, responded, qualified, disqualified)
 - `priority`: Lead priority (default: medium, options: low, medium, high, urgent)
 - `notes`: Additional notes about the lead

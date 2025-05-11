@@ -17,10 +17,10 @@ const formatUrl = (url: string | null): string | null => {
   return cleanUrl;
 };
 
-const formatSource = (source: string): "email" | "pipedrive" | "asana" | "instantly" | "cyberleads" | "linkedin" | "manual" => {
-  const validSources = ["email", "pipedrive", "asana", "instantly", "cyberleads", "linkedin", "manual"];
+const formatSource = (source: string): "email" | "pipedrive" | "asana" | "instantly" | "cyberleads" | "linkedin" | "manual" | "import" | "airtable" => {
+  const validSources = ["email", "pipedrive", "asana", "instantly", "cyberleads", "linkedin", "manual", "import", "airtable"];
   return validSources.includes(source.toLowerCase()) ? 
-    source.toLowerCase() as any : "manual";
+    source.toLowerCase() as any : "import";  // Default to "import" instead of "manual"
 };
 
 const formatStatus = (status: string): "active" | "inactive" | "contacted" | "responded" | "qualified" | "disqualified" | null => {
@@ -340,7 +340,7 @@ export async function importLeadsFromCSV(
           website: formatUrl(record.website || record.webSite || record.web_site),
           // Ensure LinkedIn URL has proper format
           linkedinUrl: formatUrl(record.linkedinUrl || record.linkedin || record.linkedin_url),
-          source: formatSource(record.source || 'manual'),
+          source: formatSource(record.source || 'import'),
           status: formatStatus(record.status || 'active'),
           priority: formatPriority(record.priority || 'medium'),
           notes: record.notes || '',
