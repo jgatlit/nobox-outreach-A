@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 
 import { LeadTable } from "@/components/LeadManagement/LeadTable";
 import { BulkImportModal } from "@/components/LeadManagement/BulkImportModal";
+import { CSVPasteImportButton } from "@/components/LeadManagement/CSVPasteImportButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -437,6 +438,9 @@ export default function LeadManagement() {
           
           {/* Bulk Import CSV Modal */}
           <BulkImportModal />
+          
+          {/* CSV Paste Import Button */}
+          <CSVPasteImportButton />
           
           {/* Google Sheets Import Button */}
           <Button 
