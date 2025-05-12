@@ -6,7 +6,7 @@ import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, upd
 import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions, generatePersonalizationHooks, enhanceWebsiteDataWithAI, summarizeScrapingResultsWithAI } from "./openai";
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { upload } from "./middleware/upload";
-import { importAsanaData, importGmailData, importLeadsFromCSV } from "./importers";
+import { importAsanaData, importGmailData, importLeadsFromCSV, importLeadsFromCSVText } from "./importers";
 import path from "path";
 import fs from "fs";
 
@@ -1361,7 +1361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Import Gmail data in various formats (CSV, JSON, XML, MD)
-  // Bulk CSV import for leads
+  // Bulk CSV import for leads (file upload)
   app.post("/api/leads/import/csv", upload.single('file'), async (req: Request, res: Response) => {
     try {
       // Check if file is uploaded
@@ -1387,6 +1387,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(`Error importing leads from CSV:`, error);
       return res.status(500).json({ error: "Failed to import leads from CSV" });
+    }
+  });
+  
+  // Bulk CSV import for leads (pasted text)
+  app.post("/api/leads/import/paste", async (req: Request, res: Response) => {
+    try {
+      const { csvData } = req.body;
+      
+      // Check if CSV data is provided
+      if (!csvData || typeof csvData !== 'string') {
+        return res.status(400).json({ error: "No CSV data provided" });
+      }
+      
+      // Process the CSV text and import the data
+      const result = await importLeadsFromCSVText(csvData);
+      
+      return res.status(result.success ? 200 : 422).json(result);
+    } catch (error) {
+      console.error(`Error importing leads from pasted CSV:`, error);
+      return res.status(500).json({ error: "Failed to import leads from pasted CSV" });
     }
   });
 

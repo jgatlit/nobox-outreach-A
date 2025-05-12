@@ -281,6 +281,141 @@ export async function importAsanaData(
   }
 }
 
+/**
+ * Parse CSV data directly from a string
+ * @param csvData String containing CSV data
+ * @returns Parsed data object with data array and errors
+ */
+export function parseCSVString(csvData: string): Record<string, any> {
+  const result = Papa.parse(csvData, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  return { data: result.data, errors: result.errors };
+}
+
+/**
+ * Import leads from pasted CSV text
+ * @param csvData CSV data as a string
+ * @returns Results of the import process
+ */
+export async function importLeadsFromCSVText(
+  csvData: string
+): Promise<{ success: boolean; message: string; imported: number; duplicates: number; errors: number; errorDetails?: string[] }> {
+  try {
+    const parsedData = parseCSVString(csvData);
+    const records = parsedData.data as any[];
+    
+    if (!records || records.length === 0) {
+      return {
+        success: false,
+        message: "No lead records found in the CSV data",
+        imported: 0,
+        duplicates: 0,
+        errors: 0
+      };
+    }
+    
+    let imported = 0;
+    let duplicates = 0;
+    let errors = 0;
+    const errorDetails: string[] = [];
+    
+    // Process each record in the CSV
+    for (const record of records) {
+      try {
+        // Map CSV columns to lead schema fields
+        // The columns in the CSV should match our lead schema field names
+        // First, let's extract first and last name if the CSV has a full name column
+        let firstName = record.firstName || record.first_name || '';
+        let lastName = record.lastName || record.last_name || '';
+        
+        // If there's a 'name' or 'fullName' column but no first/last name, split it
+        if ((!firstName || !lastName) && (record.name || record.fullName || record.full_name)) {
+          const fullName = (record.name || record.fullName || record.full_name).trim();
+          const nameParts = fullName.split(' ');
+          if (nameParts.length >= 2) {
+            firstName = firstName || nameParts[0];
+            lastName = lastName || nameParts.slice(1).join(' ');
+          } else {
+            firstName = firstName || fullName;
+            lastName = lastName || '';
+          }
+        }
+        
+        // Map the lead data from CSV to our schema while handling transformations
+        const leadData = {
+          firstName,
+          lastName,
+          email: record.email,
+          company: record.company || record.companyName || record.company_name || null,
+          title: record.title || record.jobTitle || record.job_title || null,
+          phoneNumber: record.phoneNumber || record.phone || record.phone_number || null,
+          // Ensure website has proper URL format
+          website: formatUrl(record.website || record.webSite || record.web_site),
+          // Ensure LinkedIn URL has proper format
+          linkedinUrl: formatUrl(record.linkedinUrl || record.linkedin || record.linkedin_url),
+          source: formatSource(record.source || 'import'),
+          status: formatStatus(record.status || 'active'),
+          priority: formatPriority(record.priority || 'medium'),
+          notes: record.notes || '',
+          tags: record.tags ? record.tags.split(',').map((tag: string) => tag.trim()) : undefined,
+          // System fields
+          enrichmentStatus: "not_started",
+          emailStatus: "not_started",
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        // Check for required fields
+        if (!leadData.email) {
+          throw new Error("Email is required");
+        }
+        
+        // Check for duplicates based on email address
+        const existingLeads = await db.query.leads.findMany({
+          where: eq(leads.email, leadData.email)
+        });
+        
+        if (existingLeads.length > 0) {
+          duplicates++;
+          continue;
+        }
+        
+        // Validate the lead data using insertLeadSchema
+        const validatedData = insertLeadSchema.parse(leadData);
+        
+        // Insert the new lead
+        await db.insert(leads).values(validatedData);
+        imported++;
+        
+      } catch (err: any) {
+        errors++;
+        errorDetails.push(`Row ${errors + imported + duplicates}: ${err.message}`);
+      }
+    }
+    
+    return {
+      success: imported > 0,
+      message: `Imported ${imported} leads (${duplicates} duplicates, ${errors} errors)`,
+      imported,
+      duplicates,
+      errors,
+      errorDetails: errors > 0 ? errorDetails : undefined
+    };
+  } catch (error: any) {
+    console.error('Error importing leads from CSV text:', error);
+    return {
+      success: false,
+      message: `Failed to import leads: ${error.message}`,
+      imported: 0,
+      duplicates: 0,
+      errors: 1,
+      errorDetails: [error.message]
+    };
+  }
+}
+
 // Bulk lead import from CSV
 export async function importLeadsFromCSV(
   filePath: string
