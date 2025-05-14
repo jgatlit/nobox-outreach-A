@@ -93,6 +93,12 @@ export const leadEnrichment = pgTable("lead_enrichment", {
   recentEvents: jsonb("recent_events"),
   insights: text("insights").array(),
   personalizationHooks: text("personalization_hooks").array(),
+  // Sales coaching data
+  salesCoachingTips: jsonb("sales_coaching_tips"),
+  prospectAnalysis: text("prospect_analysis"),
+  suggestedApproach: text("suggested_approach"),
+  potentialObjections: text("potential_objections").array(),
+  keyValuePropositions: text("key_value_propositions").array(),
   // Historical context fields
   projectHistory: jsonb("project_history"), // Asana projects, tasks, milestones
   emailHistory: jsonb("email_history"), // Previous email exchanges summary

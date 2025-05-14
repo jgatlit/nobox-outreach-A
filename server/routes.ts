@@ -5,6 +5,7 @@ import { z } from "zod";
 import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
 import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions, generatePersonalizationHooks, enhanceWebsiteDataWithAI, summarizeScrapingResultsWithAI } from "./openai";
 import { processWebsite, convertToCompanyContext } from "./apify";
+import { generateSalesCoachingTips } from "./sales-coaching";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV, importLeadsFromCSVText } from "./importers";
 import path from "path";
@@ -575,6 +576,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(`Error refreshing lead enrichment ${req.params.id}:`, error);
       return res.status(500).json({ error: "Failed to refresh lead enrichment data" });
+    }
+  });
+  
+  // Generate sales coaching tips
+  app.post("/api/leads/:id/sales-coaching", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      // Get the lead with enrichment data
+      const { lead, enrichment } = await storage.getLeadWithEnrichment(leadId);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      if (!enrichment) {
+        return res.status(404).json({ 
+          error: "Enrichment data not found for this lead. Please enrich the lead first." 
+        });
+      }
+      
+      // Create lead context for the AI
+      const leadContext = {
+        firstName: lead.firstName || "",
+        lastName: lead.lastName || "",
+        title: lead.title || "",
+        email: lead.email
+      };
+      
+      // Create company context from enrichment data
+      const companyContext = {
+        name: lead.company || "",
+        website: lead.website || "",
+        industry: enrichment.companyInfo?.industry || "",
+        employeeCount: enrichment.companyInfo?.employeeCount ? parseInt(enrichment.companyInfo.employeeCount) : undefined,
+        location: enrichment.companyInfo?.location || "",
+        techStack: enrichment.techStack ? 
+          [
+            ...(enrichment.techStack.frontend || []), 
+            ...(enrichment.techStack.backend || []), 
+            ...(enrichment.techStack.database || []),
+            ...(enrichment.techStack.cloud || [])
+          ] : [],
+        recentEvents: enrichment.recentEvents ? 
+          [
+            ...(enrichment.recentEvents.news || []),
+            ...(enrichment.recentEvents.blogPosts || [])
+          ] : [],
+        additionalContext: enrichment.insights || [],
+        campaignPurpose: enrichment.campaignPurpose || "General outreach",
+        serviceOffering: enrichment.serviceOffering || "Our services"
+      };
+      
+      // Get existing tips if any
+      const existingTips = enrichment.salesCoachingTips ? 
+        JSON.parse(enrichment.salesCoachingTips) : [];
+        
+      // Generate sales coaching tips
+      const coachingData = await generateSalesCoachingTips(
+        leadContext,
+        companyContext,
+        existingTips
+      );
+      
+      // Update the enrichment data with the coaching tips
+      const updatedEnrichment = await storage.updateLeadEnrichment(leadId, {
+        salesCoachingTips: JSON.stringify(coachingData.tips),
+        prospectAnalysis: coachingData.prospectAnalysis,
+        suggestedApproach: coachingData.suggestedApproach,
+        potentialObjections: coachingData.potentialObjections,
+        keyValuePropositions: coachingData.keyValuePropositions
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: "Sales coaching tips generated successfully",
+        coachingData
+      });
+    } catch (error) {
+      console.error(`Error generating sales coaching tips for lead ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Failed to generate sales coaching tips" });
+    }
+  });
+  
+  // Get sales coaching tips
+  app.get("/api/leads/:id/sales-coaching", async (req, res) => {
+    try {
+      const leadId = parseInt(req.params.id, 10);
+      
+      if (isNaN(leadId)) {
+        return res.status(400).json({ error: "Invalid lead ID" });
+      }
+      
+      // Get the lead with enrichment data
+      const { lead, enrichment } = await storage.getLeadWithEnrichment(leadId);
+      
+      if (!lead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
+      
+      if (!enrichment) {
+        return res.status(404).json({ 
+          error: "Enrichment data not found for this lead. Please enrich the lead first." 
+        });
+      }
+      
+      // Check if sales coaching data exists
+      if (!enrichment.salesCoachingTips) {
+        return res.status(404).json({
+          error: "Sales coaching tips not found for this lead. Please generate them first."
+        });
+      }
+      
+      // Prepare the coaching data response
+      const coachingData = {
+        tips: JSON.parse(enrichment.salesCoachingTips),
+        prospectAnalysis: enrichment.prospectAnalysis || "No prospect analysis available.",
+        suggestedApproach: enrichment.suggestedApproach || "No suggested approach available.",
+        potentialObjections: enrichment.potentialObjections || [],
+        keyValuePropositions: enrichment.keyValuePropositions || []
+      };
+      
+      return res.status(200).json(coachingData);
+    } catch (error) {
+      console.error(`Error retrieving sales coaching tips for lead ${req.params.id}:`, error);
+      return res.status(500).json({ error: "Failed to retrieve sales coaching tips" });
     }
   });
   
