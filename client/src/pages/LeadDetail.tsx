@@ -588,10 +588,69 @@ export default function LeadDetail() {
 
                 {/* Show a notice when AI Enhancement is disabled */}
                 {!useEnhancedScraping && (
-                  <Alert variant="outline" className="bg-blue-50 border-blue-200 mt-2">
+                  <Alert className="bg-blue-50 border-blue-200 mt-2">
                     <AlertTitle className="text-blue-800 font-medium text-sm">AI Enhancement Disabled</AlertTitle>
                     <AlertDescription className="text-blue-700 text-xs">
                       Enable AI Enhancement to get additional insights based on the company's website data.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Enrich Lead Data</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {lead.website ? (
+                  <>
+                    <div className="mb-4">
+                      <p className="text-sm">Add enrichment data to this lead by scraping their website for company information, tech stack, and recent events.</p>
+                    </div>
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Switch
+                        id="init-enhanced-scraping"
+                        checked={useEnhancedScraping}
+                        onCheckedChange={setUseEnhancedScraping}
+                      />
+                      <label
+                        htmlFor="init-enhanced-scraping"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        AI Enhanced
+                      </label>
+                    </div>
+                    <Alert className="bg-blue-50 border-blue-200 mb-4">
+                      <AlertTitle className="text-blue-800 font-medium text-sm">What is AI Enhancement?</AlertTitle>
+                      <AlertDescription className="text-blue-700 text-xs">
+                        When enabled, AI will analyze the scraped data to provide deeper insights and personalized outreach hooks for this lead.
+                      </AlertDescription>
+                    </Alert>
+                    <Button 
+                      onClick={refreshEnrichment} 
+                      disabled={isRefreshing}
+                      className="w-full"
+                    >
+                      {isRefreshing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="h-4 w-4 mr-2" />
+                          Initialize Lead Enrichment
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Website Required</AlertTitle>
+                    <AlertDescription>
+                      A website URL is required to enrich the lead. Please edit the lead to add a website.
                     </AlertDescription>
                   </Alert>
                 )}
