@@ -19,6 +19,7 @@ import { Loader2, Mail, User, Building, Phone, Globe, Linkedin, Calendar, AlertT
 import { toast } from "@/hooks/use-toast";
 import { ImportHistoricalDataForm } from "@/components/LeadManagement/ImportHistoricalDataForm";
 import { EditLeadModal } from "@/components/LeadManagement/EditLeadModal";
+import SalesCoachingPanel from "@/components/LeadManagement/SalesCoachingPanel";
 
 // Lazy-load EmailGeneratorForm to avoid circular imports
 const EmailGeneratorForm = React.lazy(() => import("@/components/LeadManagement/EmailGeneratorFormWrapped"));
@@ -657,6 +658,9 @@ export default function LeadDetail() {
               </CardContent>
             </Card>
           )}
+          
+          {/* Sales Coaching Panel */}
+          <SalesCoachingPanel leadId={leadId} hasEnrichment={!!enrichment} />
         </div>
 
         {/* Right column - Email Generation */}
