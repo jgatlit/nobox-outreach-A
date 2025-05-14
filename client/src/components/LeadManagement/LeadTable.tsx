@@ -505,6 +505,7 @@ export function LeadTable({ data }: LeadTableProps = {}) {
         itemsPerPage={10}
         isLoading={!data && isLoading}
         actions={actions}
+        onRowClick={handleViewLead}
         emptyMessage={`No ${segment} leads found.`}
       />
       
