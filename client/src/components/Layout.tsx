@@ -26,7 +26,7 @@ export function Layout({ children }: LayoutProps) {
       case "/integrations":
         return "System Integrations";
       default:
-        return "nobox";
+        return "nobox Outreach";
     }
   };
 
