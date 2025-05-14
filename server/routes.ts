@@ -634,8 +634,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Get existing tips if any
-      const existingTips = enrichment.salesCoachingTips ? 
-        JSON.parse(enrichment.salesCoachingTips) : [];
+      let existingTips = [];
+      if (enrichment.salesCoachingTips) {
+        try {
+          // Check if salesCoachingTips is already an object or a JSON string
+          if (typeof enrichment.salesCoachingTips === 'string') {
+            existingTips = JSON.parse(enrichment.salesCoachingTips);
+          } else if (typeof enrichment.salesCoachingTips === 'object' && Array.isArray(enrichment.salesCoachingTips)) {
+            existingTips = enrichment.salesCoachingTips;
+          }
+        } catch (error) {
+          console.error("Error parsing existing sales coaching tips:", error);
+          existingTips = [];
+        }
+      }
         
       // Generate sales coaching tips
       const coachingData = await generateSalesCoachingTips(
@@ -694,8 +706,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Prepare the coaching data response
+      let tips = [];
+      try {
+        // Check if salesCoachingTips is already an object or a JSON string
+        if (typeof enrichment.salesCoachingTips === 'string') {
+          tips = JSON.parse(enrichment.salesCoachingTips);
+        } else if (typeof enrichment.salesCoachingTips === 'object' && Array.isArray(enrichment.salesCoachingTips)) {
+          tips = enrichment.salesCoachingTips;
+        }
+      } catch (error) {
+        console.error("Error parsing sales coaching tips:", error);
+        tips = [];
+      }
+      
       const coachingData = {
-        tips: JSON.parse(enrichment.salesCoachingTips),
+        tips,
         prospectAnalysis: enrichment.prospectAnalysis || "No prospect analysis available.",
         suggestedApproach: enrichment.suggestedApproach || "No suggested approach available.",
         potentialObjections: enrichment.potentialObjections || [],
