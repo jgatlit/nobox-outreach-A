@@ -430,7 +430,7 @@ export default function LeadDetail() {
             </CardContent>
           </Card>
 
-          {enrichment && (
+          {enrichment ? (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Enrichment Data</CardTitle>
