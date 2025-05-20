@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema } from "@shared/schema";
+import { insertLeadSchema, insertWorkflowSchema, insertLeadEnrichmentSchema, updateLeadSchema, leads } from "@shared/schema";
 import { generatePersonalizedEmail, generateMidjourneyPrompt, generateCampaignSuggestions, generatePersonalizationHooks, enhanceWebsiteDataWithAI, summarizeScrapingResultsWithAI } from "./openai";
 import { processWebsite, convertToCompanyContext } from "./apify";
 import { generateSalesCoachingTips } from "./sales-coaching";
@@ -10,6 +10,8 @@ import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV, importLeadsFromCSVText } from "./importers";
 import path from "path";
 import fs from "fs";
+import { db } from "@db";
+import { sql } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve CSV templates
