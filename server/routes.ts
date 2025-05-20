@@ -95,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).from(leads)
         .where(sql`${leads.website} is not null`)
         .orderBy(leads.website);
-      
+
       return res.json(result);
     } catch (error) {
       console.error("Error fetching lead websites:", error);
@@ -103,7 +103,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leads/:id", async (req, res) => {
+
+
+  app.get("/api/leads/:id[0-9]+", async (req, res) => {
     try {
       const id = parseInt(req.params.id, 10);
       
