@@ -87,7 +87,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Lead website listing endpoint
-  app.get("/api/leads/websites", async (req, res) => {
+  app.get("/api/websites", async (req, res) => {
     try {
       const result = await db.select({
         id: leads.id,
