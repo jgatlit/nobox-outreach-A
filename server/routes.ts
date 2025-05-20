@@ -66,6 +66,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Lead website listing endpoint
+  app.get("/api/leads/websites", async (req, res) => {
+    try {
+      const result = await db.select({
+        id: leads.id,
+        website: leads.website
+      }).from(leads)
+        .where(sql`${leads.website} is not null`)
+        .orderBy(leads.website);
+      
+      return res.json(result);
+    } catch (error) {
+      console.error("Error fetching lead websites:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/leads", async (req, res) => {
     try {
       const segment = req.query.segment as string;
@@ -1398,23 +1415,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(workflow);
     } catch (error) {
       console.error(`Error logging workflow run ${req.params.id}:`, error);
-      return res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  // Lead website listing endpoint
-  app.get("/api/leads/websites", async (req, res) => {
-    try {
-      const result = await db.select({
-        id: leads.id,
-        website: leads.website
-      }).from(leads)
-        .where(sql`${leads.website} is not null`)
-        .orderBy(leads.website);
-      
-      return res.json(result);
-    } catch (error) {
-      console.error("Error fetching lead websites:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
