@@ -89,15 +89,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Lead website listing endpoint
   app.get("/api/websites", async (req, res) => {
     try {
-      const result = await db.select({
-        id: leads.id,
-        website: leads.website
-      })
-      .from(leads)
-      .where(sql`${leads.website} is not null`)
-      .orderBy(leads.website);
+      // Set explicit headers to ensure proper content type
+      res.setHeader('Content-Type', 'application/json');
       
-      return res.json(result);
+      // Use direct PostgreSQL query instead of Drizzle ORM
+      const result = await pool.query(`
+        SELECT id, website 
+        FROM leads 
+        WHERE website IS NOT NULL 
+        ORDER BY website
+      `);
+
+      // Return the results with explicit status
+      return res.status(200).json(result.rows);
     } catch (error) {
       console.error("Error fetching lead websites:", error);
       return res.status(500).json({ error: "Internal server error" });
