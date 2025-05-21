@@ -110,13 +110,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
-  app.get("/api/leads/:id[0-9]+", async (req, res) => {
+  app.get("/api/leads/:id", async (req, res) => {
     try {
+      // Explicitly set Content-Type to application/json
+      res.setHeader('Content-Type', 'application/json');
+      
       const id = parseInt(req.params.id, 10);
       
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid lead ID" });
       }
+      
+      // Log the requested lead ID for debugging
+      console.log(`Fetching lead with ID: ${id}`);
       
       const leadWithEnrichment = await storage.getLeadWithEnrichment(id);
       
