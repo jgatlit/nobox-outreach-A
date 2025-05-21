@@ -1,0 +1,46 @@
+webpage_template_02.html:1 Access to fetch at 'https://nobox-outreach.replit.app/api/websites' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+nobox-outreach.replit.app/api/websites:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this error
+webpage_template_02.html:688 Error loading website data: TypeError: Failed to fetch
+    at loadOutreachDomains (webpage_template_02.html:644:32)
+    at HTMLDocument.<anonymous> (webpage_template_02.html:704:5)
+loadOutreachDomains @ webpage_template_02.html:688Understand this error
+webpage_template_02.html:1 Access to fetch at 'https://nobox-outreach.replit.app/api/websites' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+nobox-outreach.replit.app/api/websites:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this error
+webpage_template_02.html:688 Error loading website data: TypeError: Failed to fetch
+    at loadOutreachDomains (webpage_template_02.html:644:32)
+    at HTMLButtonElement.onclick (webpage_template_02.html:472:75)
+loadOutreachDomains @ webpage_template_02.html:688Understand this error
+webpage_template_02.html:1 Access to fetch at 'https://nobox-outreach.replit.app/api/websites' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+nobox-outreach.replit.app/api/websites:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this error
+webpage_template_02.html:688 Error loading website data: TypeError: Failed to fetch
+    at loadOutreachDomains (webpage_template_02.html:644:32)
+    at HTMLButtonElement.<anonymous> (webpage_template_02.html:757:9)
+loadOutreachDomains @ webpage_template_02.html:688Understand this error
+webpage_template_02.html:1 Access to fetch at 'https://nobox-outreach.replit.app/api/websites' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+nobox-outreach.replit.app/api/websites:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this error
+webpage_template_02.html:688 Error loading website data: TypeError: Failed to fetch
+    at loadOutreachDomains (webpage_template_02.html:644:32)
+    at HTMLButtonElement.onclick (webpage_template_02.html:472:75)
+loadOutreachDomains @ webpage_template_02.html:688Understand this error
+webpage_template_02.html:1 Access to fetch at 'https://nobox-outreach.replit.app/api/websites' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+nobox-outreach.replit.app/api/websites:1 
+            
+            
+           Failed to load resource: net::ERR_FAILEDUnderstand this error
+webpage_template_02.html:688 Error loading website data: TypeError: Failed to fetch
+    at loadOutreachDomains (webpage_template_02.html:644:32)
+    at HTMLButtonElement.<anonymous> (webpage_template_02.html:757:9)
+loadOutreachDomains @ webpage_template_02.html:688Understand this error
+webpage_template_02.html:1 Access to fetch at 'https://nobox-outreach.replit.app/api/websites' from origin 'null' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
