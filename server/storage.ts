@@ -26,6 +26,18 @@ export const storage = {
   async getAllLeads(): Promise<Lead[]> {
     return db.select().from(leads).orderBy(desc(leads.createdAt));
   },
+  
+  async getLeadsUpdatedSince(date: Date): Promise<Lead[]> {
+    return db.select()
+      .from(leads)
+      .where(
+        or(
+          gt(leads.updatedAt, date),
+          gt(leads.createdAt, date)
+        )
+      )
+      .orderBy(desc(leads.updatedAt));
+  },
 
   async getLeadsBySegment(segment: string): Promise<Lead[]> {
     if (segment === 'active') {
