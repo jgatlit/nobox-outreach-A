@@ -52,6 +52,51 @@ export const emailStatusEnum = pgEnum('email_status', [
   'replied'
 ]);
 
+// Workflow orchestration enums
+export const workflowStepEnum = pgEnum('workflow_step', [
+  'context_gathering',
+  'audience_analysis', 
+  'objective_definition',
+  'prospect_enrichment',
+  'trigger_detection',
+  'strategy_selection',
+  'hook_generation',
+  'message_composition',
+  'compliance_check',
+  'variant_generation',
+  'sequence_orchestration',
+  'performance_tracking'
+]);
+
+export const workflowStatusEnum = pgEnum('workflow_status', [
+  'initializing',
+  'running',
+  'paused',
+  'completed',
+  'error'
+]);
+
+export const psychologicalStrategyEnum = pgEnum('psychological_strategy', [
+  'pattern_disruption',
+  'ego_relevance', 
+  'loss_aversion',
+  'curiosity_gap',
+  'social_proof'
+]);
+
+export const communicationChannelEnum = pgEnum('communication_channel', [
+  'email',
+  'linkedin',
+  'phone'
+]);
+
+export const sequenceStatusEnum = pgEnum('sequence_status', [
+  'pending',
+  'active',
+  'paused',
+  'completed'
+]);
+
 // Tables
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -184,6 +229,85 @@ export const integrations = pgTable("integrations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Workflow orchestration tables
+export const workflowStates = pgTable("workflow_states", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: 'cascade' }).notNull(),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
+  threadId: text("thread_id").notNull(),
+  checkpointId: text("checkpoint_id").notNull(),
+  currentStep: workflowStepEnum("current_step").notNull(),
+  workflowStatus: workflowStatusEnum("workflow_status").default('initializing').notNull(),
+  psychologicalStrategy: psychologicalStrategyEnum("psychological_strategy"),
+  sequencePosition: integer("sequence_position").default(0),
+  stateData: jsonb("state_data").notNull().default('{}'),
+  errorDetails: text("error_details"),
+  retryCount: integer("retry_count").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const touchpoints = pgTable("touchpoints", {
+  id: serial("id").primaryKey(),
+  workflowStateId: integer("workflow_state_id").references(() => workflowStates.id, { onDelete: 'cascade' }).notNull(),
+  leadId: integer("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
+  campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: 'cascade' }).notNull(),
+  sequenceStep: integer("sequence_step").notNull(),
+  channel: communicationChannelEnum("channel").notNull(),
+  action: text("action").notNull(),
+  scheduledFor: timestamp("scheduled_for"),
+  executedAt: timestamp("executed_at"),
+  responseDetected: boolean("response_detected").default(false),
+  responseDetectedAt: timestamp("response_detected_at"),
+  messageId: integer("message_id").references(() => emailDrafts.id),
+  metadata: jsonb("metadata").default('{}'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const strategyPerformance = pgTable("strategy_performance", {
+  id: serial("id").primaryKey(),
+  strategyName: psychologicalStrategyEnum("strategy_name").notNull(),
+  prospectTier: integer("prospect_tier"),
+  industry: text("industry"),
+  titleSeniority: text("title_seniority"),
+  messagesSent: integer("messages_sent").default(0),
+  repliesReceived: integer("replies_received").default(0),
+  meetingsBooked: integer("meetings_booked").default(0),
+  campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const campaignWorkflowMetrics = pgTable("campaign_workflow_metrics", {
+  id: serial("id").primaryKey(),
+  campaignId: integer("campaign_id").references(() => campaigns.id, { onDelete: 'cascade' }).notNull().unique(),
+  totalProspects: integer("total_prospects").default(0),
+  prospectsCompleted: integer("prospects_completed").default(0),
+  prospectsInProgress: integer("prospects_in_progress").default(0),
+  prospectsError: integer("prospects_error").default(0),
+  avgCompletionTimeMinutes: integer("avg_completion_time_minutes"),
+  overallReplyRate: integer("overall_reply_rate"), // Store as percentage * 100 (e.g., 15.5% = 1550)
+  topPerformingStrategy: psychologicalStrategyEnum("top_performing_strategy"),
+  lastCalculated: timestamp("last_calculated").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const messageVariants = pgTable("message_variants", {
+  id: serial("id").primaryKey(),
+  workflowStateId: integer("workflow_state_id").references(() => workflowStates.id, { onDelete: 'cascade' }).notNull(),
+  variantLabel: text("variant_label").notNull(), // 'A', 'B', 'C'
+  subjectLine: text("subject_line").notNull(),
+  body: text("body").notNull(),
+  psychologicalStrategy: psychologicalStrategyEnum("psychological_strategy").notNull(),
+  personalizationLevel: integer("personalization_level").default(1),
+  spamScore: integer("spam_score").default(0), // Store as score * 100 (e.g., 3.5 = 350)
+  predictedReplyRate: integer("predicted_reply_rate").default(500), // Store as percentage * 10000 (e.g., 5% = 500)
+  actualReplyRate: integer("actual_reply_rate"),
+  isSelected: boolean("is_selected").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Relationships
 export const leadsRelations = relations(leads, ({ one, many }) => ({
   enrichment: one(leadEnrichment, {
@@ -203,10 +327,68 @@ export const leadEnrichmentRelations = relations(leadEnrichment, ({ one }) => ({
 export const campaignsRelations = relations(campaigns, ({ many }) => ({
   emailTemplates: many(emailTemplates),
   emailDrafts: many(emailDrafts),
+  workflowStates: many(workflowStates),
+  touchpoints: many(touchpoints),
+  strategyPerformance: many(strategyPerformance),
+  // workflowMetrics: one(campaignWorkflowMetrics), // Commented out until proper import is resolved
 }));
 
 export const adCampaignsRelations = relations(adCampaigns, ({ many }) => ({
   adVariants: many(adVariants),
+}));
+
+// Workflow orchestration relationships
+export const workflowStatesRelations = relations(workflowStates, ({ one, many }) => ({
+  campaign: one(campaigns, {
+    fields: [workflowStates.campaignId],
+    references: [campaigns.id],
+  }),
+  lead: one(leads, {
+    fields: [workflowStates.leadId],
+    references: [leads.id],
+  }),
+  touchpoints: many(touchpoints),
+  messageVariants: many(messageVariants),
+}));
+
+export const touchpointsRelations = relations(touchpoints, ({ one }) => ({
+  workflowState: one(workflowStates, {
+    fields: [touchpoints.workflowStateId],
+    references: [workflowStates.id],
+  }),
+  lead: one(leads, {
+    fields: [touchpoints.leadId],
+    references: [leads.id],
+  }),
+  campaign: one(campaigns, {
+    fields: [touchpoints.campaignId],
+    references: [campaigns.id],
+  }),
+  message: one(emailDrafts, {
+    fields: [touchpoints.messageId],
+    references: [emailDrafts.id],
+  }),
+}));
+
+export const strategyPerformanceRelations = relations(strategyPerformance, ({ one }) => ({
+  campaign: one(campaigns, {
+    fields: [strategyPerformance.campaignId],
+    references: [campaigns.id],
+  }),
+}));
+
+export const campaignWorkflowMetricsRelations = relations(campaignWorkflowMetrics, ({ one }) => ({
+  campaign: one(campaigns, {
+    fields: [campaignWorkflowMetrics.campaignId],
+    references: [campaigns.id],
+  }),
+}));
+
+export const messageVariantsRelations = relations(messageVariants, ({ one }) => ({
+  workflowState: one(workflowStates, {
+    fields: [messageVariants.workflowStateId],
+    references: [workflowStates.id],
+  }),
 }));
 
 // Schemas
@@ -231,6 +413,13 @@ export const insertAdCampaignSchema = createInsertSchema(adCampaigns);
 export const insertAdVariantSchema = createInsertSchema(adVariants);
 export const insertWorkflowSchema = createInsertSchema(workflows);
 export const insertIntegrationSchema = createInsertSchema(integrations);
+
+// Workflow orchestration schemas
+export const insertWorkflowStateSchema = createInsertSchema(workflowStates);
+export const insertTouchpointSchema = createInsertSchema(touchpoints);
+export const insertStrategyPerformanceSchema = createInsertSchema(strategyPerformance);
+export const insertCampaignWorkflowMetricsSchema = createInsertSchema(campaignWorkflowMetrics);
+export const insertMessageVariantSchema = createInsertSchema(messageVariants);
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -263,3 +452,26 @@ export type InsertWorkflow = z.infer<typeof insertWorkflowSchema>;
 
 export type Integration = typeof integrations.$inferSelect;
 export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
+
+// Workflow orchestration types
+export type WorkflowState = typeof workflowStates.$inferSelect;
+export type InsertWorkflowState = z.infer<typeof insertWorkflowStateSchema>;
+
+export type Touchpoint = typeof touchpoints.$inferSelect;
+export type InsertTouchpoint = z.infer<typeof insertTouchpointSchema>;
+
+export type StrategyPerformance = typeof strategyPerformance.$inferSelect;
+export type InsertStrategyPerformance = z.infer<typeof insertStrategyPerformanceSchema>;
+
+export type CampaignWorkflowMetrics = typeof campaignWorkflowMetrics.$inferSelect;
+export type InsertCampaignWorkflowMetrics = z.infer<typeof insertCampaignWorkflowMetricsSchema>;
+
+export type MessageVariant = typeof messageVariants.$inferSelect;
+export type InsertMessageVariant = z.infer<typeof insertMessageVariantSchema>;
+
+// Enum value types for TypeScript
+export type WorkflowStep = typeof workflowStepEnum.enumValues[number];
+export type WorkflowStatus = typeof workflowStatusEnum.enumValues[number];
+export type PsychologicalStrategy = typeof psychologicalStrategyEnum.enumValues[number];
+export type CommunicationChannel = typeof communicationChannelEnum.enumValues[number];
+export type SequenceStatus = typeof sequenceStatusEnum.enumValues[number];

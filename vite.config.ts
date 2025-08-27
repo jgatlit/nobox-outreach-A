@@ -29,4 +29,20 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
+  server: {
+    port: parseInt(process.env.FRONTEND_DEV_PORT || '8053', 10),
+    host: '0.0.0.0',
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: `http://localhost:${process.env.EXPRESS_API_PORT || '8052'}`,
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+  preview: {
+    port: parseInt(process.env.FRONTEND_PROD_PORT || '8054', 10),
+    host: '0.0.0.0',
+  }
 });

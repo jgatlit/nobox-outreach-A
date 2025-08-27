@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: nobox_postgres
+    environment:
+      POSTGRES_DB: nobox_outreach
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nobox_outreach"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - nobox-network
+
+  # Redis for job queue and caching
+  redis:
+    image: redis:7-alpine
+    container_name: nobox_redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - nobox-network
+
+  # Python automation service (FastAPI)
+  automation-api:
+    build:
+      context: ./automation-service
+      dockerfile: Dockerfile
+    container_name: nobox_automation_api
+    ports:
+      - "8050:8050"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nobox_outreach
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./automation-service:/app
+    networks:
+      - nobox-network
+    restart: unless-stopped
+
+  # Dramatiq worker for background jobs
+  automation-worker:
+    build:
+      context: ./automation-service
+      dockerfile: Dockerfile
+    container_name: nobox_automation_worker
+    command: dramatiq automation.tasks --processes 2 --threads 4
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/nobox_outreach
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      WORKER_METRICS_PORT: 8051
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./automation-service:/app
+    networks:
+      - nobox-network
+    restart: unless-stopped
+
+  # Express.js API (existing)
+  express-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.express
+    container_name: nobox_express_api
+    ports:
+      - "8052:8052"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/nobox_outreach
+      PYTHON_API_URL: http://automation-api:8050
+      EXPRESS_API_PORT: 8052
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./server:/app/server
+      - ./shared:/app/shared
+    networks:
+      - nobox-network
+    restart: unless-stopped
+
+  # React frontend (Vite dev server for development)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: nobox_frontend
+    ports:
+      - "8053:8053"
+    environment:
+      VITE_API_URL: http://localhost:8052
+      VITE_PYTHON_API_URL: http://localhost:8050
+      FRONTEND_DEV_PORT: 8053
+    volumes:
+      - ./client:/app/client
+    networks:
+      - nobox-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  nobox-network:
+    driver: bridge

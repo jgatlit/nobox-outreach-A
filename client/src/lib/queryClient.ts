@@ -37,7 +37,7 @@ export async function apiRequest(
     opts = dataOrOptions as ApiRequestOptions;
   }
   
-  const isFormData = opts?.isFormData || false;
+  const isFormData = opts?.isFormData || data instanceof FormData;
   
   const res = await fetch(url, {
     method,

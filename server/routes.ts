@@ -8,6 +8,7 @@ import { processWebsite, convertToCompanyContext } from "./apify";
 import { generateSalesCoachingTips } from "./sales-coaching";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV, importLeadsFromCSVText } from "./importers";
+import { registerIntelligentCsvRoutes } from "./routes/csv-import";
 import path from "path";
 import fs from "fs";
 import { db, pool } from "@db";
@@ -1550,34 +1551,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Import Gmail data in various formats (CSV, JSON, XML, MD)
-  // Bulk CSV import for leads (file upload)
-  app.post("/api/leads/import/csv", upload.single('file'), async (req: Request, res: Response) => {
-    try {
-      // Check if file is uploaded
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-      
-      const file = req.file;
-      const fileExt = path.extname(file.originalname).toLowerCase();
-      
-      // Validate file type
-      if (fileExt !== '.csv') {
-        return res.status(400).json({ error: "Only CSV files are allowed for bulk lead import" });
-      }
-      
-      // Process the file and import the data
-      const result = await importLeadsFromCSV(file.path);
-      
-      // Remove the temporary file
-      fs.unlinkSync(file.path);
-      
-      return res.status(result.success ? 200 : 422).json(result);
-    } catch (error) {
-      console.error(`Error importing leads from CSV:`, error);
-      return res.status(500).json({ error: "Failed to import leads from CSV" });
-    }
-  });
+  // OLD Bulk CSV import - DISABLED in favor of intelligent LLM-powered import
+  // app.post("/api/leads/import/csv", upload.single('file'), async (req: Request, res: Response) => {
+  //   try {
+  //     // Check if file is uploaded
+  //     if (!req.file) {
+  //       return res.status(400).json({ error: "No file uploaded" });
+  //     }
+  //     
+  //     const file = req.file;
+  //     const fileExt = path.extname(file.originalname).toLowerCase();
+  //     
+  //     // Validate file type
+  //     if (fileExt !== '.csv') {
+  //       return res.status(400).json({ error: "Only CSV files are allowed for bulk lead import" });
+  //     }
+  //     
+  //     // Process the file and import the data
+  //     const result = await importLeadsFromCSV(file.path);
+  //     
+  //     // Remove the temporary file
+  //     fs.unlinkSync(file.path);
+  //     
+  //     return res.status(result.success ? 200 : 422).json(result);
+  //   } catch (error) {
+  //     console.error(`Error importing leads from CSV:`, error);
+  //     return res.status(500).json({ error: "Failed to import leads from CSV" });
+  //   }
+  // });
   
   // Bulk CSV import for leads (pasted text)
   app.post("/api/leads/import/paste", async (req: Request, res: Response) => {
@@ -1649,6 +1650,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: "Failed to import Gmail data" });
     }
   });
+
+  // Register intelligent CSV import routes
+  registerIntelligentCsvRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;
