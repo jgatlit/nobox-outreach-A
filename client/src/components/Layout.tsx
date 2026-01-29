@@ -17,6 +17,10 @@ export function Layout({ children }: LayoutProps) {
         return "Lead Generation Dashboard";
       case "/leads":
         return "Lead Management";
+      case "/apollo-discovery":
+        return "Apollo Discovery";
+      case "/icp-analytics":
+        return "ICP Analytics";
       case "/campaigns":
         return "Campaign Management";
       case "/ad-generator":

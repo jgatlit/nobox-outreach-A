@@ -1,15 +1,17 @@
 import * as React from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { 
-  Home, 
-  Users, 
-  BarChart3, 
-  Image, 
-  Zap, 
-  Puzzle, 
+import {
+  Home,
+  Users,
+  BarChart3,
+  Image,
+  Zap,
+  Puzzle,
   ChevronLeft,
-  ChevronRight 
+  ChevronRight,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -34,6 +36,16 @@ export function Sidebar({ className }: SidebarProps) {
       name: "Leads",
       href: "/leads",
       icon: Users,
+    },
+    {
+      name: "Apollo Discovery",
+      href: "/apollo-discovery",
+      icon: Sparkles,
+    },
+    {
+      name: "ICP Analytics",
+      href: "/icp-analytics",
+      icon: TrendingUp,
     },
     {
       name: "Campaigns",

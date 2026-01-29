@@ -9,6 +9,9 @@ import { generateSalesCoachingTips } from "./sales-coaching";
 import { upload } from "./middleware/upload";
 import { importAsanaData, importGmailData, importLeadsFromCSV, importLeadsFromCSVText } from "./importers";
 import { registerIntelligentCsvRoutes } from "./routes/csv-import";
+import { registerApolloRoutes } from "./routes/apollo";
+import { registerApolloWorkflowRoutes } from "./routes/apollo-workflow";
+import { registerApolloAnalyticsRoutes } from "./routes/apollo-analytics";
 import path from "path";
 import fs from "fs";
 import { db, pool } from "@db";
@@ -1653,6 +1656,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register intelligent CSV import routes
   registerIntelligentCsvRoutes(app);
+
+  // Register Apollo.io integration routes
+  registerApolloRoutes(app);
+
+  // Register Apollo workflow integration routes
+  registerApolloWorkflowRoutes(app);
+
+  // Register Apollo analytics routes
+  registerApolloAnalyticsRoutes(app);
 
   const httpServer = createServer(app);
   return httpServer;

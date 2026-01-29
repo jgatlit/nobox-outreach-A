@@ -12,6 +12,8 @@ import AdGenerator from "@/pages/AdGenerator";
 import Workflows from "@/pages/Workflows";
 import Integrations from "@/pages/Integrations";
 import GoogleSheetsImport from "@/pages/GoogleSheetsImport";
+import ApolloDiscovery from "@/pages/ApolloDiscovery";
+import ICPAnalytics from "@/pages/ICPAnalytics";
 import { Layout } from "@/components/Layout";
 
 // Lazy load the lead detail page
@@ -30,6 +32,8 @@ function Router() {
           <Route path="/workflows" component={Workflows} />
           <Route path="/integrations" component={Integrations} />
           <Route path="/google-sheets-import" component={GoogleSheetsImport} />
+          <Route path="/apollo-discovery" component={ApolloDiscovery} />
+          <Route path="/icp-analytics" component={ICPAnalytics} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
